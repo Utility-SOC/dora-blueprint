@@ -13,6 +13,17 @@
 # actually enforce, and re-confirmed the canary-writer pod's hash chain was still intact
 # (integrity_check: pass) afterward — the same "verify against the real cluster, don't
 # trust that it applied cleanly" discipline used everywhere else in this repo.
+#
+# ingressDeny/egressDeny, not ingress: []/egress: [] — the first attempt at this file
+# used empty ingress/egress lists, which Cilium's own admission validation rejected
+# outright ("rule must have at least one of Ingress, IngressDeny, Egress, EgressDeny"),
+# caught via `kubectl get ciliumnetworkpolicy -o yaml`'s status.conditions, not assumed
+# from a clean `kubectl apply`. An empty rule object (`{}`) in the *allow* ingress/egress
+# fields means "match everyone" (allow-all) in both native Kubernetes NetworkPolicy and
+# Cilium's own — the opposite of what a deny-all policy needs. ingressDeny/egressDeny
+# are Cilium's own explicit-deny fields (no native K8s NetworkPolicy equivalent): an
+# empty match `{}` there unambiguously denies from/to everyone, since the field's
+# meaning is denial to begin with, not allow-then-restrict.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -20,5 +31,7 @@ metadata:
   namespace: canary
 spec:
   endpointSelector: {}
-  ingress: []
-  egress: []
+  ingressDeny:
+    - {}
+  egressDeny:
+    - {}

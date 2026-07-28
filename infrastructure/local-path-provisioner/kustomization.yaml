@@ -1,8 +1,15 @@
 # Talos has no bundled CSI driver (unlike k3s's local-path-provisioner-by-default).
-# This is the exact setup docs.siderolabs.com/kubernetes-guides/csi/local-storage
-# recommends: rancher/local-path-provisioner, host path moved from /opt (read-only on
-# Talos) to /var (the persistent, writable partition), local-path-storage namespace
+# rancher/local-path-provisioner, host path moved off /opt (read-only on Talos) to
+# under /var (the persistent, writable partition); local-path-storage namespace
 # marked privileged for the provisioner's helper pods.
+#
+# Correction: docs.siderolabs.com's own example uses /var/mnt/local-path-provisioner,
+# which failed here with "mkdir /var/mnt/local-path-provisioner/: read-only file
+# system" — /var/mnt is Talos's newer (1.6+) *user volume* mount point, which needs an
+# explicit UserVolumeConfig machine-config document before anything can write there.
+# Not declared, so /var/mnt itself is still part of the read-only base. A plain path
+# directly under /var — persistent and writable without any extra declaration — works
+# without that additional machine-config surface.
 resources:
   - github.com/rancher/local-path-provisioner/deploy?ref=v0.0.36
 
@@ -18,7 +25,7 @@ patches:
                   "nodePathMap":[
                   {
                           "node":"DEFAULT_PATH_FOR_NON_LISTED_NODES",
-                          "paths":["/var/mnt/local-path-provisioner"]
+                          "paths":["/var/local-path-provisioner"]
                   }
                   ]
           }

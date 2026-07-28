@@ -1,0 +1,28 @@
+# build-spec P2: "Every exception is explicit, scoped, and reasoned." Written risk
+# acceptance: docs/exceptions/alloy-audit-log.md. Only HostPath Volumes/Volume Types are
+# exempted — Alloy's own container securityContext (apps/alloy.yaml) is otherwise fully
+# restricted-compliant (non-root uid 65534, no privilege escalation, capabilities
+# dropped), so this pod doesn't need the broader control list the Velero/OpenEBS
+# exceptions carry.
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: alloy-audit-log
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: require-pod-security-restricted
+      ruleNames:
+        - restricted
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - observability
+          names:
+            - "alloy-*"
+  podSecurity:
+    - controlName: HostPath Volumes
+    - controlName: Volume Types

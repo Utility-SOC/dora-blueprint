@@ -1,10 +1,25 @@
 # Grafana Alloy, not Promtail: Promtail is in maintenance-only mode upstream; Alloy is
-# the current recommended log shipper. Uses `loki.source.kubernetes` (reads pod logs
-# via the API server's pods/log subresource) rather than tailing host log files —
-# sidesteps the build-spec §2-flagged "/var/lib/docker/containers doesn't exist on
-# Talos" class of problem entirely, since it never looks at the node filesystem.
+# the current recommended log shipper. Pod logs use `loki.source.kubernetes` (reads via
+# the API server's pods/log subresource) rather than tailing host log files — sidesteps
+# the build-spec §2-flagged "/var/lib/docker/containers doesn't exist on Talos" class of
+# problem entirely, since it never looks at the node filesystem for those.
 # Multi-source: the chart itself, plus the supplemental ClusterRole (chart's default
 # RBAC doesn't include pods/log — see infrastructure/observability/alloy-rbac/).
+#
+# controller.type is 'daemonset' (chart default, not overridden) pinned to the
+# control-plane node via nodeSelector, rather than the single-replica Deployment this
+# started as — build-spec §12 Phase 4 also requires "API audit logging shipping", and
+# the API server's audit log is a *file*
+# (/var/log/audit/kube/kube-apiserver*.log, confirmed via docker inspect against the
+# named Docker volume backing the controlplane container's /var — Talos has no shell to
+# check directly), not container stdout, so `loki.source.kubernetes` above never sees it
+# regardless of replica count. Pinning the DaemonSet to the control-plane node (the only
+# place that file exists) keeps this at one Alloy instance, identical to the old
+# Deployment, while giving that one instance a hostPath into the file it needs.
+# global.podSecurityContext runs as uid/gid 65534 ("nobody") deliberately, not a
+# generic non-root default: the audit log is mode 600, owned by uid 65534 (Talos's own
+# choice, confirmed via `stat` through the same docker-volume trick above) — any other
+# non-root UID would mount the volume fine and then fail to read the file inside it.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -21,10 +36,24 @@ spec:
       helm:
         releaseName: alloy
         valuesObject:
-          controller:
-            type: deployment
-            replicas: 1
+          global:
+            podSecurityContext:
+              runAsNonRoot: true
+              runAsUser: 65534
+              runAsGroup: 65534
+              fsGroup: 65534
+              seccompProfile:
+                type: RuntimeDefault
           alloy:
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
+            mounts:
+              extra:
+                - name: kube-audit-log
+                  mountPath: /var/log/audit/kube
+                  readOnly: true
             configMap:
               create: true
               content: |
@@ -61,11 +90,37 @@ spec:
                   forward_to = [loki.write.loki.receiver]
                 }
 
+                local.file_match "kube_audit_log" {
+                  path_targets = [{
+                    __path__ = "/var/log/audit/kube/kube-apiserver*.log",
+                    job      = "kube-audit",
+                  }]
+                }
+
+                loki.source.file "kube_audit_log" {
+                  targets    = local.file_match.kube_audit_log.targets
+                  forward_to = [loki.write.loki.receiver]
+                }
+
                 loki.write "loki" {
                   endpoint {
                     url = "http://loki-gateway.observability.svc.cluster.local/loki/api/v1/push"
                   }
                 }
+          configReloader:
+            securityContext:
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: ["ALL"]
+          controller:
+            nodeSelector:
+              node-role.kubernetes.io/control-plane: ""
+            volumes:
+              extra:
+                - name: kube-audit-log
+                  hostPath:
+                    path: /var/log/audit/kube
+                    type: Directory
     - repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
       targetRevision: master
       path: infrastructure/observability/alloy-rbac

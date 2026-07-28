@@ -55,8 +55,11 @@ spec:
         monitoring:
           selfMonitoring:
             enabled: false
-          lokiCanary:
-            enabled: false
+        # lokiCanary is top-level in this chart, not nested under monitoring — an
+        # earlier version of this file put it there and it silently had no effect
+        # (Helm ignores unknown keys rather than erroring), so it kept deploying.
+        lokiCanary:
+          enabled: false
         chunksCache:
           enabled: false
         resultsCache:

@@ -1,5 +1,14 @@
 # build-spec P2: "Every exception is explicit, scoped, and reasoned." Written risk
 # acceptance: docs/exceptions/velero-node-agent.md
+#
+# Two distinct pod shapes needed here, discovered the hard way: the persistent
+# node-agent-* DaemonSet pods (matched by name), and the *ephemeral* per-backup and
+# per-restore "hosting pods" kopia spins up to actually move volume data — these are
+# named after the backup/restore itself (e.g. "canary-phase4-20260728163024-hlfgn"),
+# not "node-agent-*", so a name-glob match never catches them. A real ns-restore
+# drill's own backup step failed with PartiallyFailed after this policy went live,
+# caught by checking podvolumebackups.velero.io status, not by trusting "Completed".
+# Matched by Velero's own labels instead, since the names are unpredictable by design.
 apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
@@ -19,6 +28,24 @@ spec:
             - velero
           names:
             - "node-agent-*"
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - velero
+          selector:
+            matchExpressions:
+              - key: velero.io/backup-name
+                operator: Exists
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - velero
+          selector:
+            matchExpressions:
+              - key: velero.io/restore-name
+                operator: Exists
   podSecurity:
     - controlName: HostPath Volumes
     - controlName: Volume Types
@@ -28,6 +55,9 @@ spec:
       images:
         - "*"
     - controlName: Running as Non-root
+      images:
+        - "*"
+    - controlName: Running as Non-root user
       images:
         - "*"
     - controlName: Capabilities

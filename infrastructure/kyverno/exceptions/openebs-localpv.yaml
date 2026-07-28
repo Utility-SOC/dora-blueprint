@@ -37,6 +37,9 @@ spec:
     - controlName: Running as Non-root
       images:
         - "*"
+    - controlName: Running as Non-root user
+      images:
+        - "*"
     - controlName: Capabilities
       images:
         - "*"

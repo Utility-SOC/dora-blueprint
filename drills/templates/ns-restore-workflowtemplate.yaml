@@ -15,9 +15,21 @@ spec:
   entrypoint: run
   templates:
     - name: run
+      # Kyverno's require-pod-security-restricted (Phase 4) applies here too —
+      # argo-workflows has no PolicyException, nor should it need one for a plain
+      # kubectl-driven script.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
       container:
         image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
         command: ["bash", "-ceu"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
         args:
           - |
             DRILL_ID="ns-restore-$(date -u +%Y%m%d%H%M%S)"

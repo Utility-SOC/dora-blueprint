@@ -19,6 +19,13 @@ spec:
         runAsGroup: 1000
         runAsNonRoot: true
         fsGroup: 1000
+        # Phase 4's Kyverno rollout (require-pod-security-restricted) caught this
+        # missing on a background scan of the already-running pod — it predated
+        # enforcement going live, so it was flagged, not blocked. Without this, the
+        # *next* time this pod is recreated (every ns-restore drill implicitly does
+        # exactly that) it would be denied outright, breaking Phase 3's drill.
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: writer
           image: python:3.13-slim@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91

@@ -14,10 +14,13 @@ spec:
     - https://charts.min.io/
     - https://vmware-tanzu.github.io/helm-charts
     - https://argoproj.github.io/argo-helm
+    - https://openebs.github.io/charts
   destinations:
     - namespace: argocd
       server: https://kubernetes.default.svc
     - namespace: local-path-storage
+      server: https://kubernetes.default.svc
+    - namespace: openebs
       server: https://kubernetes.default.svc
     - namespace: cert-manager
       server: https://kubernetes.default.svc

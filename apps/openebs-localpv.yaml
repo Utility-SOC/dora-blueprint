@@ -1,0 +1,60 @@
+# Second storage provisioner, deliberately scoped to one job: local-path-provisioner
+# (Phase 2) stays for Loki/MinIO, which never need backup/restore. Only the canary's
+# volume needs Velero File System Backup compatibility, and Velero's own docs are
+# explicit: "hostPath volumes are not supported. Local persistent volumes are
+# supported." local-path-provisioner's PVs are hostPath-typed — confirmed empirically:
+# a full ns-restore drill run completed "successfully" (Completed status, no errors)
+# but restored a namespace with an EMPTY canary.db, because FSB silently backs up
+# nothing for a hostPath volume. OpenEBS's localpv-provisioner produces PVs typed
+# `local`, which FSB actually supports.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openebs-localpv
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  source:
+    repoURL: https://openebs.github.io/charts
+    chart: openebs
+    targetRevision: 3.10.0
+    helm:
+      valuesObject:
+        localpv-provisioner:
+          enabled: true
+          openebsNDM:
+            enabled: false
+          localpv:
+            basePath: /var/openebs/local
+        ndm:
+          enabled: false
+        ndmOperator:
+          enabled: false
+        cstor:
+          enabled: false
+        jiva:
+          enabled: false
+        zfs-localpv:
+          enabled: false
+        lvm-localpv:
+          enabled: false
+        engines:
+          local:
+            lvm:
+              enabled: false
+            zfs:
+              enabled: false
+          replicated:
+            mayastor:
+              enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openebs
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

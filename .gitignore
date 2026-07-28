@@ -1,0 +1,18 @@
+# generated evidence (sample artifacts are committed explicitly under docs/evidence/samples/)
+docs/evidence/*
+!docs/evidence/samples/
+
+# secrets material — never committed in plaintext; SOPS-encrypted files are the exception
+*.key
+*.pem
+age-key.txt
+kubeconfig
+*.kubeconfig
+talosconfig
+
+# local tooling
+.DS_Store
+*.log
+.terraform/
+.venv/
+__pycache__/

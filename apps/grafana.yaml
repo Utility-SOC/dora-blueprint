@@ -34,6 +34,19 @@ spec:
         # local-path-provisioner-backed PVC here).
         initChownData:
           enabled: false
+        # The chart's default livenessProbe budget (~6 min: 60s initial delay + 10 retries at
+        # 30s timeout) isn't enough for a fresh install's full SQLite migration run on this
+        # lab's shared, not-fast storage -- confirmed via a real crash loop: kubelet kept
+        # killing the container mid-migration, restarting it, and it re-ran migrations from
+        # the top each time, never finishing. A startupProbe with a much larger budget handles
+        # the one-time slow first boot; liveness/readiness stay at chart defaults for normal,
+        # already-migrated restarts.
+        startupProbe:
+          httpGet:
+            path: /api/health
+            port: grafana
+          periodSeconds: 10
+          failureThreshold: 60
         datasources:
           datasources.yaml:
             apiVersion: 1

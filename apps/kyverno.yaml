@@ -32,3 +32,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+      # Same class of issue build-spec §2 flags for cert-manager's CRDs:
+      # clusterpolicies.kyverno.io and policies.kyverno.io exceed client-side
+      # apply's 262144-byte last-applied-configuration annotation limit.
+      - ServerSideApply=true

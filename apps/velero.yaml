@@ -1,0 +1,64 @@
+# Velero, backed by the in-cluster MinIO above via the AWS S3-compatible plugin.
+# deployNodeAgent: true matters here specifically because local-path-provisioner has
+# no CSI snapshot support (it's hostPath-backed) — without File System Backup
+# (kopia, Velero's default uploader), a "restore" would recreate the canary's PVC
+# empty. credentials.existingSecret, not secretContents: the cloud-credentials
+# Secret is created by bootstrap/install.sh from the same SOPS-encrypted MinIO
+# root credentials as apps/minio.yaml, never committed in plaintext.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: velero
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: platform
+  source:
+    repoURL: https://vmware-tanzu.github.io/helm-charts
+    chart: velero
+    targetRevision: 12.1.0
+    helm:
+      valuesObject:
+        initContainers:
+          - name: velero-plugin-for-aws
+            image: velero/velero-plugin-for-aws:v1.14.2
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+              - mountPath: /target
+                name: plugins
+        deployNodeAgent: true
+        credentials:
+          useSecret: true
+          existingSecret: cloud-credentials
+        configuration:
+          backupStorageLocation:
+            - name: default
+              provider: aws
+              bucket: velero-backups
+              default: true
+              credential:
+                name: cloud-credentials
+                key: cloud
+              config:
+                region: minio
+                s3ForcePathStyle: true
+                s3Url: http://minio.velero.svc.cluster.local:9000
+        schedules:
+          canary-hourly:
+            schedule: "0 * * * *"
+            template:
+              includedNamespaces:
+                - canary
+              storageLocation: default
+              defaultVolumesToFsBackup: true
+              ttl: 168h0m0s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: velero
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

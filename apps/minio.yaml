@@ -1,0 +1,51 @@
+# In-cluster, single-node MinIO — build-spec §7: "no cloud account is needed."
+# Root credentials come from a pre-existing Secret (bootstrap/install.sh decrypts
+# infrastructure/velero/secrets/minio-root-credentials.enc.yaml and creates it), never
+# from plaintext values here. image.tag pinned past the chart's own stale default
+# (5.4.0 pins appVersion RELEASE.2024-12-18) to the actual current MinIO release —
+# check current releases at build time, per build-spec §13.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: minio
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: platform
+  source:
+    repoURL: https://charts.min.io/
+    chart: minio
+    targetRevision: 5.4.0
+    helm:
+      valuesObject:
+        image:
+          repository: minio/minio
+          tag: RELEASE.2025-10-15T17-29-55Z
+        mode: standalone
+        existingSecret: minio-root-credentials
+        persistence:
+          enabled: true
+          storageClass: local-path
+          size: 5Gi
+        buckets:
+          - name: velero-backups
+            policy: none
+            purge: false
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        consoleService:
+          type: ClusterIP
+        service:
+          type: ClusterIP
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: velero
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

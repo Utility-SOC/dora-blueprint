@@ -1,0 +1,36 @@
+# Drill orchestration (build-spec §6.2): scenarios are Argo WorkflowTemplates in git,
+# CronWorkflow or one-off Workflow submissions execute them. server.authModes=server
+# (no SSO) matches how Hubble UI is already reachable in this lab — network-level
+# access control (SSH tunnel / explicit LAN bind) is the boundary, not an app login.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argo-workflows
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: platform
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-workflows
+    targetRevision: 1.0.23
+    helm:
+      valuesObject:
+        singleNamespace: false
+        server:
+          authModes: ["server"]
+        workflow:
+          serviceAccount:
+            create: true
+          rbac:
+            create: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argo-workflows
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

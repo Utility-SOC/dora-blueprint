@@ -34,6 +34,17 @@ spec:
         # local-path-provisioner-backed PVC here).
         initChownData:
           enabled: false
+        # Deliberately NOT using the chart's default auto-generated admin Secret: Argo CD
+        # re-renders the Helm chart on every sync (unlike a stateful `helm upgrade`), and this
+        # chart's admin-password templating has no lookup-based guard to preserve an existing
+        # value across renders — confirmed by a real password change between two syncs, which
+        # broke a login that had worked minutes earlier. Pointing at an existingSecret created
+        # out-of-band (kubectl, never committed to git) sidesteps the regeneration entirely and
+        # keeps the credential out of the repo.
+        admin:
+          existingSecret: grafana-admin
+          userKey: admin-user
+          passwordKey: admin-password
         # The chart's default livenessProbe budget (~6 min: 60s initial delay + 10 retries at
         # 30s timeout) isn't enough for a fresh install's full SQLite migration run on this
         # lab's shared, not-fast storage -- confirmed via a real crash loop: kubelet kept

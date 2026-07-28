@@ -25,3 +25,18 @@ gaps to be closed, the claim doesn't get made.
 - **Single-operator lab.** Segregation of duties is asserted through branch protection and
   required review rules rather than genuinely enforced across multiple humans with distinct
   roles. A real ISMS would require more than one person able to demonstrate this control.
+- **The docker provisioner's "nodes" are exactly as durable as the host they run on.** A real
+  Talos node (VM or bare metal) survives a host reboot as a normal OS would; this lab's three
+  nodes are Docker containers on one box, so a host reboot is closer to a simultaneous
+  power-cycle of the whole cluster than a rolling node restart. Verified directly with a real
+  `sudo reboot` against appserv (not simulated): with `--restart=unless-stopped` set on all
+  three containers, Docker brought them back automatically with no manual step — an earlier
+  reboot that occurred *before* that policy was set required manually restarting two containers
+  stuck with a zombie PID 1. From a clean reboot, full cluster health (all nodes `Ready`, no
+  pods outside their normal terminal states) took **~28 minutes**, entirely on its own —
+  Cilium's multi-init-container startup sequence, a transient `kube-controller-manager`/
+  `kube-scheduler` CrashLoopBackOff from every control-plane component racing to reconnect at
+  once, and `hubble-relay`/`argocd-dex-server` waiting on CoreDNS and Cilium to stabilize first,
+  all self-resolved without intervention, just slower than a real cluster's rolling-restart
+  behavior would be. No claim of "resilient to host reboot" in this repo should be read as
+  "recovers in seconds" — it means "recovers on its own, given about half an hour."

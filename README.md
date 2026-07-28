@@ -12,9 +12,12 @@ running it is compliant. ISO 27001 certifies a management system, not a toolchai
 NIS2 apply to regulated entities, not repositories. See `docs/00-scope.md` and
 `docs/04-limitations.md`.
 
-*Asciinema recording of `make drill`, RTO/RPO trend chart, and a sample evidence report belong
-here once Phase 3/8 produce them — placeholders only until then, per build-spec P1: no claim
-without an implementation.*
+**The thesis is proven as of Phase 3:** `make drill SCENARIO=ns-restore` deletes the canary
+namespace, restores it from a real Velero backup into a freshly-named namespace, and prints a
+*measured* RTO and RPO — not asserted numbers. Sample record:
+[`docs/evidence/samples/ns-restore-20260728152755.json`](docs/evidence/samples/ns-restore-20260728152755.json)
+(RTO 110s, RPO 71 records, hash-chain `integrity_check: pass`). Asciinema recording and RTO/RPO
+trend chart across multiple runs are still outstanding — see Phase 8/9.
 
 ## Tiers
 
@@ -32,19 +35,20 @@ make lab-core
 make drill SCENARIO=ns-restore
 ```
 
-*(`make lab-core` works as of Phase 1. `make drill` is still a stub — see Makefile and build
-order below.)*
+*(Both work as of Phase 3.)*
 
 ## Build order and status
 
-This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **3**.
+This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **4**.
+Phase 3 was the milestone the build spec names as the point the project's thesis is proven —
+everything after this is expansion, not proof of concept.
 
 | Phase | Deliverable | Done when | Status |
 |---|---|---|---|
 | 0 | Scope docs, control-matrix skeleton, repo layout, Makefile stubs | Scope decisions written down | done |
 | 1 | Talos + Cilium + Argo CD + SOPS, AppProjects scoped, everything pinned | `make lab-core` works twice in a row from clean | done |
 | 2 | Canary workload + drill record schema + emitter + log sink | Canary writes, hash chain verifies | done |
-| 3 | Velero + MinIO + scenario 2 (namespace delete → restore) | `make drill SCENARIO=ns-restore` prints measured RTO and RPO | not started |
+| 3 | Velero + MinIO + scenario 2 (namespace delete → restore) | `make drill SCENARIO=ns-restore` prints measured RTO and RPO | done |
 
 Phase 1 notes: `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner,
 k8s v1.36.2), Cilium v1.19.6, and Argo CD v3.4.5, with a scoped AppProject and a working
@@ -68,8 +72,30 @@ added first to get a default StorageClass at all — docs.siderolabs.com's own e
 (`/var/mnt/...`) doesn't work without a Talos user-volume declaration this repo doesn't make;
 using a plain `/var` path instead, per `infrastructure/local-path-provisioner/kustomization.yaml`.
 
-Phases 4–9 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
-milestone (Phase 3).
+Phase 3 notes: the ns-restore scenario (`drills/scenarios/ns-restore.yaml`,
+`drills/templates/ns-restore-workflowtemplate.yaml`) runs as an Argo Workflow — capture the
+canary's live counter, delete its namespace, restore the most recent Velero backup into a
+freshly-named namespace (never in place — "restoring in place proves nothing"), wait for the
+restored writer to report Ready, verify its hash chain, and compute RTO/RPO from real
+timestamps and an exact record count. The real blocker here wasn't the drill logic — it was
+storage: `local-path-provisioner`'s PVs are `hostPath`-typed, and Velero's own docs are explicit
+that File System Backup does not support that type. A full drill run completed with no errors
+anywhere and silently restored an *empty* volume before this was caught by checking the restored
+data directly rather than trusting the "Completed" status. Fixed with a second, narrowly-scoped
+provisioner (`apps/openebs-localpv.yaml`, OpenEBS's localpv-provisioner, which produces
+Velero-FSB-compatible `local`-typed PVs) used only for the canary's volume — Loki and MinIO stay
+on `local-path-provisioner`, since they're never backed up. That in turn needed an explicit
+`machine.kubelet.extraMounts` bind (`platform/talos/patches/common.yaml`): Talos runs kubelet in
+its own isolated container, and the `local` PV type's kubelet volume plugin does its own
+path-visibility check that fails closed without it — unlike plain `hostPath`, which gets broad
+enough default access to work unprompted. A separate, unrelated discovery along the way: the
+Docker provisioner's 2GiB-per-node memory default was too tight once real workloads landed,
+and starved `kube-controller-manager` into an hours-long crash loop that looked like an RBAC or
+scheduling bug until `docker stats` showed 93% memory usage — `bootstrap/install.sh` now sets
+explicit, larger per-node memory limits.
+
+Phases 5–9 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
+milestone.
 
 ## Docs
 

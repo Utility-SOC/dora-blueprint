@@ -12,15 +12,15 @@ maintenance risks drift (tracked as a Phase 5+ task, not required for the Phase 
 | Control ID | Requirement | Implemented by | Evidence artifact | Status |
 |---|---|---|---|---|
 | DORA Art. 9 | Protection & prevention | `infrastructure/kyverno/policies/` | PolicyReports, admission denial logs | not yet generated — Phase 4 |
-| DORA Art. 11 | Response & recovery | `drills/scenarios/`, `infrastructure/velero/` | Drill records, measured RTO | not yet generated — Phase 3 |
-| DORA Art. 12 | Backup & restoration | `infrastructure/velero/schedules/` | Restore drill records, measured RPO | not yet generated — Phase 3 |
+| DORA Art. 11 | Response & recovery | `drills/scenarios/ns-restore.yaml`, `apps/velero.yaml` | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) — measured RTO 110s | generated |
+| DORA Art. 12 | Backup & restoration | `apps/velero.yaml` (hourly Schedule) | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) — measured RPO 71 records lost | generated |
 | DORA Art. 18 | Classification | `drills/lib/classify.py` | Classification decisions in drill records | not yet generated — Phase 7 |
 | DORA Art. 19 | Reporting clocks | `drills/lib/clocks.py` | Computed deadlines per drill | not yet generated — Phase 7 |
 | DORA Art. 24–27 | Resilience testing | `drills/`, kube-bench job | Drill record history, CIS benchmark output | not yet generated — Phase 5/8 |
 | DORA Art. 28–30 | Third-party risk | `images/`, `verifyImages` policies | Generated Register of Information, SBOMs | not yet generated — Phase 6 |
-| NIS2 21(2)(c) | Business continuity | `drills/scenarios/` | Drill records | not yet generated — Phase 3 |
+| NIS2 21(2)(c) | Business continuity | `drills/scenarios/ns-restore.yaml` | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) | generated |
 | NIS2 Art. 23 | Reporting | `drills/lib/clocks.py` | Computed deadlines | not yet generated — Phase 7 |
-| ISO A.8.13 | Information backup | `infrastructure/velero/` | Restore drill records | not yet generated — Phase 3 |
+| ISO A.8.13 | Information backup | `apps/velero.yaml`, `apps/openebs-localpv.yaml` | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) | generated |
 | ISO A.8.16 | Monitoring | observability profile | Detection latency (`t_detect` − `t_inject`) | not yet generated — Phase 2/5 |
 | ISO A.8.17 | Clock synchronisation | `platform/talos/` chrony config | NTP drift metrics, clock-skew drill | not yet generated — Phase 1/8 |
 | ISO A.8.29 | Security testing | CI pipeline, drills | Pipeline runs, drill records | not yet generated — Phase 6/8 |

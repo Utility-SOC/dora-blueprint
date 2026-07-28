@@ -119,6 +119,14 @@ enforcement and had simply never been re-validated — found and fixed the same 
 canary/drill-workflow gaps, by checking directly rather than assuming "already Running" meant
 "compliant." Evidence:
 [`docs/evidence/samples/kyverno-admission-20260728202845.txt`](docs/evidence/samples/kyverno-admission-20260728202845.txt).
+Re-ran `make drill SCENARIO=ns-restore` once all of the above landed, to prove Phase 3's
+capability still works end-to-end rather than assume it — the first two attempts both failed at
+admission (Argo's emissary executor injects its own init/wait containers with no
+`securityContext`, which no WorkflowTemplate-level setting can cover, since
+`allowPrivilegeEscalation`/`capabilities` have no pod-level fallback in the Kubernetes API at
+all), fixed with `executor.securityContext` in `apps/argo-workflows.yaml`. Third attempt: verdict
+`pass`, RTO 147s, integrity check passed —
+[`docs/evidence/samples/ns-restore-20260728204154.json`](docs/evidence/samples/ns-restore-20260728204154.json).
 
 Phases 5–9 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
 milestone.

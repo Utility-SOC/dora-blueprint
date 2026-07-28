@@ -77,7 +77,7 @@ helm upgrade --install cilium cilium/cilium \
   --set hubble.enabled=true \
   --set hubble.relay.enabled=true \
   --set hubble.ui.enabled=true \
-  --wait --timeout 5m
+  --wait --timeout 10m
 
 echo "==> [4/6] Waiting for nodes Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout=180s

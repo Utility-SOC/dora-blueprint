@@ -1,10 +1,10 @@
 .PHONY: lab-core lab-full lab-dr drill evidence images
 
-# Phase 0: stubs only. Each target fails loudly rather than pretending to work —
+# Targets not yet implemented fail loudly rather than pretending to work —
 # see build-spec P1 (no claim without an implementation).
 
 lab-core:
-	@echo "lab-core: not implemented yet (build-spec Phase 1)"; exit 1
+	@bash bootstrap/install.sh
 
 lab-full:
 	@echo "lab-full: not implemented yet (build-spec Phase 1/5)"; exit 1

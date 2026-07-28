@@ -25,6 +25,16 @@ spec:
             replication_factor: 1
           storage:
             type: filesystem
+          # max_line_size default (256KB) rejects real kube-apiserver audit log lines:
+          # RequestResponse-level entries (this repo's auditPolicy uses that level for
+          # secrets/RBAC changes specifically — build-spec §4, the highest-value audit
+          # entries) embed full request/response bodies and were observed over 2MB,
+          # confirmed via Alloy's own "max entry size '262144' bytes exceeded" errors
+          # after wiring up audit-log shipping (see docs/exceptions/alloy-audit-log.md).
+          # Silently dropping exactly the secrets/RBAC entries would defeat the point of
+          # shipping this log at all.
+          limits_config:
+            max_line_size: 10MB
           schemaConfig:
             configs:
               - from: "2024-01-01"

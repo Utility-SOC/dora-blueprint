@@ -27,6 +27,29 @@
 #    values were 30/10/100 anyway — identical to Talos's own defaults. Net result:
 #    the only thing actually worth configuring here is *what* gets audited
 #    (auditPolicy), not *how* — Talos's mechanics are already correct out of the box.
+#
+# machine.kubelet.extraMounts below is the same class of fix as
+# platform/talos/patches/common.yaml's /var/openebs/local mount, for the same root
+# cause: Talos runs kubelet in its own isolated mount namespace, and *most* hostPath
+# volumes work unprompted only because they land under paths kubelet is already wired to
+# see. /var/log/audit is a path this repo's own auditPolicy config causes Talos to write
+# to, not a standard Talos-wired path, so Alloy's hostPath mount for it
+# (apps/alloy.yaml, see docs/exceptions/alloy-audit-log.md) failed at the kubelet mount
+# step specifically — "hostPath type check failed: /var/log/audit/kube is not a
+# directory" — even though the directory demonstrably exists (confirmed both via
+# `talosctl ls` and by inspecting the named Docker volume backing this container's /var
+# directly). `ro`: kube-apiserver writes this file through Talos's own internal static-pod
+# provisioning, not through this kubelet-facing mount, so nothing needs write access here.
+machine:
+  kubelet:
+    extraMounts:
+      - destination: /var/log/audit
+        type: bind
+        source: /var/log/audit
+        options:
+          - rbind
+          - rshared
+          - ro
 cluster:
   apiServer:
     auditPolicy:

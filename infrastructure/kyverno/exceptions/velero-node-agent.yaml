@@ -1,14 +1,21 @@
 # build-spec P2: "Every exception is explicit, scoped, and reasoned." Written risk
 # acceptance: docs/exceptions/velero-node-agent.md
 #
-# Two distinct pod shapes needed here, discovered the hard way: the persistent
-# node-agent-* DaemonSet pods (matched by name), and the *ephemeral* per-backup and
-# per-restore "hosting pods" kopia spins up to actually move volume data — these are
-# named after the backup/restore itself (e.g. "canary-phase4-20260728163024-hlfgn"),
-# not "node-agent-*", so a name-glob match never catches them. A real ns-restore
-# drill's own backup step failed with PartiallyFailed after this policy went live,
-# caught by checking podvolumebackups.velero.io status, not by trusting "Completed".
-# Matched by Velero's own labels instead, since the names are unpredictable by design.
+# Matched on the whole velero namespace, not by pod name or label — two narrower
+# attempts both failed against a real drill run. Name-globbing "node-agent-*" misses
+# the *ephemeral* per-backup/per-restore "hosting pods" kopia spins up to actually
+# move volume data (named after the backup/restore itself, e.g.
+# "canary-phase4-20260728163024-hlfgn" — unpredictable by design). Matching on
+# Velero's own velero.io/backup-name / velero.io/restore-name labels didn't work
+# either — apparently not propagated onto the pod spec Velero submits for creation,
+# only onto the PodVolumeBackup/PodVolumeRestore CR. Both attempts were caught the
+# same way: a real ns-restore drill's own backup step went PartiallyFailed after this
+# policy went live, found by checking podvolumebackups.velero.io status directly, not
+# by trusting the Backup object's "Completed" phase. Namespace-wide is the honest
+# scope here: velero hosts nothing but Velero + its in-cluster MinIO backend (see
+# docs/exceptions/velero-node-agent.md's compensating controls), and the namespace
+# already carries a blanket native-PSS "privileged" override for the exact same
+# reason — this exception doesn't grant anything beyond what's already true.
 apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
@@ -26,26 +33,6 @@ spec:
             - Pod
           namespaces:
             - velero
-          names:
-            - "node-agent-*"
-      - resources:
-          kinds:
-            - Pod
-          namespaces:
-            - velero
-          selector:
-            matchExpressions:
-              - key: velero.io/backup-name
-                operator: Exists
-      - resources:
-          kinds:
-            - Pod
-          namespaces:
-            - velero
-          selector:
-            matchExpressions:
-              - key: velero.io/restore-name
-                operator: Exists
   podSecurity:
     - controlName: HostPath Volumes
     - controlName: Volume Types

@@ -1,8 +1,10 @@
 # Exception: Velero node-agent (File System Backup)
 
 **PolicyException:** `infrastructure/kyverno/exceptions/velero-node-agent.yaml`
-**Scope:** `Pod` resources named `node-agent-*` in the `velero` namespace only.
-**Controls exempted:** HostPath Volumes, Privileged Containers, Running as Non-root, Capabilities.
+**Scope:** all `Pod` resources in the `velero` namespace. Widened from an initial
+`node-agent-*` name match after a real drill run proved it insufficient — see below.
+**Controls exempted:** HostPath Volumes, Volume Types, Privileged Containers, Running as
+Non-root, Running as Non-root user, Capabilities, Privilege Escalation, Seccomp.
 
 ## Why the exception exists
 
@@ -15,11 +17,30 @@ node-agent needs to read arbitrary pods' volume data via kubelet's host paths
 privileged access by design — this is Velero's own documented architecture, not something this
 repo configured more permissively than necessary.
 
+## Why the scope is namespace-wide, not name-matched
+
+Two narrower attempts were tried first and both failed against a real `ns-restore` drill run,
+not just in theory:
+
+1. Matching `node-agent-*` by name misses the *ephemeral* per-backup/per-restore "hosting pods"
+   kopia spins up to actually move volume data. These are named after the backup/restore itself
+   (e.g. `canary-phase4-20260728163024-hlfgn`) — unpredictable by design, so a name glob can
+   never reliably catch them.
+2. Matching on Velero's own `velero.io/backup-name`/`velero.io/restore-name` labels also failed —
+   those labels live on the `PodVolumeBackup`/`PodVolumeRestore` custom resource, not on the pod
+   spec Velero actually submits for admission.
+
+Both failures were caught the same way: `kubectl -n velero get backups.velero.io` showing
+`PartiallyFailed`, checked directly rather than trusting a green status.
+
 ## Compensating controls
 
-- **Scope**: exception matches only `node-agent-*` in the `velero` namespace — the Velero
-  server deployment itself, and everything else in the cluster, remains under the restricted
-  profile.
+- **Scope**: exception matches every `Pod` in the `velero` namespace — a wider match than the
+  other two exceptions in this repo, but not a wider *grant*: the namespace already carries a
+  blanket native-PSS `privileged` override for the identical reason (see
+  `bootstrap/install.sh`'s `kubectl label namespace velero ...` step), so this Kyverno exception
+  doesn't permit anything the cluster wasn't already permitting — it makes Kyverno's own view
+  consistent with that pre-existing reality instead of denying things natively-allowed pods.
 - **Purpose-built namespace**: `velero` hosts only Velero and its in-cluster MinIO backend
   (`apps/minio.yaml`) — no application workload shares this namespace.
 - **RBAC-gated, not open access**: node-agent's own ServiceAccount permissions (chart-managed)

@@ -65,16 +65,39 @@ pod names are chart-predictable, so a name glob is reliable here (unlike Velero'
 unpredictable ephemeral hosting-pod names, which is why that exception had to go
 namespace-wide instead).
 
+## A second, independent blocker: native PodSecurity admission
+
+Getting the Kyverno exclude right wasn't the whole fix. With that in place, the DaemonSet
+still failed with `pods "alloy-..." is forbidden: violates PodSecurity "baseline:latest":
+hostPath volumes` — a different message shape from any Kyverno denial, because it's a
+different enforcement mechanism entirely: Kubernetes' own built-in PodSecurity admission
+plugin, which independently checks every namespace's
+`pod-security.kubernetes.io/enforce` label. `observability` had no such label, and an
+unlabeled namespace in this cluster defaults to a cluster-wide `baseline` level, which
+also forbids hostPath — Kyverno being satisfied doesn't satisfy this separate, native
+check.
+
+Unlike Kyverno's PolicyException/exclude, native PSS has no per-resource-name
+granularity — the enforce label is namespace-wide only, there is no equivalent to
+matching just `alloy*`. The fix (`apps/alloy.yaml`'s `syncPolicy.managedNamespaceMetadata`)
+sets `pod-security.kubernetes.io/enforce: privileged` on the whole `observability`
+namespace, declared in git so Argo CD's `selfHeal` keeps it in place rather than a
+one-off `kubectl label` (the pattern `velero`'s bootstrap-time labeling used, which this
+repo's own GitOps discipline argues against repeating). This doesn't weaken this
+namespace's actual security posture: Kyverno remains the real, granular enforcement layer
+here (see above — everything except `alloy*` is still fully `restricted`), and native PSS
+was only ever a coarser namespace-wide backstop behind it, same relationship `velero`
+already has documented in `docs/exceptions/velero-node-agent.md`.
+
 ## Compensating controls
 
 - **Read-only mount**: the hostPath volume mount is `readOnly: true` — Alloy cannot write
   to or modify the audit log, only tail it.
-- **Narrowest possible exemption**: only `HostPath Volumes` and `Volume Types` are
-  exempted. Every other `restricted` control (non-root, no privilege escalation,
-  capabilities dropped, seccomp) is enforced on this pod like any other.
-- **Name-scoped, not namespace-wide**: matched by name (`alloy*`) within `observability`,
-  not the whole namespace — Loki and everything else in that namespace remains fully
-  subject to the restricted policy with no exemption at all.
+- **Narrowest possible Kyverno exemption**: only `HostPath Volumes` and `Volume Types` are
+  exempted, and only for Kyverno — the primary, granular enforcement layer. Every other
+  `restricted` control (non-root, no privilege escalation, capabilities dropped, seccomp)
+  is enforced on this pod like any other, and every other pod in `observability` is fully
+  subject to `restricted` with no Kyverno exemption at all.
 - **Directory-scoped, not repo-root**: the mount is `/var/log/audit/kube`, not `/var/log`
   or `/var`, so it can't be used to read anything else on the host.
 

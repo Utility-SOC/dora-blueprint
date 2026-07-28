@@ -143,3 +143,21 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
+    managedNamespaceMetadata:
+      # Separate, independent blocker from Kyverno, found only once the Kyverno exclude
+      # above was working: the built-in Kubernetes PodSecurity admission plugin also
+      # enforces against a per-namespace pod-security.kubernetes.io/enforce label — an
+      # unlabeled namespace here defaults to a cluster-wide baseline, which forbids
+      # hostPath volumes independently of anything Kyverno decides (confirmed via
+      # `kubectl describe daemonset alloy`'s FailedCreate events citing "PodSecurity
+      # 'baseline:latest'", a different message shape from Kyverno's own denials).
+      # Kyverno is this repo's primary, per-resource enforcement layer (see the `alloy*`
+      # name-scoped exclude in require-pod-security-restricted.yaml); this native label
+      # is the same kind of namespace-level backstop relaxation the `velero` namespace
+      # already carries for the identical reason (see
+      # docs/exceptions/velero-node-agent.md) — Loki and everything else in
+      # `observability` remain fully governed by Kyverno's restricted policy, this only
+      # removes the second, coarser, namespace-wide check for the one namespace where a
+      # single named pod needs a hostPath.
+      labels:
+        pod-security.kubernetes.io/enforce: privileged

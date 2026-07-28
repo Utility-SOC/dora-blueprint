@@ -4,6 +4,16 @@
 # restricted-compliant (non-root uid 65534, no privilege escalation, capabilities
 # dropped), so this pod doesn't need the broader control list the Velero/OpenEBS
 # exceptions carry.
+#
+# Matches both Pod and DaemonSet: Kyverno's podSecurity validation autogenerates a
+# second rule (ruleNames: autogen-restricted) that runs against controller resources
+# directly — checking the pod template embedded in the DaemonSet/Deployment/etc. at
+# admission, separately from the rule that validates the Pods those controllers create.
+# An exception matching only `kind: Pod` never reaches that autogen rule, so the
+# DaemonSet creation itself gets denied before any Pod is ever admitted — confirmed
+# empirically (Argo CD sync failed on `resource DaemonSet/observability/alloy was
+# blocked ... autogen-restricted`) before this second match entry and ruleNames value
+# were added.
 apiVersion: kyverno.io/v2
 kind: PolicyException
 metadata:
@@ -14,6 +24,7 @@ spec:
     - policyName: require-pod-security-restricted
       ruleNames:
         - restricted
+        - autogen-restricted
   match:
     any:
       - resources:
@@ -23,6 +34,13 @@ spec:
             - observability
           names:
             - "alloy-*"
+      - resources:
+          kinds:
+            - DaemonSet
+          namespaces:
+            - observability
+          names:
+            - "alloy"
   podSecurity:
     - controlName: HostPath Volumes
     - controlName: Volume Types

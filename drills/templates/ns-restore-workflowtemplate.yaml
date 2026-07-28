@@ -43,6 +43,15 @@ spec:
 
             RESTORE_NS="canary-restored-$(date -u +%Y%m%d%H%M%S)"
             RESTORE_NAME="${DRILL_ID}-restore"
+
+            # Pre-create and label the target namespace before Velero touches it —
+            # left to Velero's own namespace-restore-from-backup, it comes back
+            # unlabelled, and OpenEBS localpv-provisioner's helper pods (hostPath +
+            # privileged init container) get rejected by the baseline PodSecurity
+            # default the same way the original canary namespace's PVC did.
+            kubectl create namespace "$RESTORE_NS"
+            kubectl label namespace "$RESTORE_NS" pod-security.kubernetes.io/enforce=privileged
+
             cat <<EOF | kubectl apply -f -
             apiVersion: velero.io/v1
             kind: Restore

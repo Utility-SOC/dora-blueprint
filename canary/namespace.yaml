@@ -1,0 +1,11 @@
+# Declared explicitly (rather than left to the Application's CreateNamespace=true)
+# so the privileged PSS label is git-tracked, not a one-off manual label. Needed for
+# OpenEBS localpv-provisioner's helper pods (hostPath + privileged init container) —
+# same requirement as local-path-storage and velero, see those namespaces' setup in
+# bootstrap/install.sh and platform/talos/README.md for the pattern.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: canary
+  labels:
+    pod-security.kubernetes.io/enforce: privileged

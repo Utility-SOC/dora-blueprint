@@ -32,11 +32,20 @@ echo "==> [1/7] Talos cluster (docker provisioner, pinned $TALOS_VERSION / k8s $
 if docker ps -a --format '{{.Names}}' | grep -q "^${CLUSTER_NAME}-controlplane-1$"; then
   echo "    cluster '$CLUSTER_NAME' already exists — skipping create (destroy first for a clean run)"
 else
+  # --memory-controlplanes/--memory-workers override the provisioner's 2GiB-per-node
+  # default. At 2GiB, etcd+kube-apiserver+kube-controller-manager+kube-scheduler+
+  # kubelet+cilium-envoy+kube-proxy on the control-plane node hit sustained >90%
+  # memory usage once real workloads (Loki, MinIO, Velero, Argo Workflows) landed —
+  # kube-controller-manager crash-looped for hours on probe timeouts before this was
+  # diagnosed as memory pressure, not a config bug. These values assume a host with
+  # real headroom (~20GB+ free); tune down for a tighter core-tier laptop deployment.
   talosctl cluster create docker \
     --name "$CLUSTER_NAME" \
     --image "ghcr.io/siderolabs/talos:${TALOS_VERSION}" \
     --kubernetes-version "$KUBERNETES_VERSION" \
     --workers "$WORKERS" \
+    --memory-controlplanes 8GB \
+    --memory-workers 6GB \
     --talosconfig-destination "$TALOSCONFIG" \
     --config-patch @"$REPO_ROOT/platform/talos/patches/common.yaml" \
     --config-patch-controlplanes @"$REPO_ROOT/platform/talos/patches/control-plane.yaml"

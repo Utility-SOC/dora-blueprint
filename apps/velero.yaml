@@ -28,6 +28,10 @@ spec:
               - mountPath: /target
                 name: plugins
         deployNodeAgent: true
+        # No CSI snapshot support to configure against (see the FSB note above), so
+        # the chart's default VolumeSnapshotLocation is just permanent drift — nothing
+        # ever populates it correctly, Argo CD flags it OutOfSync every reconcile.
+        snapshotsEnabled: false
         credentials:
           useSecret: true
           existingSecret: cloud-credentials

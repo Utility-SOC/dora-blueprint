@@ -1,0 +1,30 @@
+# build-spec P2: "Every exception is explicit, scoped, and reasoned." Written risk
+# acceptance: docs/exceptions/openebs-localpv.md. Confirmed empirically: the exact
+# denial this exempts is "pods \"init-pvc-...\" is forbidden: violates PodSecurity
+# \"baseline:latest\": hostPath volumes (volumes \"data\", \"dev\"), privileged
+# (container \"local-path-init\" must not set securityContext.privileged=true)".
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: openebs-localpv-helper-pods
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: require-pod-security-restricted
+      ruleNames:
+        - restricted
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - openebs
+          names:
+            - "init-pvc-*"
+            - "cleanup-pvc-*"
+  podSecurity:
+    - controlName: HostPath Volumes
+    - controlName: Privileged Containers
+    - controlName: Running as Non-root
+    - controlName: Capabilities

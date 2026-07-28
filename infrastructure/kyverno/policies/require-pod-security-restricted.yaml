@@ -1,0 +1,42 @@
+# build-spec §7: "validate.podSecurity against PSS restricted. Per-rule failureAction."
+# §2 correction: hand-rolled privileged:false pattern matching misses initContainers
+# and ephemeralContainers and is trivially bypassed — this uses Kyverno's native
+# podSecurity validation, which directly reuses the Kubernetes PSS implementation.
+#
+# Scope note (build-spec P8, stated not hidden): kube-system is excluded from this
+# policy by the Kyverno chart's own default (config.webhooks.namespaceSelector +
+# config.resourceFilters both exclude it) — the same default the build spec's §2
+# warns about ("kube-system is excluded from the Kyverno webhook by default, so the
+# policy silently would not have evaluated it at all"). Accepted deliberately here:
+# nothing this repo deploys targets kube-system, and Cilium/CoreDNS/kube-proxy are
+# core cluster plumbing needing broad host access, same as in most real clusters. If
+# a future component needs to run in kube-system, this exclusion means Kyverno would
+# not evaluate it — re-read this note before adding one.
+#
+# failureAction: Enforce from the start, not a permanent audit mode — every currently
+# privileged workload already has a scoped PolicyException
+# (infrastructure/kyverno/exceptions/), verified against this exact policy before it
+# went to Enforce, so there was no unknown blast radius to observe in Audit first.
+# The audit-then-enforce path is for policies added to a fleet whose impact isn't
+# already known; this repo's small, fully-inventoried workload set didn't need that
+# step here, but new policies added in later phases should still default to Audit
+# with a dated migration plan, per build-spec §7 — this is a one-off, not a
+# precedent to copy blind.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-pod-security-restricted
+spec:
+  background: true
+  rules:
+    - name: restricted
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        failureAction: Enforce
+        podSecurity:
+          level: restricted
+          version: latest

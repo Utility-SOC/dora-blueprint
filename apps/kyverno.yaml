@@ -1,0 +1,34 @@
+# Admission control (build-spec §7): validate.podSecurity against PSS "restricted",
+# not hand-rolled privileged:false pattern matching — build-spec §2 flags that as
+# missing initContainers/ephemeralContainers and trivially bypassed.
+# policyExceptions.namespace restricts exception *creation* to the kyverno namespace
+# (infrastructure/kyverno/exceptions/ lands there) — a security boundary, not just an
+# organisational one: nobody in canary/velero/etc. can grant themselves an exception
+# by dropping a PolicyException in their own namespace.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  source:
+    repoURL: https://kyverno.github.io/kyverno
+    chart: kyverno
+    targetRevision: 3.8.2
+    helm:
+      valuesObject:
+        policyExceptions:
+          enabled: true
+          namespace: kyverno
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kyverno
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -15,6 +15,7 @@ spec:
     - https://vmware-tanzu.github.io/helm-charts
     - https://argoproj.github.io/argo-helm
     - https://openebs.github.io/charts
+    - https://kyverno.github.io/kyverno
   destinations:
     - namespace: argocd
       server: https://kubernetes.default.svc
@@ -49,6 +50,12 @@ spec:
       kind: Namespace
     - group: storage.k8s.io
       kind: StorageClass
+    - group: kyverno.io
+      kind: ClusterPolicy
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"

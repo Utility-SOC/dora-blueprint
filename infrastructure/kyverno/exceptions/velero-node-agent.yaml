@@ -1,0 +1,26 @@
+# build-spec P2: "Every exception is explicit, scoped, and reasoned." Written risk
+# acceptance: docs/exceptions/velero-node-agent.md
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: velero-node-agent
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: require-pod-security-restricted
+      ruleNames:
+        - restricted
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - velero
+          names:
+            - "node-agent-*"
+  podSecurity:
+    - controlName: HostPath Volumes
+    - controlName: Privileged Containers
+    - controlName: Running as Non-root
+    - controlName: Capabilities

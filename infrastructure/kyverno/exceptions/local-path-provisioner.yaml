@@ -1,0 +1,26 @@
+# build-spec P2: "Every exception is explicit, scoped, and reasoned." Written risk
+# acceptance: docs/exceptions/local-path-provisioner.md
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: local-path-provisioner-helper-pods
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: require-pod-security-restricted
+      ruleNames:
+        - restricted
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - local-path-storage
+          names:
+            - "helper-pod-*"
+  podSecurity:
+    - controlName: HostPath Volumes
+    - controlName: Privileged Containers
+    - controlName: Running as Non-root
+    - controlName: Capabilities

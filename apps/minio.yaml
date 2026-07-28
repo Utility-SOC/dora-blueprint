@@ -1,9 +1,15 @@
 # In-cluster, single-node MinIO — build-spec §7: "no cloud account is needed."
 # Root credentials come from a pre-existing Secret (bootstrap/install.sh decrypts
 # infrastructure/velero/secrets/minio-root-credentials.enc.yaml and creates it), never
-# from plaintext values here. image.tag pinned past the chart's own stale default
-# (5.4.0 pins appVersion RELEASE.2024-12-18) to the actual current MinIO release —
-# check current releases at build time, per build-spec §13.
+# from plaintext values here.
+#
+# Correction: MinIO ended community-edition image publishing around Oct 2025 (no new
+# tags on Docker Hub/Quay since; console/admin features stripped behind a paywall
+# before that). RELEASE.2025-10-15T17-29-55Z — the newest tag GitHub's release list
+# shows — was never actually pushed to Docker Hub ("not found" on pull).
+# RELEASE.2025-09-07T16-13-09Z, confirmed pullable, is genuinely the last real one.
+# Pinned by digest, not just tag, since this registry is now effectively frozen and a
+# tag alone won't move under us either way.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -20,8 +26,10 @@ spec:
     helm:
       valuesObject:
         image:
-          repository: minio/minio
-          tag: RELEASE.2025-10-15T17-29-55Z
+          # Chart template renders "repository:tag" literally — no separate digest
+          # field — so the digest is pinned by splitting it across both.
+          repository: minio/minio@sha256
+          tag: 14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
         mode: standalone
         existingSecret: minio-root-credentials
         persistence:

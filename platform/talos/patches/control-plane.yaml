@@ -1,0 +1,47 @@
+# Applied only to control-plane nodes via
+# `talosctl cluster create docker --config-patch-controlplanes @control-plane.yaml`.
+#
+# Corrections to earlier drafts of this file (build-spec §2 style — recorded, not
+# silently fixed):
+#
+# 1. This used to hand-roll a Kubernetes Secrets EncryptionConfiguration via
+#    machine.files + cluster.apiServer.extraArgs.encryption-provider-config. Talos
+#    rejects that outright — "extra arg \"encryption-provider-config\" is not allowed"
+#    (pkg/argsbuilder's MergeDenied policy) — because Talos >=1.2 already generates a
+#    random secretbox key and applies Kubernetes Secrets-at-rest encryption
+#    automatically for every cluster (pkg/machinery/config/generate/secrets/bundle.go,
+#    applied via internal/.../k8stemplates/apiserver.go's APIServerEncryptionConfig).
+#    ISO A.8.24-equivalent secrets-at-rest encryption is on by default, not opt-in.
+#
+# 2. This also used to override audit-log-path/maxage/maxbackup/maxsize via extraArgs,
+#    with a matching extraVolumes hostPath mount at /var/log/audit. Two failures from
+#    that: overriding audit-policy-file to a path nothing writes crashed the apiserver
+#    ("no such file or directory") — Talos's RenderConfigsStaticPodController already
+#    writes the auditPolicy content below to its own managed path
+#    (/system/config/kubernetes/kube-apiserver/auditpolicy.yaml) and points the
+#    default arg at it correctly. And the custom /var/log/audit hostPath mount gets
+#    auto-created root-owned by the Docker bind-mount mechanism, which the
+#    non-root kube-apiserver process then can't write to ("permission denied") —
+#    Talos's own default log directory (an ephemeral, Talos-managed path) is already
+#    provisioned with correct ownership. audit-log-maxage/maxbackup/maxsize's custom
+#    values were 30/10/100 anyway — identical to Talos's own defaults. Net result:
+#    the only thing actually worth configuring here is *what* gets audited
+#    (auditPolicy), not *how* — Talos's mechanics are already correct out of the box.
+cluster:
+  apiServer:
+    auditPolicy:
+      apiVersion: audit.k8s.io/v1
+      kind: Policy
+      rules:
+        # DORA/NIS2/ISO scope (build-spec §4): RequestResponse for secrets and RBAC
+        # changes — the two categories where "what changed" matters as much as "what
+        # was accessed" — Metadata for everything else.
+        - level: RequestResponse
+          resources:
+            - group: ""
+              resources: ["secrets"]
+            - group: "rbac.authorization.k8s.io"
+              resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+        - level: Metadata
+          omitStages:
+            - RequestReceived

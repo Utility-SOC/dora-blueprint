@@ -1,0 +1,27 @@
+# App-of-apps root. Points at apps/, which is empty until Phase 4+ lands
+# infrastructure Applications there. From this point on, adding a component is a
+# `git push`, not a `kubectl apply` — build-spec P4.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: apps
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

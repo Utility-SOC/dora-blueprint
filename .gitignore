@@ -2,7 +2,7 @@
 docs/evidence/*
 !docs/evidence/samples/
 
-# secrets material — never committed in plaintext; SOPS-encrypted files are the exception
+# secrets material — never committed in plaintext; SOPS-encrypted (*.enc.yaml) files are the exception
 *.key
 *.pem
 age-key.txt

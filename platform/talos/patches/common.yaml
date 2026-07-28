@@ -1,0 +1,35 @@
+# Applied to every node (control-plane and worker) via
+# `talosctl cluster create --config-patch @common.yaml`.
+#
+# NTP and KSPP sysctls are node-level concerns and apply the same way regardless
+# of machine role. See platform/talos/README.md for what this patch does and does
+# not achieve under the Docker provisioner.
+cluster:
+  network:
+    cni:
+      # Build-spec §2 correction: Cilium cannot be an Argo CD sync-wave — Argo CD
+      # needs a working CNI to schedule at all. CNI is disabled here and installed
+      # directly via `helm install` in bootstrap/install.sh; Argo CD adopts it
+      # (and everything after it) once the cluster already has pod networking.
+      name: none
+machine:
+  time:
+    disabled: false
+    servers:
+      - time.cloudflare.com
+      - time.google.com
+      - pool.ntp.org
+  sysctls:
+    # KSPP-recommended sysctls (Kernel Self Protection Project), ISO A.8.17 context:
+    # every RTO/RPO measurement and cross-source log correlation in this project is
+    # only admissible because clocks are synchronised — see docs/00-scope.md.
+    kernel.kptr_restrict: "2"
+    kernel.dmesg_restrict: "1"
+    kernel.printk: "3 3 3 3"
+    kernel.unprivileged_bpf_disabled: "1"
+    kernel.perf_event_paranoid: "3"
+    # net.core.bpf_jit_harden deliberately omitted: it's a host-global (non-namespaced)
+    # sysctl, and the Docker provisioner's containers don't project it into their
+    # /proc/sys view at all — Talos's KernelParamSpecController fails with "no such
+    # file or directory" if it's set here. Bare-metal/QEMU profiles get the real
+    # kernel boundary and can set it; see platform/talos/README.md.

@@ -39,6 +39,15 @@ spec:
           persistence:
             enabled: true
             size: 5Gi
+        # deploymentMode alone doesn't zero these — the chart's validate.yaml checks
+        # actual replica counts, and SimpleScalable's defaults are nonzero regardless
+        # of deploymentMode. Setting deploymentMode without this fails the same way.
+        read:
+          replicas: 0
+        write:
+          replicas: 0
+        backend:
+          replicas: 0
         minio:
           enabled: false
         test:

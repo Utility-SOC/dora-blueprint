@@ -32,6 +32,26 @@ spec:
             create: true
           rbac:
             create: true
+        # The drill WorkflowTemplate (drills/templates/ns-restore-workflowtemplate.yaml)
+        # already sets pod-level and main-container securityContext, but that only
+        # covers the user-defined "container:" template field. Argo's emissary executor
+        # also injects its own init/wait containers into every workflow pod, which have
+        # no securityContext of their own and aren't covered by the template's pod-level
+        # settings — allowPrivilegeEscalation/capabilities have no pod-level equivalent
+        # in the Kubernetes API at all, so there's no way for a WorkflowTemplate to cover
+        # them for containers it doesn't itself define. Confirmed via a real drill run
+        # denied at admission: 'spec.initContainers[0].securityContext.
+        # allowPrivilegeEscalation: Required value'. executor.securityContext is this
+        # chart's supported way to set a default for exactly those injected containers.
+        executor:
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+            runAsNonRoot: true
+            runAsUser: 1001
   destination:
     server: https://kubernetes.default.svc
     namespace: argo-workflows

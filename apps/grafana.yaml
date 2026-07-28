@@ -1,0 +1,42 @@
+# Dashboards + alerting on top of the existing Loki+Alloy pipeline (Phase 2/4). Deployed for a
+# hands-on comparison against Elastic/Kibana before locking in the security-plane's detection-
+# layer technology — see the "Technology decision" section of the security-plane roadmap plan.
+# Loki datasource is provisioned declaratively (datasources.yaml below), not clicked in through
+# the UI, matching this repo's GitOps-everything discipline. No ingress: reached via the same
+# LAN port-forward pattern already used for Argo CD and Hubble UI.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: platform
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: 10.5.15
+    helm:
+      valuesObject:
+        persistence:
+          enabled: true
+          size: 2Gi
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+              - name: Loki
+                type: loki
+                access: proxy
+                url: http://loki-gateway.observability.svc.cluster.local
+                isDefault: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

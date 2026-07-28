@@ -1,0 +1,30 @@
+# Network segmentation (Phase 6): CiliumNetworkPolicy resources, one subdirectory per
+# namespace under infrastructure/cilium/. Built incrementally, lowest-risk namespace
+# first (canary), each one verified against real observed traffic via Hubble
+# (`policy.cilium.io/audit-mode: "true"` first, flip to enforce only once a window
+# shows zero would-be-dropped flows) before being committed here — a default-deny
+# mistake in a namespace like kube-system or argocd can break the whole cluster's
+# connectivity, unlike an admission-control mistake which only affects new pod
+# creation, so this is deliberately slower and more cautious than the Kyverno rollout.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cilium-policies
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: infrastructure/cilium
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: canary
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

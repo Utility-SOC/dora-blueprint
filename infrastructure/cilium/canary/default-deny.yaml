@@ -1,0 +1,24 @@
+# Phase 6 (network segmentation): the Kubernetes-native replacement for VLAN/subnet
+# isolation — identity-based (namespace/label selectors), enforced by Cilium's eBPF
+# datapath regardless of node placement, rather than address-based. This is what makes
+# a regulatory-scope-boundary claim (docs/00-scope.md §0.6) technically verifiable
+# instead of asserted.
+#
+# canary is the first namespace segmented, deliberately: lowest blast radius if
+# something's wrong (a simple hash-chain writer, no Service, no ingress consumers),
+# and confirmed via a live Hubble check to have zero network traffic at all before this
+# was applied — no probes, no external calls, purely local SQLite writes. Verified with
+# `policy.cilium.io/audit-mode: "true"` first (a 90s window produced zero AUDIT-verdict
+# flows, meaning nothing would have been dropped) before removing the annotation to
+# actually enforce, and re-confirmed the canary-writer pod's hash chain was still intact
+# (integrity_check: pass) afterward — the same "verify against the real cluster, don't
+# trust that it applied cleanly" discipline used everywhere else in this repo.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: canary
+spec:
+  endpointSelector: {}
+  ingress: []
+  egress: []

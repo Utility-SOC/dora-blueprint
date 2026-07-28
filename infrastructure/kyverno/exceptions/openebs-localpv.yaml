@@ -25,6 +25,7 @@ spec:
             - "cleanup-pvc-*"
   podSecurity:
     - controlName: HostPath Volumes
+    - controlName: Restricted Volume Types
     - controlName: Privileged Containers
     - controlName: Running as Non-root
     - controlName: Capabilities

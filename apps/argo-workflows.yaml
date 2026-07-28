@@ -20,6 +20,13 @@ spec:
         singleNamespace: false
         server:
           authModes: ["server"]
+        # controller.workflowNamespaces defaults to ["default"] — the executor
+        # ServiceAccount/Role/RoleBinding get created once per listed namespace, and
+        # "default" isn't in the AppProject's allowed destinations. Drills run in
+        # argo-workflows itself, not a separate namespace, for now.
+        controller:
+          workflowNamespaces:
+            - argo-workflows
         workflow:
           serviceAccount:
             create: true

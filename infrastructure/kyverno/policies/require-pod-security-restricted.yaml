@@ -35,6 +35,26 @@ spec:
           - resources:
               kinds:
                 - Pod
+      # velero is excluded here rather than via a scoped PolicyException podSecurity
+      # entry (see infrastructure/kyverno/exceptions/velero-node-agent.yaml and
+      # docs/exceptions/velero-node-agent.md for the full reasoning). Kyverno has a
+      # confirmed, still-open bug (kyverno/kyverno#12888) where a podSecurity
+      # PolicyException cannot suppress a pod-level runAsUser=0 violation — verified
+      # empirically here across four syntax variants (bare controlName, images: ["*"],
+      # restrictedField at the pod path, restrictedField redirected to the container
+      # path per the issue's own documented workaround) — none worked, all failed
+      # identically, against Kyverno v1.18.2. Velero's kopia FSB "hosting pods" set
+      # runAsUser: 0 at the pod level with no config surface to change it, so the
+      # PolicyException route for this one control is a dead end until upstream fixes
+      # it. This exclude has the exact same scope the PolicyException already
+      # committed to (the whole velero namespace, not narrower) — it's a different,
+      # working Kyverno mechanism for reaching the same documented, reasoned exception,
+      # not a widening of it.
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - velero
       validate:
         failureAction: Enforce
         podSecurity:

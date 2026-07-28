@@ -37,13 +37,13 @@ order below.)*
 
 ## Build order and status
 
-This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **2**.
+This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **3**.
 
 | Phase | Deliverable | Done when | Status |
 |---|---|---|---|
 | 0 | Scope docs, control-matrix skeleton, repo layout, Makefile stubs | Scope decisions written down | done |
 | 1 | Talos + Cilium + Argo CD + SOPS, AppProjects scoped, everything pinned | `make lab-core` works twice in a row from clean | done |
-| 2 | Canary workload + drill record schema + emitter + log sink | Canary writes, hash chain verifies | not started |
+| 2 | Canary workload + drill record schema + emitter + log sink | Canary writes, hash chain verifies | done |
 | 3 | Velero + MinIO + scenario 2 (namespace delete → restore) | `make drill SCENARIO=ns-restore` prints measured RTO and RPO | not started |
 
 Phase 1 notes: `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner,
@@ -53,6 +53,20 @@ not just reading the spec — are documented in `platform/talos/README.md`: Talo
 Kubernetes Secrets encryption at rest is a Talos default (attempting to hand-configure it
 crashes cluster creation), and Cilium on Talos-in-Docker needs an explicit, narrower capability
 set than its bare-metal defaults assume.
+
+Phase 2 notes: the canary (`canary/`) writes one hash-chained SQLite row/sec, verified live —
+`kubectl exec deploy/canary-writer -n canary -- python3 /scripts/verify.py` reports
+`integrity_check: pass` against the running chain. `drills/schema/drill-record.schema.json` and
+the dependency-free `drills/lib/emit.py` give a drill record its shape ahead of any scenario
+producing one. The log sink is Loki (SingleBinary, filesystem storage) + Grafana Alloy — Alloy
+over the deprecated Promtail, `loki.source.kubernetes` (reads pod logs via the API server) over
+host-path tailing — confirmed end-to-end by querying Loki directly for the canary's own log
+lines. This was also the first real GitOps rollout: everything in `apps/` deployed by Argo CD
+syncing this repo, no manual `kubectl apply` beyond the `bootstrap/` exception. Talos ships no
+CSI driver, so `local-path-provisioner` (`infrastructure/local-path-provisioner/`) had to be
+added first to get a default StorageClass at all — docs.siderolabs.com's own example host path
+(`/var/mnt/...`) doesn't work without a Talos user-volume declaration this repo doesn't make;
+using a plain `/var` path instead, per `infrastructure/local-path-provisioner/kustomization.yaml`.
 
 Phases 4–9 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
 milestone (Phase 3).

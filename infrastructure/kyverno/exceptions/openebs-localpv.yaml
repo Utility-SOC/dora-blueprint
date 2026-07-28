@@ -26,6 +26,17 @@ spec:
   podSecurity:
     - controlName: HostPath Volumes
     - controlName: Volume Types
+    # Container-level controls require an explicit images list — a bare controlName
+    # isn't enough (the admission webhook itself rejects it: "exclude.images must be
+    # specified for the container"), since a multi-container pod might only need the
+    # exemption on one of its containers. Wildcarded here since every pod this
+    # exception matches has exactly one container.
     - controlName: Privileged Containers
+      images:
+        - "*"
     - controlName: Running as Non-root
+      images:
+        - "*"
     - controlName: Capabilities
+      images:
+        - "*"

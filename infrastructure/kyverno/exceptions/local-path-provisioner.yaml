@@ -22,6 +22,14 @@ spec:
   podSecurity:
     - controlName: HostPath Volumes
     - controlName: Volume Types
+    # Container-level controls require an explicit images list — see
+    # infrastructure/kyverno/exceptions/openebs-localpv.yaml for why.
     - controlName: Privileged Containers
+      images:
+        - "*"
     - controlName: Running as Non-root
+      images:
+        - "*"
     - controlName: Capabilities
+      images:
+        - "*"

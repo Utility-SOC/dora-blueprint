@@ -11,7 +11,7 @@ maintenance risks drift (tracked as a Phase 5+ task, not required for the Phase 
 
 | Control ID | Requirement | Implemented by | Evidence artifact | Status |
 |---|---|---|---|---|
-| DORA Art. 9 | Protection & prevention | `infrastructure/kyverno/policies/` | PolicyReports, admission denial logs | not yet generated — Phase 4 |
+| DORA Art. 9 | Protection & prevention | `infrastructure/kyverno/policies/` | [`docs/evidence/samples/kyverno-admission-20260728202845.txt`](evidence/samples/kyverno-admission-20260728202845.txt) — real admission denial of a privileged pod | generated |
 | DORA Art. 11 | Response & recovery | `drills/scenarios/ns-restore.yaml`, `apps/velero.yaml` | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) — measured RTO 110s | generated |
 | DORA Art. 12 | Backup & restoration | `apps/velero.yaml` (hourly Schedule) | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) — measured RPO 71 records lost | generated |
 | DORA Art. 18 | Classification | `drills/lib/classify.py` | Classification decisions in drill records | not yet generated — Phase 7 |

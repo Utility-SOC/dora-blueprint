@@ -1,0 +1,62 @@
+Kyverno admission enforcement evidence — captured live against the running cluster,
+2026-07-28T20:28:45Z. Phase 4 (build-spec §12): "A privileged pod is denied; the agent
+exception is documented."
+
+=== admission denial: privileged pod rejected ===
+$ kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Pod
+metadata:
+  name: evidence-privileged-test-20260728202845
+  namespace: canary
+spec:
+  containers:
+    - name: test
+      image: nginx
+      securityContext:
+        privileged: true
+EOF
+
+Warning: would violate PodSecurity "restricted:latest": privileged (container "test" must not set securityContext.privileged=true), allowPrivilegeEscalation != false (container "test" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "test" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "test" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "test" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+Error from server: error when creating "STDIN": admission webhook "validate.kyverno.svc-fail" denied the request:
+
+resource Pod/canary/evidence-privileged-test-20260728202845 was blocked due to the following policies
+
+require-pod-security-restricted:
+  restricted: 'Validation rule ''restricted'' failed. It violates PodSecurity "restricted:latest":
+    (Forbidden reason: allowPrivilegeEscalation != false, field error list: [spec.containers[0].securityContext.allowPrivilegeEscalation
+    is forbidden, forbidden values found: nil])(Forbidden reason: unrestricted capabilities,
+    field error list: [spec.containers[0].securityContext.capabilities.drop: Required
+    value])(Forbidden reason: privileged, field error list: [spec.containers[0].securityContext.privileged
+    is forbidden, forbidden values found: true])(Forbidden reason: runAsNonRoot !=
+    true, field error list: [spec.containers[0].securityContext.runAsNonRoot: Required
+    value])(Forbidden reason: seccompProfile, field error list: [spec.containers[0].securityContext.seccompProfile.type:
+    Required value])'
+
+=== clusterpolicy status ===
+$ kubectl get clusterpolicy require-pod-security-restricted -o wide
+
+NAME                              ADMISSION   BACKGROUND   READY   AGE     FAILURE POLICY   VALIDATE   MUTATE   GENERATE   VERIFY IMAGES   MESSAGE
+require-pod-security-restricted   true        true         True    4h34m                    1          0        0          0               Ready
+
+=== agent exceptions (documented in docs/exceptions/) ===
+- openebs-localpv.md          — PolicyException, name-scoped (init-pvc-*/cleanup-pvc-*)
+- local-path-provisioner.md   — PolicyException, name-scoped (helper-pod-*)
+- velero-node-agent.md        — ClusterPolicy exclude, namespace-scoped (velero)
+- alloy-audit-log.md          — ClusterPolicy exclude, name-scoped (alloy* in observability)
+
+=== honest caveat: PolicyReport background scan vs. admission enforcement ===
+`kubectl get policyreport -A` at this same timestamp shows FAIL=1 for kube-system pods
+(cilium, coredns, kube-proxy, kube-apiserver, etc.) and for pods in namespaces that carry a
+working ClusterPolicy `exclude` (velero, and briefly observability before its own fix
+landed). This does not indicate an enforcement gap — kube-system is excluded from the
+Kyverno *admission webhook* by chart default (documented in
+infrastructure/kyverno/policies/require-pod-security-restricted.yaml's scope note) but
+Kyverno's separate background scanner still evaluates and reports on it for visibility,
+and the scanner appears to re-scan on its own periodic interval rather than instantly on
+policy change, so newly-excluded namespaces can show stale FAIL rows for a while after a
+fix ships. The admission-time enforcement above — the mechanism that actually blocks or
+allows a request — is what was verified directly, repeatedly, against real workloads
+throughout Phase 4 (a rejected privileged test pod, and real Velero backups/PVC
+provisioning succeeding through their respective exceptions). PolicyReport accuracy as a
+reporting surface is a known, live gap, not silently glossed over here.

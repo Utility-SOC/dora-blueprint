@@ -39,7 +39,7 @@ make drill SCENARIO=ns-restore
 
 ## Build order and status
 
-This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **4**.
+This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **5**.
 Phase 3 was the milestone the build spec names as the point the project's thesis is proven —
 everything after this is expansion, not proof of concept.
 
@@ -49,6 +49,7 @@ everything after this is expansion, not proof of concept.
 | 1 | Talos + Cilium + Argo CD + SOPS, AppProjects scoped, everything pinned | `make lab-core` works twice in a row from clean | done |
 | 2 | Canary workload + drill record schema + emitter + log sink | Canary writes, hash chain verifies | done |
 | 3 | Velero + MinIO + scenario 2 (namespace delete → restore) | `make drill SCENARIO=ns-restore` prints measured RTO and RPO | done |
+| 4 | Kyverno policies + exceptions + audit→enforce plan; API audit logging shipping | A privileged pod is denied; the agent exception is documented | done |
 
 Phase 1 notes: `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner,
 k8s v1.36.2), Cilium v1.19.6, and Argo CD v3.4.5, with a scoped AppProject and a working
@@ -93,6 +94,31 @@ Docker provisioner's 2GiB-per-node memory default was too tight once real worklo
 and starved `kube-controller-manager` into an hours-long crash loop that looked like an RBAC or
 scheduling bug until `docker stats` showed 93% memory usage — `bootstrap/install.sh` now sets
 explicit, larger per-node memory limits.
+
+Phase 4 notes: Kyverno (`apps/kyverno.yaml`, `apps/kyverno-policies.yaml`) enforces PSS
+`restricted` cluster-wide (`infrastructure/kyverno/policies/require-pod-security-restricted.yaml`),
+in `Enforce` from the start rather than a permanent audit mode — every currently-privileged
+workload already had a scoped, documented exception (`docs/exceptions/`) verified before
+enforcement went live. Two of those four exceptions ended up as `exclude` blocks on the
+ClusterPolicy itself rather than `PolicyException` objects, after hitting a confirmed open
+Kyverno bug ([kyverno/kyverno#12888](https://github.com/kyverno/kyverno/issues/12888)) where a
+`podSecurity` PolicyException can't suppress a pod-level (not container-scoped) violation, and
+separately, Kyverno's autogen mechanism validating a DaemonSet's embedded pod template as a
+second, independent admission check that a Pod-only PolicyException never reaches. The second
+Phase 4 deliverable — API audit logging shipping, not just an audit policy writing to a file no
+one reads — needed Alloy switched from a single Deployment to a DaemonSet pinned to the
+control-plane node (the audit log is a *file*, not container stdout, so the existing
+`loki.source.kubernetes` collection path structurally can't see it), an explicit
+`machine.kubelet.extraMounts` bind for the same "Talos's kubelet runs in an isolated mount
+namespace" reason Phase 3's `local` PV type needed one, and a 10MB `max_line_size` bump on Loki
+after its 256KB default silently dropped `RequestResponse`-level audit entries — exactly the
+secrets/RBAC-change entries build-spec §4 asks this audit policy to capture, which would have
+made "shipping" true in name only. Recreating already-running pods to pick up config changes
+surfaced two more grandfathered PSS gaps (Alloy, Loki) that predated Kyverno's admission
+enforcement and had simply never been re-validated — found and fixed the same way as Phase 3's
+canary/drill-workflow gaps, by checking directly rather than assuming "already Running" meant
+"compliant." Evidence:
+[`docs/evidence/samples/kyverno-admission-20260728202845.txt`](docs/evidence/samples/kyverno-admission-20260728202845.txt).
 
 Phases 5–9 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
 milestone.

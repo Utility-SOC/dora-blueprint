@@ -1,0 +1,97 @@
+# Executes drills/scenarios/ns-restore.yaml. Single bash step, not multiple Argo
+# steps/DAG nodes — the logic is sequential and each stage needs the previous
+# stage's captured values (backup name, restore namespace, baseline counter), which
+# is simpler as script variables than as Argo output-parameter plumbing between
+# steps for a first scenario. bitnami/kubectl only — no python in this image; the
+# hash-chain check runs where python already lives, inside the canary pods
+# themselves, via `kubectl exec`.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: ns-restore
+  namespace: argo-workflows
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: run
+  templates:
+    - name: run
+      container:
+        image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
+        command: ["bash", "-ceu"]
+        args:
+          - |
+            DRILL_ID="ns-restore-$(date -u +%Y%m%d%H%M%S)"
+            T_INJECT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            GIT_SHA="{{workflow.parameters.git-sha}}"
+
+            echo "[$DRILL_ID] capturing baseline from the live canary"
+            CANARY_POD="$(kubectl -n canary get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
+            MAX_BEFORE="$(kubectl -n canary exec "$CANARY_POD" -- python3 /scripts/verify.py --field max_counter)"
+
+            echo "[$DRILL_ID] finding most recent completed backup of canary"
+            BACKUP_NAME="$(kubectl -n velero get backups.velero.io \
+              -o jsonpath='{range .items[?(@.status.phase=="Completed")]}{.metadata.creationTimestamp}{" "}{.metadata.name}{"\n"}{end}' \
+              | sort | tail -1 | awk '{print $2}')"
+            if [ -z "$BACKUP_NAME" ]; then
+              echo "no completed backup found for canary — the hourly Schedule hasn't fired yet" >&2
+              exit 1
+            fi
+            echo "[$DRILL_ID] using backup: $BACKUP_NAME"
+
+            echo "[$DRILL_ID] t_inject=$T_INJECT — deleting namespace canary (fault injection)"
+            kubectl delete namespace canary --wait=true --timeout=120s
+
+            RESTORE_NS="canary-restored-$(date -u +%Y%m%d%H%M%S)"
+            RESTORE_NAME="${DRILL_ID}-restore"
+            cat <<EOF | kubectl apply -f -
+            apiVersion: velero.io/v1
+            kind: Restore
+            metadata:
+              name: ${RESTORE_NAME}
+              namespace: velero
+            spec:
+              backupName: ${BACKUP_NAME}
+              includedNamespaces:
+                - canary
+              namespaceMapping:
+                canary: ${RESTORE_NS}
+            EOF
+
+            echo "[$DRILL_ID] waiting for restore into $RESTORE_NS"
+            while true; do
+              PHASE="$(kubectl -n velero get restore "$RESTORE_NAME" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+              case "$PHASE" in
+                Completed) break ;;
+                PartiallyFailed|Failed)
+                  echo "restore $RESTORE_NAME ended in $PHASE" >&2
+                  exit 1
+                  ;;
+              esac
+              sleep 5
+            done
+
+            echo "[$DRILL_ID] waiting for the restored canary-writer to report Ready"
+            kubectl -n "$RESTORE_NS" wait --for=condition=Ready pod -l app=canary-writer --timeout=180s
+            T_RECOVER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            RESTORED_POD="$(kubectl -n "$RESTORE_NS" get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
+            INTEGRITY="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3 /scripts/verify.py --field integrity_check)"
+            MAX_AFTER="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3 /scripts/verify.py --field max_counter)"
+            T_VERIFY="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            RTO=$(( $(date -u -d "$T_RECOVER" +%s) - $(date -u -d "$T_INJECT" +%s) ))
+            RPO_RECORDS=$(( MAX_BEFORE - MAX_AFTER ))
+            if [ "$INTEGRITY" = "pass" ]; then VERDICT="pass"; else VERDICT="fail"; fi
+
+            echo "[$DRILL_ID] emitting drill record"
+            cat <<EOF
+            {"drill_id":"${DRILL_ID}","scenario":"ns-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","restored namespace: ${RESTORE_NS}"]}
+            EOF
+
+            echo "RESULT_RTO_SECONDS=${RTO}"
+            echo "RESULT_RPO_RECORDS_LOST=${RPO_RECORDS}"
+            echo "RESULT_VERDICT=${VERDICT}"
+  arguments:
+    parameters:
+      - name: git-sha
+        value: "unknown"

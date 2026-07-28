@@ -1,0 +1,36 @@
+# Supplemental to argo-workflows' own chart-managed RBAC (scoped to the
+# argo-workflows namespace only, per apps/argo-workflows.yaml). The ns-restore
+# scenario needs cluster-scoped namespace delete/create, cross-namespace pod
+# exec (to run canary/verify.py inside whichever pod currently has the data),
+# and Velero's Backup/Restore CRDs — none of which a workflow-execution SA gets
+# by default, deliberately, since most workflows shouldn't have this reach.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argo-workflow-drill-runner
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+  - apiGroups: ["velero.io"]
+    resources: ["backups", "restores"]
+    verbs: ["get", "list", "watch", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argo-workflow-drill-runner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: argo-workflow-drill-runner
+subjects:
+  - kind: ServiceAccount
+    name: argo-workflow
+    namespace: argo-workflows

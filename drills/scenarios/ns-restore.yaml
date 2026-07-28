@@ -1,0 +1,18 @@
+# ScenarioSpec — build-spec §6.3 scenario 2. Metadata only; drills/templates/ has the
+# executable WorkflowTemplate. Kept separate so the "what is this drill and why" is
+# readable without wading through Argo's step syntax.
+name: ns-restore
+description: >
+  Deletes the canary namespace outright, then restores from the most recent Velero
+  backup into a freshly named namespace — never in place, per build-spec §6.3
+  ("restoring in place proves nothing"). RPO is the exact record count written to
+  the canary between that backup and the fault; RTO is inject-to-first-passing-probe.
+target_rto_seconds: 300
+target_rpo_seconds: 3600
+controls:
+  - DORA-Art11
+  - DORA-Art12
+  - NIS2-21.2.c
+  - ISO-A.8.13
+  - ISO-A.5.29
+workflow_template: ns-restore

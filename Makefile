@@ -13,7 +13,8 @@ lab-dr:
 	@echo "lab-dr: not implemented yet (build-spec Phase 8+, out of Phase 3 milestone scope)"; exit 1
 
 drill:
-	@echo "drill: not implemented yet (build-spec Phase 2/3, needs SCENARIO=<name>)"; exit 1
+	@test -n "$(SCENARIO)" || { echo "usage: make drill SCENARIO=<name>"; exit 1; }
+	@SCENARIO=$(SCENARIO) bash drills/lib/run-drill.sh
 
 evidence:
 	@echo "evidence: not implemented yet (build-spec Phase 8)"; exit 1

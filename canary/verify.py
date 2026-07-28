@@ -22,6 +22,10 @@ def row_hash(counter: int, ts: str, prev_hash: str) -> str:
 
 
 def main() -> int:
+    field = None
+    if len(sys.argv) > 1 and sys.argv[1] == "--field":
+        field = sys.argv[2]
+
     conn = sqlite3.connect(DB_PATH)
     rows = conn.execute("SELECT counter, ts, prev_hash, hash FROM canary ORDER BY counter ASC").fetchall()
 
@@ -52,7 +56,12 @@ def main() -> int:
     if result["errors"]:
         result["integrity_check"] = "fail"
 
-    print(json.dumps(result))
+    if field:
+        # Bash-orchestrated callers (drills/scenarios) shell out via `kubectl exec`
+        # and don't want to parse JSON on the other side of that pipe.
+        print(result.get(field, ""))
+    else:
+        print(json.dumps(result))
     return 0 if result["integrity_check"] == "pass" else 1
 
 

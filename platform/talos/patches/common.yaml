@@ -13,6 +13,21 @@ cluster:
       # (and everything after it) once the cluster already has pod networking.
       name: none
 machine:
+  kubelet:
+    # Talos runs kubelet in its own isolated container — plain `hostPath` volumes
+    # (local-path-provisioner's PVs) get broad enough default access to work
+    # unprompted, but the `local` PV type's own kubelet volume plugin does its own
+    # path visibility check and fails closed ("path ... does not exist") without an
+    # explicit bind-mount, confirmed against openebs/dynamic-localpv-provisioner's
+    # own Talos install docs, which name this exact path as the required mount.
+    extraMounts:
+      - destination: /var/openebs/local
+        type: bind
+        source: /var/openebs/local
+        options:
+          - rbind
+          - rshared
+          - rw
   time:
     disabled: false
     servers:

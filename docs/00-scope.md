@@ -1,15 +1,31 @@
 # Scope
 
 This document is written before any infrastructure code, per the build spec. It defines the
-notional entity the lab pretends to protect, and settles the regulatory boundary questions that
-would otherwise get decided implicitly (and inconsistently) file by file.
+platform this lab builds and the notional tenant it's exercised against, and settles the
+regulatory boundary questions that would otherwise get decided implicitly (and inconsistently)
+file by file. As of Phase 5, this document describes a platform/landing-zone that regulated
+tenant applications are onboarded onto, with "Meridian Pay" as its first — and currently only —
+example tenant, not the sole subject of the repo.
 
-## 0.1 The notional entity
+## 0.1 The platform and its example tenant
+
+### 0.1.1 The platform
+
+This repository is a shared, GitOps-managed control plane — network policy, admission control,
+backup/restore, vulnerability scanning, runtime detection, a log/evidence pipeline, and the drill
+framework itself — meant to host one or more regulated tenant workloads inside a common
+compliance envelope. Exactly one tenant is onboarded today, and onboarding is manual and
+reference-architecture-only: there is no automated mechanism for adding a second tenant, and none
+is currently planned (see `docs/04-limitations.md`). The distinction between what's a platform-wide
+mechanism versus what's specific to the one onboarded tenant is spelled out in §0.6 below.
+
+### 0.1.2 The example tenant: Meridian Pay
 
 **"Meridian Pay"** — a mid-sized, EU-authorised **payment institution** under PSD2, licensed in
 Ireland, passporting services into 11 other EU member states. It provides payment initiation,
 account information, and card-issuing processing to ~2,400 SME merchants, processing roughly
-40 million transactions/year. ~180 staff, no group/parent entity, no banking licence.
+40 million transactions/year. ~180 staff, no group/parent entity, no banking licence. This is the
+platform's first — and currently only — onboarded tenant.
 
 This profile is chosen deliberately over a bank or a large payment group:
 
@@ -21,7 +37,7 @@ This profile is chosen deliberately over a bank or a large payment group:
   large that "proportionality" becomes a non-issue — proportionality is a real, cited feature of
   both regimes and the entity should be a genuine test of it, not a strawman.
 
-## 0.2 DORA is lex specialis to NIS2 for this entity
+## 0.2 DORA is lex specialis to NIS2 for financial-sector tenants of this kind
 
 NIS2 Art. 4 provides that where sector-specific Union legal acts require essential or important
 entities to adopt cybersecurity risk-management measures or to notify incidents, and those
@@ -31,7 +47,7 @@ sector-specific act applies instead. DORA Chapter II (ICT risk management), Chap
 explicitly identified as such a regime for the financial sector (DORA Art. 1(2), and recital
 28 of DORA / recital 28 of NIS2).
 
-**Consequence for this lab:** Meridian Pay's ICT risk management, incident classification and
+**Consequence for this tenant:** Meridian Pay's ICT risk management, incident classification and
 reporting, resilience testing, and third-party risk management are governed by **DORA**, not
 by NIS2's equivalent articles. NIS2 obligations that are *not* displaced (e.g. registration
 duties, cooperation with national authorities on matters DORA doesn't cover) are out of scope
@@ -43,7 +59,7 @@ side rather than picking one: the *displacement* is the interesting fact, and th
 computes both regulatory clocks (§0.4) specifically to make the divergence visible rather than
 asserting it in prose.
 
-## 0.3 DORA Art. 16 simplified framework — does not apply
+## 0.3 DORA Art. 16 simplified framework — a per-tenant determination
 
 DORA Art. 16(1) lists the entities eligible for the simplified ICT risk-management framework:
 small and non-interconnected investment firms, payment institutions **exempted** under PSD2
@@ -52,15 +68,23 @@ institutions **exempted** under EMD2 Art. 9(1), and small entities as defined by
 Commission Recommendation on micro, small and medium-sized enterprises, *unless* they are
 already excluded from DORA's scope entirely.
 
-Meridian Pay is deliberately modelled as a **fully authorised** PSD2 payment institution, not
-one operating under the Art. 32(1) waiver (that waiver is only available to very small payment
-institutions below strict turnover thresholds, and it would exempt the entity from PSD2
-authorisation itself, not just simplify DORA). At ~40M transactions/year and 11-country
-passporting, Meridian Pay would not qualify for the waiver in the first place.
+Art. 16 eligibility is a **per-tenant determination** — the platform itself does not adjudicate
+or special-case it; it's a fact about each onboarded tenant's specific size and authorisation
+status, not something the shared infrastructure can decide on a tenant's behalf.
 
-**Consequence:** Meridian Pay is subject to the **full** DORA ICT risk-management framework
-(Art. 5–15), not the simplified one. This is the harder, more interesting case, and it's the
-one that exercises every row of the control matrix rather than a subset.
+Meridian Pay, the platform's example tenant, is deliberately modelled as a **fully authorised**
+PSD2 payment institution, not one operating under the Art. 32(1) waiver (that waiver is only
+available to very small payment institutions below strict turnover thresholds, and it would
+exempt the entity from PSD2 authorisation itself, not just simplify DORA). At ~40M
+transactions/year and 11-country passporting, Meridian Pay would not qualify for the waiver in
+the first place.
+
+**Consequence for this tenant:** Meridian Pay is subject to the **full** DORA ICT
+risk-management framework (Art. 5–15), not the simplified one. This is the harder, more
+interesting case, and it's the one that exercises every row of the control matrix rather than a
+subset. A differently-profiled tenant (small, genuinely Art. 32(1)-exempted) would take the
+simplified path instead — nothing in this repository currently special-cases that path; see
+`docs/04-limitations.md`.
 
 ## 0.4 Reporting clocks — both computed, divergence surfaced
 
@@ -89,11 +113,33 @@ acceptance process, no HR/supplier-contract lifecycle. `docs/02-statement-of-app
 states explicitly which Annex A controls are addressed and marks the rest "not implemented —
 lab scope."
 
-## 0.6 What "compliant" does not mean here
+## 0.6 Platform controls vs. tenant-specific artifacts
+
+Since §0.1 splits this repository into a shared platform and the tenants onboarded onto it, it's
+worth being explicit about which mechanisms are which:
+
+**Platform-level** (shared, apply regardless of how many tenants are onboarded):
+- Cilium default-deny network policy plus explicit allows
+- Kyverno PSS `restricted` enforcement, and (once built) supply-chain `verifyImages` policies
+- Trivy continuous vulnerability scanning (once built)
+- Velero's backup mechanism and scheduling infrastructure
+- Tetragon/runtime detection rules (once built)
+- The Loki/Alloy log pipeline and any detection rules built on it
+- The drill/evidence framework itself (`drills/lib/`, the record schema, the emitter)
+
+**Tenant-level** (declared per onboarded tenant; exactly one instance exists today):
+- The tenant's namespace(s)
+- The tenant's specific Velero Schedule target
+- The tenant's DORA Art. 18 classification inputs (client counts, economic impact — already
+  flagged as synthetic in `docs/04-limitations.md`)
+- The tenant's DORA Art. 16 eligibility determination (§0.3)
+- The tenant's Register of Information entries (once built)
+
+## 0.7 What "compliant" does not mean here
 
 Restated from the build spec §0, because it belongs in the scope document too:
 
-- Running this repository does not make Meridian Pay, or anyone else, DORA/NIS2/ISO 27001
+- Running this repository does not make Meridian Pay, or any other tenant, DORA/NIS2/ISO 27001
   compliant. DORA and NIS2 are obligations on regulated *entities*; ISO 27001 certifies an
   *organisation's management system* following an external audit. A GitOps repo can implement
   controls and produce evidence; it cannot be audited, cannot hold a certificate, and has no
@@ -101,8 +147,13 @@ Restated from the build spec §0, because it belongs in the scope document too:
 - Every claim in this repository's README and docs is a claim about **what the code in this
   repository does**, not about the compliance status of any real organisation.
 
-## 0.7 Open items carried to later docs
+## 0.8 Open items carried to later docs
 
 - `docs/01-risk-assessment.md` — Meridian Pay's notional risk register (Phase 0/1 follow-on).
+  When written, should carry the platform/tenant distinction from §0.6 forward — this is a
+  tenant-level artifact, not a platform-level one.
 - `docs/02-statement-of-applicability.md` — full Annex A applicability table.
 - `docs/04-limitations.md` — stated limitations (build spec §11), written alongside this file.
+- Automated multi-tenant onboarding is an explicit non-goal for now — this platform demonstrates
+  the pattern with one worked example (reference architecture), not a mechanism for provisioning
+  more tenants.

@@ -65,7 +65,7 @@ An earlier draft of this architecture (LLM-generated, not to be reused) containe
 
 Write `docs/00-scope.md` before writing code.
 
-- **Notional entity:** a small-to-medium EU payment institution. Pick this explicitly; proportionality is a real feature of both regimes.
+- **Notional entity:** a small-to-medium EU payment institution. Pick this explicitly; proportionality is a real feature of both regimes. As of Phase 5, this entity is modeled as one example tenant onboarded onto a shared platform/landing-zone, not the sole subject of the repo — see `docs/00-scope.md` §0.6 for the full platform-vs-tenant distinction.
 - **DORA is *lex specialis* to NIS2** for financial entities (NIS2 Art. 4) — DORA's ICT requirements displace the NIS2 equivalents rather than stacking. State this. It is a strong signal that the primary sources were read.
 - Note DORA Art. 16's simplified framework for smaller entities and state whether the notional entity falls under it.
 - ISO 27001: the standard is Clauses 4–10 (the ISMS). Annex A is a control menu. The repo implements *some Annex A controls*; it does not implement an ISMS. The Statement of Applicability makes this distinction visible.
@@ -384,13 +384,31 @@ Do not build breadth-first. Get one drill measuring one number end to end before
 | 2 | Canary workload + drill record schema + emitter + log sink | Canary writes, hash chain verifies |
 | 3 | Velero + MinIO + **scenario 2** (namespace delete → restore) | `make drill SCENARIO=ns-restore` prints a measured RTO **and** RPO |
 | 4 | Kyverno policies + exceptions + audit→enforce plan; API audit logging shipping | A privileged pod is denied; the agent exception is documented |
-| 5 | Scenarios 1, 3, 4, 5; RTO/RPO trend dashboard | Drill history chartable |
-| 6 | Supply chain: apko images, cosign, `verifyImages`, generated RoI | Unsigned image is rejected at admission |
-| 7 | Incident response: classification, clocks, GitHub issue automation, runbooks | Drill opens an issue with both deadlines computed |
-| 8 | Scenarios 6–9; kube-bench; evidence report generator | `make evidence` produces the report |
-| 9 | README polish, asciinema, screenshots, `bare-metal/` Ansible alternative | A stranger can run it |
+| 5 | Platform/landing-zone generalization — `docs/00-scope.md` reframed from single-entity to platform+tenant | Docs are internally consistent; no stale single-tenant claims remain |
+| 6 | PKI foundation: offline Root CA signs an Intermediate CA; cert-manager `ca`-type `ClusterIssuer` issues real leaf certs | Services serve real, cert-manager-issued TLS, verified via the certificate's issuer chain |
+| 7 | IAM: Keycloak (+ LDAP federation), platform services switched from local admin accounts to OIDC SSO, real RBAC demonstrated | Login goes through Keycloak, not a local password; RBAC roles are actually enforced |
+| 8 | Detection layer: alerting rules firing on defined conditions; `t_detect` wired into the drill record schema/emitter for the first time | A drill run produces a real, non-null `t_detect` |
+| 9 | Scenarios 1, 3, 4, 5; RTO/RPO trend dashboard | Drill history chartable |
+| 10 | Incident response: classification, clocks (fed by real `t_detect`), GitHub issue automation, runbooks | Drill opens an issue with both deadlines computed from real timestamps |
+| 11 | Supply chain: apko images, cosign, `verifyImages`, generated RoI | Unsigned image is rejected at admission |
+| 12 | Endpoint runtime security; scenario 8 (credential compromise → shell spawn → runtime detection) | Alert reaches the correct runbook within the drill's own measured N seconds |
+| 13 | Scenarios 6, 7, 9; kube-bench; evidence report generator | `make evidence` produces the report |
+| 14 | README polish, asciinema, screenshots, `bare-metal/` Ansible alternative | A stranger can run it |
 
 **Phase 3 is the milestone that matters.** Once one drill produces one honestly measured RTO and RPO, the project's thesis is proven and everything after is expansion.
+
+**Phases 5–14, revised (build-spec originally specified 5–9):** Phase 4's completion surfaced a
+security-plane scope expansion — SIEM/detection, continuous scanning, endpoint runtime security,
+and (added after a real access-management bug: an auto-generated credential silently changed
+between two GitOps syncs) IAM and PKI. Access management had zero control-matrix representation
+and was judged more foundational than SIEM/scanning/endpoint, which still route through
+individually-fragile logins without it — so PKI (6) and IAM (7) were inserted directly after the
+platform/tenant reframing (5), ahead of everything else, bumping the original Phase 5–9 content to
+9–14. The original "Phase 6" (supply chain) also split into scanning (folded into the detection
+work) and build-time signing (now Phase 11) — runtime vulnerability scanning and build-time
+provenance are different concerns at very different effort levels, not one deliverable. Phase 10
+(incident response) now has a hard dependency on Phase 8's `t_detect` that didn't exist in the
+original ordering, where incident response preceded a detection layer that was never built.
 
 ---
 

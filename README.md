@@ -1,7 +1,9 @@
 # elastic-dora-blueprint
 
 A GitOps Kubernetes reference architecture demonstrating DORA, NIS2, and ISO 27001 controls,
-with automated recovery drills that emit measured evidence.
+with automated recovery drills that emit measured evidence. As of Phase 5, this is framed as a
+security control plane / landing zone that a regulated tenant application is onboarded onto —
+see `docs/00-scope.md` §0.1 for the platform-vs-tenant distinction.
 
 > Most compliance repos assert their recovery objectives. This one measures them, on a
 > schedule, and stores the results as tamper-evident evidence mapped to specific regulatory
@@ -16,8 +18,8 @@ NIS2 apply to regulated entities, not repositories. See `docs/00-scope.md` and
 namespace, restores it from a real Velero backup into a freshly-named namespace, and prints a
 *measured* RTO and RPO — not asserted numbers. Sample record:
 [`docs/evidence/samples/ns-restore-20260728152755.json`](docs/evidence/samples/ns-restore-20260728152755.json)
-(RTO 110s, RPO 71 records, hash-chain `integrity_check: pass`). Asciinema recording and RTO/RPO
-trend chart across multiple runs are still outstanding — see Phase 8/9.
+(RTO 110s, RPO 71 records, hash-chain `integrity_check: pass`). RTO/RPO trend chart across
+multiple runs is Phase 9; asciinema recording is Phase 14 — both still outstanding.
 
 ## Tiers
 
@@ -39,9 +41,11 @@ make drill SCENARIO=ns-restore
 
 ## Build order and status
 
-This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **5**.
+This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **6**.
 Phase 3 was the milestone the build spec names as the point the project's thesis is proven —
-everything after this is expansion, not proof of concept.
+everything after this is expansion, not proof of concept. The build order past Phase 4 was
+revised once a security-plane scope expansion (SIEM/detection, scanning, endpoint, IAM/PKI)
+surfaced — see `BUILD-SPEC.md` §12's note on the revision for the full rationale.
 
 | Phase | Deliverable | Done when | Status |
 |---|---|---|---|
@@ -50,6 +54,7 @@ everything after this is expansion, not proof of concept.
 | 2 | Canary workload + drill record schema + emitter + log sink | Canary writes, hash chain verifies | done |
 | 3 | Velero + MinIO + scenario 2 (namespace delete → restore) | `make drill SCENARIO=ns-restore` prints measured RTO and RPO | done |
 | 4 | Kyverno policies + exceptions + audit→enforce plan; API audit logging shipping | A privileged pod is denied; the agent exception is documented | done |
+| 5 | Platform/landing-zone generalization — `docs/00-scope.md` reframed from single-entity to platform+tenant | Docs are internally consistent; no stale single-tenant claims remain | done |
 
 Phase 1 notes: `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner,
 k8s v1.36.2), Cilium v1.19.6, and Argo CD v3.4.5, with a scoped AppProject and a working
@@ -128,12 +133,23 @@ all), fixed with `executor.securityContext` in `apps/argo-workflows.yaml`. Third
 `pass`, RTO 147s, integrity check passed —
 [`docs/evidence/samples/ns-restore-20260728204154.json`](docs/evidence/samples/ns-restore-20260728204154.json).
 
-Phases 5–9 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
+Phase 5 notes: docs-only — restructured `docs/00-scope.md` from a single "Meridian Pay is the
+lab" framing into a platform/tenant model (§0.1 splits into "the platform" and "its example
+tenant"; new §0.6 lists which mechanisms are platform-level versus tenant-specific), updated
+`docs/03-control-matrix.md`'s reading notes and every `not yet generated` phase marker to match
+the renumbered build order, and rewrote `BUILD-SPEC.md` §12's table. This phase touches no
+cluster-facing files, so unlike every phase before it there's no "real bug found by running it"
+moment to report — the equivalent discipline was a proofreading/consistency pass: grepping for
+stale single-tenant claims, cross-checking phase-number references across all four documents, and
+re-reading every new sentence against build-spec §13's "does this assert a capability that
+exists?" question, rather than trusting a runtime check that doesn't apply here.
+
+Phases 6–14 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
 milestone.
 
 ## Docs
 
-- [`docs/00-scope.md`](docs/00-scope.md) — notional entity, lex specialis reasoning, DORA Art. 16 analysis
+- [`docs/00-scope.md`](docs/00-scope.md) — platform/tenant framing, lex specialis reasoning, per-tenant DORA Art. 16 analysis
 - [`docs/03-control-matrix.md`](docs/03-control-matrix.md) — control traceability, the front-door artifact
 - [`docs/04-limitations.md`](docs/04-limitations.md) — what this lab cannot demonstrate, and why
 - [`BUILD-SPEC.md`](BUILD-SPEC.md) — the full build specification this repo follows

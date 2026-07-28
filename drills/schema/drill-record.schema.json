@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/utility-soc/elastic-dora-blueprint/drills/schema/drill-record.schema.json",
+  "title": "Drill record",
+  "description": "One flat JSON document per drill (build-spec §6.6). Deliberately boring: every field is either a measurement or a reference to one, never an assertion typed by a human at drill time.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "drill_id",
+    "scenario",
+    "git_sha",
+    "cluster_profile",
+    "controls",
+    "verdict",
+    "integrity_check",
+    "t_inject",
+    "t_recover"
+  ],
+  "properties": {
+    "drill_id": {
+      "type": "string",
+      "description": "e.g. 2026-07-27-etcd-loss-004"
+    },
+    "scenario": {
+      "type": "string",
+      "description": "Matches a file under drills/scenarios/"
+    },
+    "git_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "cluster_profile": {
+      "type": "string",
+      "enum": ["core", "full", "dr"]
+    },
+    "controls": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Article/control IDs this drill produces evidence for, e.g. DORA-Art11"
+    },
+    "target_rto_seconds": { "type": "integer", "minimum": 0 },
+    "target_rpo_seconds": { "type": "integer", "minimum": 0 },
+    "measured_rto_seconds": { "type": "integer", "minimum": 0 },
+    "measured_rpo_seconds": { "type": "integer", "minimum": 0 },
+    "measured_rpo_records_lost": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "max(counter) before fault - max(counter) after restore, from the canary"
+    },
+    "integrity_check": { "type": "string", "enum": ["pass", "fail"] },
+    "verdict": { "type": "string", "enum": ["pass", "fail", "timeout"] },
+    "classification": { "type": "string", "enum": ["major", "non-major"] },
+    "classification_criteria_tripped": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Which DORA Art. 18 RTS criteria tripped, from drills/lib/classify.py"
+    },
+    "manual_runbook_steps_required": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Honest count of steps this drill could not automate — build-spec §6.6"
+    },
+    "t_inject": { "type": "string", "format": "date-time" },
+    "t_detect": { "type": "string", "format": "date-time" },
+    "t_classify": { "type": "string", "format": "date-time" },
+    "t_notify_due_dora": {
+      "type": "string",
+      "format": "date-time",
+      "description": "t_classify + 4h, capped at t_detect + 24h — build-spec §6.4/§0.4"
+    },
+    "t_notify_due_nis2": {
+      "type": "string",
+      "format": "date-time",
+      "description": "t_detect + 24h — build-spec §6.4/§0.4"
+    },
+    "t_recover": { "type": "string", "format": "date-time" },
+    "t_verify": { "type": "string", "format": "date-time" },
+    "artifacts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Paths/URIs to supporting evidence, e.g. s3://drills/<id>/velero.log"
+    }
+  }
+}

@@ -10,8 +10,11 @@ spec:
   description: "Resilience Lab platform components"
   sourceRepos:
     - git@github.com:utility-soc/elastic-dora-blueprint.git
+    - https://grafana.github.io/helm-charts
   destinations:
     - namespace: argocd
+      server: https://kubernetes.default.svc
+    - namespace: local-path-storage
       server: https://kubernetes.default.svc
     - namespace: cert-manager
       server: https://kubernetes.default.svc

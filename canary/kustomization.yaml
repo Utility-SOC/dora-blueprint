@@ -1,0 +1,9 @@
+resources:
+  - pvc.yaml
+  - deployment.yaml
+
+configMapGenerator:
+  - name: canary-scripts
+    files:
+      - writer.py
+      - verify.py

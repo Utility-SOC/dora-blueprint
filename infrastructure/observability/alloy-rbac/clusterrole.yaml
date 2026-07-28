@@ -1,0 +1,25 @@
+# The Alloy Helm chart's default RBAC (rbac.create=true) covers generic Kubernetes
+# service-discovery (get/list/watch on pods/services/endpoints/nodes) but not the
+# `pods/log` subresource that `loki.source.kubernetes` needs to actually read log
+# content via the API server. Supplied separately rather than assumed from the chart.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: alloy-logs-reader
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "namespaces", "nodes"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: alloy-logs-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: alloy-logs-reader
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: observability

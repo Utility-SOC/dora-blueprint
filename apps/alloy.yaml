@@ -1,0 +1,80 @@
+# Grafana Alloy, not Promtail: Promtail is in maintenance-only mode upstream; Alloy is
+# the current recommended log shipper. Uses `loki.source.kubernetes` (reads pod logs
+# via the API server's pods/log subresource) rather than tailing host log files —
+# sidesteps the build-spec §2-flagged "/var/lib/docker/containers doesn't exist on
+# Talos" class of problem entirely, since it never looks at the node filesystem.
+# Multi-source: the chart itself, plus the supplemental ClusterRole (chart's default
+# RBAC doesn't include pods/log — see infrastructure/observability/alloy-rbac/).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: platform
+  sources:
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.11.0
+      helm:
+        releaseName: alloy
+        valuesObject:
+          controller:
+            type: deployment
+            replicas: 1
+          alloy:
+            configMap:
+              create: true
+              content: |
+                discovery.kubernetes "pods" {
+                  role = "pod"
+                }
+
+                discovery.relabel "pod_logs" {
+                  targets = discovery.kubernetes.pods.targets
+
+                  rule {
+                    source_labels = ["__meta_kubernetes_pod_node_name"]
+                    target_label  = "node"
+                  }
+
+                  rule {
+                    source_labels = ["__meta_kubernetes_namespace"]
+                    target_label  = "namespace"
+                  }
+
+                  rule {
+                    source_labels = ["__meta_kubernetes_pod_name"]
+                    target_label  = "pod"
+                  }
+
+                  rule {
+                    source_labels = ["__meta_kubernetes_pod_container_name"]
+                    target_label  = "container"
+                  }
+                }
+
+                loki.source.kubernetes "pod_logs" {
+                  targets    = discovery.relabel.pod_logs.output
+                  forward_to = [loki.write.loki.receiver]
+                }
+
+                loki.write "loki" {
+                  endpoint {
+                    url = "http://loki-gateway.observability.svc.cluster.local/loki/api/v1/push"
+                  }
+                }
+    - repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+      targetRevision: master
+      path: infrastructure/observability/alloy-rbac
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

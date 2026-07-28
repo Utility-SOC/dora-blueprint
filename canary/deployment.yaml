@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: canary-writer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: canary-writer
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: canary-writer
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+      containers:
+        - name: writer
+          image: python:3.13-slim@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91
+          command: ["python3", "/scripts/writer.py"]
+          env:
+            - name: CANARY_DB_PATH
+              value: /data/canary.db
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+      volumes:
+        - name: scripts
+          configMap:
+            name: canary-scripts
+        - name: data
+          persistentVolumeClaim:
+            claimName: canary-data
+        - name: tmp
+          emptyDir: {}

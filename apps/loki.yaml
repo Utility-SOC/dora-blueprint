@@ -21,6 +21,21 @@ spec:
         deploymentMode: SingleBinary
         loki:
           auth_enabled: false
+          # Grandfathered gap, found only once loki-0 was actually recreated (the
+          # max_line_size config change below triggered its first restart since Kyverno
+          # went live in Phase 4): the chart's own podSecurityContext/
+          # containerSecurityContext defaults already cover every other restricted
+          # control (non-root uid 10001, no privilege escalation, capabilities dropped,
+          # read-only root filesystem) except seccompProfile, which it never sets. Kyverno
+          # denied the pod outright — 'spec.containers[0/1].securityContext.seccompProfile.type:
+          # Required value' — the same class of gap already found and fixed for
+          # canary-writer and the drill workflow pod before Kyverno went to Enforce, just
+          # missed here because this pod hadn't been recreated since. Setting it at the pod
+          # level (deep-merges with the chart's own podSecurityContext defaults, doesn't
+          # replace them).
+          podSecurityContext:
+            seccompProfile:
+              type: RuntimeDefault
           commonConfig:
             replication_factor: 1
           storage:
@@ -49,6 +64,14 @@ spec:
           persistence:
             enabled: true
             size: 5Gi
+        # Same grandfathered seccompProfile gap as loki.podSecurityContext above, found
+        # by checking this pod directly rather than assuming the same fix covered it —
+        # gateway is a separate Deployment with its own podSecurityContext values path,
+        # not templated from the `loki:` block's.
+        gateway:
+          podSecurityContext:
+            seccompProfile:
+              type: RuntimeDefault
         # deploymentMode alone doesn't zero these — the chart's validate.yaml checks
         # actual replica counts, and SimpleScalable's defaults are nonzero regardless
         # of deploymentMode. Setting deploymentMode without this fails the same way.

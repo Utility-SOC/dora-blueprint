@@ -33,3 +33,9 @@ spec:
     - controlName: Capabilities
       images:
         - "*"
+    - controlName: Privilege Escalation
+      images:
+        - "*"
+    - controlName: Seccomp
+      images:
+        - "*"

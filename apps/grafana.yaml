@@ -22,6 +22,18 @@ spec:
         persistence:
           enabled: true
           size: 2Gi
+        # The chart's own defaults (pod securityContext runAsNonRoot/fsGroup 472,
+        # containerSecurityContext dropping all capabilities) are already fully
+        # restricted-compliant. The one gap is initChownData, a helper init container that
+        # chowns the PVC path and needs root+CAP_CHOWN to do it — genuinely incompatible
+        # with restricted, confirmed via a real admission denial. Disabling it rather than
+        # adding a Kyverno exception: fsGroup 472 already makes Kubernetes itself apply the
+        # same ownership at mount time (a modern, more mature mechanism than
+        # initChownData's manual chown, which the chart keeps around mainly for storage
+        # backends predating reliable fsGroup support — not a concern for the
+        # local-path-provisioner-backed PVC here).
+        initChownData:
+          enabled: false
         datasources:
           datasources.yaml:
             apiVersion: 1

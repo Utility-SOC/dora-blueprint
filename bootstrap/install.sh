@@ -115,6 +115,11 @@ echo "==> [7/7] MinIO/Velero credentials"
 # Applications — those sync asynchronously, and this step needs the namespace to exist
 # right now, not eventually.
 kubectl create namespace velero --dry-run=client -o yaml | kubectl apply -f -
+# Velero's node-agent DaemonSet needs hostPath mounts to reach kubelet's pod volumes
+# for File System Backup — the cluster's baseline Pod Security Standard rejects those
+# outright ("forbidden: violates PodSecurity \"baseline:latest\": hostPath volumes"),
+# same class of fix as local-path-storage's namespace label.
+kubectl label namespace velero pod-security.kubernetes.io/enforce=privileged --overwrite
 
 MINIO_CREDS_TMP="$(mktemp)"
 # Replaces (doesn't add to) the earlier SSH_KEY_TMP trap — clean up both here.

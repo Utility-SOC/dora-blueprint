@@ -20,6 +20,13 @@
 # generic non-root default: the audit log is mode 600, owned by uid 65534 (Talos's own
 # choice, confirmed via `stat` through the same docker-volume trick above) — any other
 # non-root UID would mount the volume fine and then fail to read the file inside it.
+# controller.tolerations is required, not optional, despite the nodeSelector alone
+# looking sufficient: the control-plane node carries the standard
+# node-role.kubernetes.io/control-plane:NoSchedule taint, which the old Deployment never
+# had to care about (it could land on any worker). Without the matching toleration the
+# DaemonSet controller excludes that node from its desired-pod count entirely — it
+# doesn't just fail to schedule, `kubectl get daemonset` reports DESIRED=0, which is what
+# actually happened on the first rollout attempt here.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -115,6 +122,9 @@ spec:
           controller:
             nodeSelector:
               node-role.kubernetes.io/control-plane: ""
+            tolerations:
+              - key: node-role.kubernetes.io/control-plane
+                effect: NoSchedule
             volumes:
               extra:
                 - name: kube-audit-log

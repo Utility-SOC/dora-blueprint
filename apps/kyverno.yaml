@@ -20,9 +20,15 @@ spec:
     targetRevision: 3.8.2
     helm:
       valuesObject:
-        policyExceptions:
-          enabled: true
-          namespace: kyverno
+        # Nested under features:, not top-level — a bare top-level policyExceptions:
+        # key is silently ignored by Helm (unknown key, no template references it),
+        # which is exactly what happened here: the value looked applied (no error,
+        # no sync failure) but --enablePolicyException=false stayed the deployed
+        # reality until this was checked directly on the running container's args.
+        features:
+          policyExceptions:
+            enabled: true
+            namespace: kyverno
   destination:
     server: https://kubernetes.default.svc
     namespace: kyverno

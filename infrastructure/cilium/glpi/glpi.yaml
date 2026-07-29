@@ -1,10 +1,18 @@
 # Phase 11 (Incident response): GLPI's own network policy. Ingress explicit-allow list from
 # the start, not left implicitly-unrestricted the way Grafana's was until Phase 9 forced a
 # retrofit -- kubelet host probes (port 80, GLPI's real container port -- confirmed via the
-# Service's own targetPort, same convention as every other namespace in this repo) plus the
-# argo-workflows namespace (the drill's own ticket-creation calls via open-incident.py),
-# explicit namespace label from the start (this exact cross-namespace-matchLabels mistake has
-# recurred enough times elsewhere in this repo to get it right here without a first attempt).
+# Service's own targetPort, same convention as every other namespace in this repo).
+#
+# CORRECTION: the argo-workflows rule below was written assuming open-incident.py's ticket
+# calls would run inside the workflow pod, mirroring Phase 9's Grafana-detection-poll pattern.
+# Confirmed live that assumption was wrong: open-incident.py (like enrich.py) runs host-side,
+# invoked by run-drill.sh on appserv *after* the workflow finishes, and reaches GLPI via the
+# same LAN port-forward address a human uses (which bypasses Cilium entirely, confirmed
+# repeatedly elsewhere in this repo) -- so this rule currently allows traffic that never
+# actually occurs. Left in place anyway: it still closes a real ingress gap (matching Grafana's
+# own Phase 9 reasoning) and is the correct rule if ticket-creation is ever moved in-cluster --
+# harmless over-permissiveness in the "allow" direction, not a security regression, but flagged
+# here rather than silently claimed as exercised.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:

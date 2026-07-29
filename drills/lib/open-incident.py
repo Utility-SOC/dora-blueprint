@@ -17,6 +17,17 @@ user_token ..., not a live password) returns a short-lived Session-Token, which 
 authenticates the actual Ticket creation call. Token comes from the GLPI_API_TOKEN environment
 variable, set by run-drill.sh after decrypting infrastructure/glpi/secrets/glpi-api-token.enc.yaml
 -- never passed on the command line (would leak into shell history / process listings).
+
+CAUGHT LIVE: a first attempt used GLPI's in-cluster Service DNS name
+(glpi.glpi.svc.cluster.local), copying Phase 9's Grafana-detection-poll pattern -- but that poll
+runs *inside* the workflow pod (drills/templates/ns-restore-workflowtemplate.yaml's own bash
+script), while this script and enrich.py both run host-side, invoked by run-drill.sh on appserv
+*after* the workflow has already finished. appserv has no route to in-cluster Service DNS at
+all -- confirmed by a real `socket.gaierror: Temporary failure in name resolution` from a live
+drill run, not assumed. Uses the same LAN address a human operator already relies on for every
+other service in this repo (Argo CD, Grafana, Keycloak, Hubble UI) -- consistent with, not a new
+exception to, this repo's existing "reach the cluster via the appserv host" access model
+(docs/06-operations.md), until the jumphost/bastion work replaces it.
 """
 import json
 import os
@@ -24,7 +35,7 @@ import sys
 import urllib.error
 import urllib.request
 
-GLPI_URL = "http://glpi.glpi.svc.cluster.local"
+GLPI_URL = "http://192.168.1.106:9085"
 
 # GLPI urgency scale: 1 (very low) .. 5 (very high). A major incident (real DORA Art. 19
 # notification obligation) gets the same urgency a human triaging it by hand would assign.

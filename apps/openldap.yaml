@@ -1,0 +1,28 @@
+# Phase 8 (IAM): the toy LDAP directory. Bare manifests, not a Helm chart --
+# bitnami/openldap no longer exists in Bitnami's catalog (checked directly), and no other
+# actively maintained free chart was readily available; a bare Deployment/Service/
+# ConfigMap fits this repo's own established pattern for smaller pieces just as well.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: openldap
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: infrastructure/openldap
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: openldap
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

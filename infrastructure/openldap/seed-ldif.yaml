@@ -1,0 +1,55 @@
+# Toy directory seed data — enough to make Phase 8's RBAC "done when" concretely
+# demonstrable (build-spec §12: "a non-admin Keycloak role is denied an action an admin
+# role can perform"), not a synthetic large-scale directory. Two users in two different
+# groups: alice/platform-admins, bob/platform-viewers. Passwords are real, random,
+# SOPS-encrypted alongside every other credential in this repo
+# (infrastructure/keycloak/secrets/iam-secrets.enc.yaml) -- what's committed here is only
+# their one-way {SSHA} hashes (via `slappasswd`), safe to commit the same way a Unix
+# /etc/shadow hash would be.
+#
+# No persistent volume mounted for LDAP data on purpose: osixia/openldap's
+# LDAP_SEED_INTERNAL_LDIF_PATH mechanism only seeds an EMPTY data directory, so every
+# pod restart re-seeds cleanly from this file — the directory's actual state is always
+# exactly what's declared here, no drift possible, matching this repo's GitOps-everything
+# discipline. A real deployment would obviously persist a real directory; this one is a
+# toy federation source, not the thing being protected.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openldap-seed
+  namespace: openldap
+data:
+  01-structure.ldif: |
+    dn: ou=people,dc=platform,dc=local
+    objectClass: organizationalUnit
+    ou: people
+
+    dn: ou=groups,dc=platform,dc=local
+    objectClass: organizationalUnit
+    ou: groups
+  02-users.ldif: |
+    dn: cn=alice,ou=people,dc=platform,dc=local
+    objectClass: inetOrgPerson
+    cn: alice
+    sn: Admin
+    uid: alice
+    mail: alice@platform.local
+    userPassword: {SSHA}cUiNb7eHmiYozeYkjsDmR/VNWlAJ2OFe
+
+    dn: cn=bob,ou=people,dc=platform,dc=local
+    objectClass: inetOrgPerson
+    cn: bob
+    sn: Viewer
+    uid: bob
+    mail: bob@platform.local
+    userPassword: {SSHA}3mKpVHlM5ZtwwKIG5kfI3jaONFUEV0BI
+  03-groups.ldif: |
+    dn: cn=platform-admins,ou=groups,dc=platform,dc=local
+    objectClass: groupOfNames
+    cn: platform-admins
+    member: cn=alice,ou=people,dc=platform,dc=local
+
+    dn: cn=platform-viewers,ou=groups,dc=platform,dc=local
+    objectClass: groupOfNames
+    cn: platform-viewers
+    member: cn=bob,ou=people,dc=platform,dc=local

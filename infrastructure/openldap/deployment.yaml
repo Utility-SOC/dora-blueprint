@@ -1,0 +1,76 @@
+# Toy LDAP directory Keycloak federates from (infrastructure/keycloak/realm-export.yaml) --
+# never exposed to end users or client apps directly, per the locked-in decision from
+# earlier conversation: LDAP is exclusively a Keycloak-to-OpenLDAP conversation.
+#
+# LDAP_ADMIN_PASSWORD sourced from the openldap-admin Secret, created out-of-band by
+# bootstrap/install.sh from infrastructure/keycloak/secrets/iam-secrets.enc.yaml's
+# ldap_bind_password field -- same pattern as every other credential in this repo.
+# LDAP_SEED_INTERNAL_LDIF_PATH points at the mounted seed-ldif.yaml ConfigMap
+# (infrastructure/openldap/seed-ldif.yaml) -- see that file's own comment for why no PVC
+# is mounted here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openldap
+  namespace: openldap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openldap
+  template:
+    metadata:
+      labels:
+        app: openldap
+    spec:
+      containers:
+        - name: openldap
+          image: osixia/openldap:1.5.0
+          args: ["--copy-service"]
+          env:
+            - name: LDAP_ORGANISATION
+              value: "Resilience Lab"
+            - name: LDAP_DOMAIN
+              value: "platform.local"
+            - name: LDAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: openldap-admin
+                  key: password
+            - name: LDAP_SEED_INTERNAL_LDIF_PATH
+              value: /container/service/slapd/assets/config/bootstrap/ldif/custom
+            - name: LDAP_TLS
+              value: "false"
+          ports:
+            - name: ldap
+              containerPort: 389
+          volumeMounts:
+            - name: seed-ldif
+              mountPath: /container/service/slapd/assets/config/bootstrap/ldif/custom
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: seed-ldif
+          configMap:
+            name: openldap-seed
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openldap
+  namespace: openldap
+spec:
+  selector:
+    app: openldap
+  ports:
+    - name: ldap
+      port: 389
+      targetPort: 389

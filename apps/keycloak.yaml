@@ -32,6 +32,20 @@ spec:
     helm:
       valuesObject:
         replicas: 1
+        # The chart's own default securityContext (runAsUser: 1000, runAsNonRoot: true)
+        # is compliant but incomplete -- missing allowPrivilegeEscalation/capabilities/
+        # seccompProfile, caught by a real admission denial (the StatefulSet couldn't
+        # create a single pod, "FailedCreate" x15 over 94s, until this was added).
+        # Unlike OpenLDAP, this image genuinely runs fine fully restricted -- no
+        # Kyverno exception needed here.
+        securityContext:
+          runAsUser: 1000
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
         database:
           vendor: dev-mem
         extraEnv: |

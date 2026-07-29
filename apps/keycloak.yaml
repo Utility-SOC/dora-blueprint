@@ -44,10 +44,13 @@ spec:
                 key: password
           - name: KC_HEALTH_ENABLED
             value: "true"
-        startupProbe:
-          enabled: true
-          periodSeconds: 10
-          failureThreshold: 60
+        # No startupProbe override -- an earlier attempt hand-wrote one as a native YAML
+        # map and hit a real Argo CD sync error ("wrong type for value; expected string;
+        # got map[string]interface {}"): this chart takes several probe/volume-style
+        # values as raw YAML *strings* (same convention as extraEnv/extraVolumes above),
+        # not native maps. Rather than guess the right templated path/port syntax the
+        # chart's own default uses, just keep that default -- it's already a reasonable
+        # 300s startup budget (failureThreshold: 60 x periodSeconds: 5).
   destination:
     server: https://kubernetes.default.svc
     namespace: keycloak

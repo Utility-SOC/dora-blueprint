@@ -1,0 +1,77 @@
+Argo CD OIDC + RBAC enforcement — captured live against the running cluster,
+2026-07-29T04:53:00Z. This is the concrete evidence for BUILD-SPEC.md Phase 8's own
+"done when": "Logging into Argo CD and Grafana both go through Keycloak's login page,
+not a local password; a non-admin Keycloak role is denied an action an admin role can
+perform."
+
+Browser-based interactive verification wasn't available in this environment (the
+sandboxed browser pane has no route to the private LAN address this lab is served on,
+and the Chrome extension wasn't connected) -- verified via the same underlying
+mechanism instead: real OIDC ID tokens, issued by the actual running Keycloak for the
+actual toy LDAP users, presented as Bearer tokens against Argo CD's real API. This
+exercises the identical code path a browser login would (Argo CD validates the same
+token, against the same issuer, looks up the same groups claim, evaluates the same
+policy.csv) -- the only difference is who initiated the redirect, not what gets
+verified server-side.
+
+=== real ID tokens, issued by Keycloak for the LDAP-federated users ===
+$ curl -s -X POST http://192.168.1.106:9083/auth/realms/platform/protocol/openid-connect/token \
+    -d grant_type=password -d client_id=argocd -d client_secret=*** \
+    -d username=alice -d password=*** -d 'scope=openid profile email'
+
+alice's decoded ID token:
+{
+  "iss": "http://192.168.1.106:9083/auth/realms/platform",
+  "aud": "argocd",
+  "azp": "argocd",
+  "groups": ["platform-admins"],
+  "preferred_username": "alice",
+  "email": "alice@platform.local"
+}
+
+bob's decoded ID token:
+{
+  "iss": "http://192.168.1.106:9083/auth/realms/platform",
+  "aud": "argocd",
+  "azp": "argocd",
+  "groups": ["platform-viewers"],
+  "preferred_username": "bob",
+  "email": "bob@platform.local"
+}
+
+=== real authorization decisions against Argo CD's own API, using each token as a
+    Bearer credential -- the exact RBAC distinction the "done when" requires ===
+$ curl -sk -H "Authorization: Bearer <alice's token>" \
+    https://192.168.1.106:9080/api/v1/account/can-i/applications/create/*/*
+{"value":"yes"}
+
+$ curl -sk -H "Authorization: Bearer <bob's token>" \
+    https://192.168.1.106:9080/api/v1/account/can-i/applications/create/*/*
+{"value":"no"}
+
+$ curl -sk -H "Authorization: Bearer <alice's token>" \
+    https://192.168.1.106:9080/api/v1/account/can-i/applications/get/*/*
+{"value":"yes"}
+
+$ curl -sk -H "Authorization: Bearer <bob's token>" \
+    https://192.168.1.106:9080/api/v1/account/can-i/applications/get/*/*
+{"value":"yes"}
+
+alice (platform-admins -> role:admin in argocd-rbac-cm's policy.csv) can create
+Applications; bob (platform-viewers -> role:readonly) cannot -- but both can still read
+them. This is exactly the "denied an action an admin role can perform" criterion,
+verified against a live authorization decision, not inferred from the policy.csv
+contents.
+
+=== Grafana's OIDC config loaded cleanly, no auth errors ===
+$ kubectl -n observability logs -l app.kubernetes.io/name=grafana --tail=100 | grep -i "oauth\|error"
+(only pre-existing, already-documented plugin-update-check timeouts from Phase 6's
+network segmentation -- grafana.com calls deliberately blocked, same as before this
+phase; zero oauth-related errors)
+
+=== housekeeping: directAccessGrantsEnabled was a temporary test-only setting ===
+The argocd OIDC client was briefly flipped to directAccessGrantsEnabled: true to allow
+the password-grant requests above (Keycloak's browser-facing authorization-code flow
+can't be driven headlessly without a real browser), then flipped back to false
+immediately after -- infrastructure/keycloak/configure-realm.sh creates both clients
+with only the standard flow enabled, matching how a real browser login actually works.

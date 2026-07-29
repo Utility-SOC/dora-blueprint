@@ -155,7 +155,13 @@ spec:
             EOF
             )"
             if [ -n "$T_DETECT" ]; then
-              RECORD="$(echo "$RECORD" | jq --arg t "$T_DETECT" '. + {t_detect: $t}')"
+              # -c (compact): run-drill.sh greps this record out of the pod logs by matching a
+              # single line starting with {"drill_id" -- jq's default pretty-print would emit a
+              # lone "{" as the first line and break that match. Caught live: a real drill run
+              # with a real t_detect produced a record grep couldn't find, silently feeding
+              # enrich.py an empty string. The non-detected branch below was already a single
+              # line (the heredoc's own literal, never reformatted) and never had this bug.
+              RECORD="$(echo "$RECORD" | jq -c --arg t "$T_DETECT" '. + {t_detect: $t}')"
             fi
             echo "$RECORD"
 

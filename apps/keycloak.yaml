@@ -32,6 +32,15 @@ spec:
     helm:
       valuesObject:
         replicas: 1
+        # Neither this chart nor the base Keycloak image supplies a default `command`/
+        # `args` that actually starts the server -- confirmed via a real crash loop
+        # where the container just printed kc.sh's own usage/help text and exited.
+        # `start-dev` matches the dev-mem database choice above (auto-enables http,
+        # relaxes hostname/cert requirements) -- the lab-appropriate dev-mode start
+        # command, not `start` (which expects a production-grade config this repo isn't
+        # providing here).
+        args:
+          - "start-dev"
         # The chart's own default securityContext (runAsUser: 1000, runAsNonRoot: true)
         # is compliant but incomplete -- missing allowPrivilegeEscalation/capabilities/
         # seccompProfile, caught by a real admission denial (the StatefulSet couldn't

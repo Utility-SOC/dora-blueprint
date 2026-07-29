@@ -163,6 +163,17 @@ spec:
         # evaluation that observes the event -- this repo's own `t_detect` is defined as "first
         # alert fired," and a longer debounce would inflate the measured detection latency with
         # nothing real behind it.
+        #
+        # CAUGHT LIVE (real drill run): a first attempt used queryType: range for node A, which
+        # returns a full time-series result (one value per 1s step across the 60s window) --
+        # Grafana's threshold expression (node C) can only alert on *reduced* data (a single
+        # scalar), and rejected it every evaluation with "invalid format of evaluation results...
+        # looks like time series data, only reduced data can be alerted on", stuck at
+        # `state: Normal (NoData)` forever. Confirmed via the rule's own
+        # /api/prometheus/grafana/api/v1/rules status, not assumed from a clean provisioning
+        # apply -- a real drill run's detection-poll genuinely timed out because of this before
+        # it was caught. `queryType: instant` makes the Loki query return one reduced value per
+        # evaluation, which is what alerting on a `count_over_time(...)` aggregate actually needs.
         alerting:
           rules.yaml:
             apiVersion: 1
@@ -183,7 +194,7 @@ spec:
                           to: 0
                         model:
                           refId: A
-                          queryType: range
+                          queryType: instant
                           intervalMs: 1000
                           maxDataPoints: 43200
                           expr: 'count_over_time({job="kube-audit"} | json verb=`verb`, res=`objectRef.resource`, objname=`objectRef.name` | verb=`delete` | res=`namespaces` | objname=`canary` [1m])'

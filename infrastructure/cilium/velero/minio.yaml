@@ -1,12 +1,17 @@
-# Ingress includes both hosting-pod kinds by label existence, not name -- the ephemeral
-# kopia FSB hosting pods Velero spins up per backup/restore have unpredictable names
-# (same root cause that forced the Kyverno exception for this namespace to go
+# Ingress includes all three hosting-pod kinds by label existence, not name -- the
+# ephemeral kopia FSB hosting pods Velero spins up per backup/restore have unpredictable
+# names (same root cause that forced the Kyverno exception for this namespace to go
 # namespace-wide back in Phase 4), but they DO carry a stable label *key*
 # (velero.io/pod-volume-backup / velero.io/pod-volume-restore, value = the pod's own
 # name) that a matchExpressions Exists selector catches regardless of the specific
 # value. Confirmed by triggering a real backup and inspecting the live pod's labels
 # before it terminated, not assumed from the Kyverno-era finding about a *different*
 # label (velero.io/backup-name) not propagating to these pods.
+#
+# The third entry (velero.io/repo-name Exists, for kopia-maintain-job pods) was added
+# later -- found failing for real while working on kube-system's segmentation, see
+# kopia-maintain-jobs.yaml for the full story. A genuine gap in this file's original
+# pass, not something that later work broke.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -27,6 +32,9 @@ spec:
               operator: Exists
         - matchExpressions:
             - key: velero.io/pod-volume-restore
+              operator: Exists
+        - matchExpressions:
+            - key: velero.io/repo-name
               operator: Exists
   egress:
     - toEndpoints:

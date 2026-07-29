@@ -1,0 +1,35 @@
+# Confirmed via Hubble: hubble-relay's two real traffic shapes are ingress from
+# hubble-ui's backend on its own gRPC port (4245, the container port behind the
+# `hubble-relay` Service's port 80 -- confirmed by triggering a real port-forward+curl
+# and watching the actual pod-to-pod flow, not just trusting the Service spec), and
+# egress to every node's cilium-agent on port 4244 (the hubble peering port each
+# cilium-agent listens on) to collect flow data cluster-wide. Since cilium-agent is
+# hostNetwork (see ../kube-system/README.md), that egress target is the `host`/
+# `remote-node` entities, not a pod endpoint selector.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: hubble-relay
+  namespace: kube-system
+  annotations:
+    policy.cilium.io/audit-mode: "true"
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: hubble-relay
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            k8s-app: hubble-ui
+      toPorts:
+        - ports:
+            - port: "4245"
+              protocol: TCP
+  egress:
+    - toEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "4244"
+              protocol: TCP

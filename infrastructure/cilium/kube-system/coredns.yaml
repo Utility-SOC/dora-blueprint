@@ -1,0 +1,67 @@
+# Confirmed via Hubble (all 3 nodes): CoreDNS receives port-53 queries from literally
+# every namespace in this cluster (every other namespace's egress rules in this repo
+# reference it). Also confirmed a `host`-entity ingress on 8080 (the kubelet readiness
+# probe, matches the `ready` Corefile plugin). Egress: kube-apiserver (the `kubernetes`
+# plugin watching Service/Endpoints/Pod objects).
+#
+# CAUGHT LIVE: an earlier version of this file used `fromEndpoints: [{}]` intending
+# "allow from any endpoint," and it broke cluster DNS immediately under audit-mode
+# (confirmed via a real `nslookup` timing out from a fresh test pod, then confirmed
+# fixed by rolling the policy back). Root cause: `fromEndpoints` with an empty/unscoped
+# selector is implicitly restricted to the SAME namespace as the policy by Cilium's own
+# semantics -- exactly like native K8s NetworkPolicy's `podSelector: {}` defaulting to
+# same-namespace-only without an accompanying `namespaceSelector`. It was only ever
+# matching kube-system's own pods, not the cross-namespace traffic DNS actually serves.
+# Fixed by omitting the from-selector entirely: an ingress rule with no From* field
+# matches from anywhere, cluster-wide, with no implicit namespace scoping -- the correct
+# construction here, not `fromEndpoints: [{}]`.
+#
+# CAUGHT LIVE, SECOND ROUND: the first fix above (ingress) still broke real traffic once
+# re-applied -- Hubble immediately showed CoreDNS's egress to 169.254.116.108:53 getting
+# genuinely DROPPED, over and over, seconds after enforcement took effect (velero and
+# alloy were mid-query when it happened). That address is link-local, and the pod's
+# `dnsPolicy: Default` means CoreDNS inherits the NODE's own /etc/resolv.conf rather than
+# querying itself -- this is Talos's own per-node local DNS resolver, exactly what the
+# Corefile's `forward . /etc/resolv.conf` directive actually forwards to. This is real,
+# load-bearing traffic (this is very likely how names like github.com got resolved for
+# argocd-repo-server's git fetch, verified earlier in this pass) -- an initial assumption
+# that "zero external DNS was observed" was simply wrong; it just hadn't been triggered
+# in the specific capture windows checked before enforcement made the gap visible.
+# Modeled as the `host` entity rather than a hardcoded IP, since link-local addresses are
+# typically per-node/per-interface -- confirmed the two CoreDNS replicas run on different
+# nodes, so a hardcoded IP wouldn't generalize across replicas the way `host` does.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: coredns
+  namespace: kube-system
+  annotations:
+    policy.cilium.io/audit-mode: "true"
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: kube-dns
+  ingress:
+    - toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

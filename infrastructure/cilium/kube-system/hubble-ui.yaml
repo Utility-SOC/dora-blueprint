@@ -1,0 +1,42 @@
+# Confirmed via a real port-forward+curl round trip: ingress arrives as `host` entity
+# on 8081 (the frontend container's listen port -- this is the same access path as
+# Argo CD/Grafana's `kubectl port-forward --address 192.168.1.106 ...` pattern, already
+# confirmed elsewhere in this pass to bypass CNI enforcement entirely; included anyway
+# since it's zero-cost and matches real observed traffic). Egress: to hubble-relay on its
+# real gRPC port 4245 (the frontend proxies UI requests to the backend container, which
+# then calls out to hubble-relay -- confirmed via Hubble that the destination port is the
+# actual container port 4245, not the Service's port 80).
+#
+# CAUGHT LIVE: my first curl-based test only exercised the static frontend's root path
+# and missed that the backend container also calls kube-apiserver directly (almost
+# certainly to populate the namespace list the UI's namespace picker uses) -- a real SYN
+# to 10.5.0.2:6443 showed up DENIED in Hubble a couple minutes after enforcement, once
+# the UI had been sitting open long enough to make that call. Added below.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: hubble-ui
+  namespace: kube-system
+  annotations:
+    policy.cilium.io/audit-mode: "true"
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app: hubble-ui
+  ingress:
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8081"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: hubble-relay
+      toPorts:
+        - ports:
+            - port: "4245"
+              protocol: TCP
+    - toEntities:
+        - kube-apiserver

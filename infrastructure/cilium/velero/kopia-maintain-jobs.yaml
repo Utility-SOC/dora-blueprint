@@ -1,0 +1,40 @@
+# Found live while working on kube-system's segmentation, not part of it: Velero's Kopia
+# repository maintenance CronJobs (`<backup-repo>-kopia-maintain-job-*`) were failing
+# continuously ("dial tcp ...: i/o timeout" against minio) once kube-system's coredns
+# policy was enforced, and Hubble showed real DROPPED verdicts even before that against
+# minio directly. Root cause: these ephemeral pods carry a different stable label key
+# than the pod-volume-backup/-restore hosting pods this namespace was originally
+# segmented for (`velero.io/repo-name`, not `velero.io/pod-volume-backup` or
+# `-restore`) -- a genuine gap in the original velero namespace pass, not something this
+# kube-system work broke. minio.yaml's ingress rule updated to match.
+#
+# Also needs kube-apiserver: a first attempt at fixing this (DNS + minio only) still
+# failed, this time on fetching the `velero-repo-credentials` Secret via the K8s API
+# (10.96.0.1:443, the apiserver's ClusterIP) -- caught the same way, a real timeout in
+# the job's own logs, not assumed.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: kopia-maintain-jobs
+  namespace: velero
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: velero.io/repo-name
+        operator: Exists
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: minio

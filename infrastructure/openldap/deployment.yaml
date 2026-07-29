@@ -8,6 +8,14 @@
 # LDAP_SEED_INTERNAL_LDIF_PATH points at the mounted seed-ldif.yaml ConfigMap
 # (infrastructure/openldap/seed-ldif.yaml) -- see that file's own comment for why no PVC
 # is mounted here.
+#
+# No restricted-PSS securityContext here -- confirmed directly (a real crash loop, zero
+# useful log output under runAsNonRoot/runAsUser:1000, contrasted against a clean,
+# verbose startup sequence as default root) that osixia/openldap's own "light baseimage"
+# process-supervisor framework, not just its LDAP-specific chown step, needs root to
+# function at all. Exempted via a namespace+name-scoped Kyverno exclude
+# (infrastructure/kyverno/policies/require-pod-security-restricted.yaml), same mechanism
+# as the alloy exception -- see docs/exceptions/openldap.md.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -48,15 +56,6 @@ spec:
             - name: seed-ldif
               mountPath: /container/service/slapd/assets/config/bootstrap/ldif/custom
               readOnly: true
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        seccompProfile:
-          type: RuntimeDefault
       volumes:
         - name: seed-ldif
           configMap:

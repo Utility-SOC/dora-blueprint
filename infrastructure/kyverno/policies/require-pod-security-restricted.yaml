@@ -72,6 +72,11 @@ spec:
                 - observability
               names:
                 - "alloy*"
+          - resources:
+              namespaces:
+                - openldap
+              names:
+                - "openldap*"
       validate:
         failureAction: Enforce
         podSecurity:

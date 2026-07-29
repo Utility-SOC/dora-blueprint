@@ -151,9 +151,34 @@ own runtime state persists across a restart. A real deployment would run Keycloa
 external Postgres for session/audit durability — stated plainly as a lab simplification, not
 glossed over.
 
-## Detection (SIEM) — not yet built
+## Detection — built
 
-Same treatment. Grafana is deployed for a hands-on technology trial against the existing
-Loki/Alloy pipeline, but the Grafana-vs-Elastic decision isn't finalized and no detection rule
-has ever produced a real `t_detect` in this repository (build-spec Phase 9). Until that lands,
-no shared-responsibility split for detection can be honestly stated.
+**Platform guarantees:** a real Grafana Alerting rule (build-spec Phase 9), file-provisioned
+the same declarative way as everything else in this repo, evaluating a LogQL query against the
+kube-apiserver audit log (shipped to Loki since Phase 4 — no audit-policy change was needed).
+This finalizes the Grafana-vs-Elastic technology trial in Grafana's favor: it was already deeply
+integrated (real TLS from Phase 7, OIDC SSO from Phase 8, a live Loki datasource), and building
+the platform's actual detection engine on top of it is what settled the comparison, rather than
+standing up a second, parallel stack to re-litigate a decision Grafana had already earned. A
+real `t_detect` — defined in build-spec as "first alert fired," not something a drill gets to
+self-report — now exists for the first time: the ns-restore drill polls Grafana's own live
+Alerting API immediately after fault injection and captures the alert's actual firing time, 6
+seconds after injection in the verified run; see
+[`detection-latency-20260729135024.txt`](evidence/samples/detection-latency-20260729135024.txt).
+Two real detection failures surfaced and were fixed during verification (a query-format bug
+rejected by Grafana's threshold expression, then a lookback window too tight for real
+shipping+ingestion+evaluation latency) — both left `t_detect` honestly unset rather than
+fabricated, consistent with this repo's "a drill that fails to detect is still valid evidence"
+discipline.
+
+**Tenant must bring:** its own detection rules for tenant-specific signals — the platform
+provides the alerting engine and the pattern (a LogQL/PromQL condition, file-provisioned,
+evaluated on a short interval with `for: 0s` so latency reflects real pipeline behavior rather
+than an artificial debounce), not an exhaustive rule set for every tenant's own risk profile.
+
+**Explicitly still missing:** evidence write-once/tamper-evidence guarantees (build-spec P7) —
+today's evidence samples are plain git-tracked files, so git history is the only tamper-evidence
+property they have; real ILM/write-only-ingest/object-locked-snapshot guarantees aren't built.
+Notification delivery (a real webhook receiver, as opposed to Grafana's non-functional default
+contact point) is deferred to build-spec Phase 11, where the same alert state this phase makes
+queryable becomes the trigger for a real GitHub Issue.

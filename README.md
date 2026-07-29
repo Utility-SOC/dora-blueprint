@@ -41,7 +41,7 @@ make drill SCENARIO=ns-restore
 
 ## Build order and status
 
-This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **9**.
+This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **10**.
 Phase 3 was the milestone the build spec names as the point the project's thesis is proven —
 everything after this is expansion, not proof of concept. The build order past Phase 4 was
 revised once a security-plane scope expansion (SIEM/detection, scanning, endpoint, IAM/PKI)
@@ -58,6 +58,7 @@ surfaced — see `BUILD-SPEC.md` §12's note on the revision for the full ration
 | 6 | Network segmentation: Cilium `CiliumNetworkPolicy` default-deny + explicit allows across all 8 core platform namespaces, each verified against real traffic before and after enforcement | A real functional test (backup, GitOps sync, admission webhook, DNS lookup) passes under genuine enforcement in every namespace | done |
 | 7 | PKI foundation: offline Root CA (10yr) signs an Intermediate CA (5yr, rotated at 4y11mo); cert-manager `ca`-type `ClusterIssuer` issues real leaf certs for Argo CD and Grafana | Both services serve real, cert-manager-issued TLS, chain verified against the actual served certificate | done |
 | 8 | IAM: Keycloak + OpenLDAP federation, Argo CD and Grafana switched to OIDC SSO, real RBAC roles | Logging into Argo CD and Grafana both go through Keycloak's login page, not a local password; a non-admin role is denied an action an admin role can perform | done |
+| 9 | Detection layer: a real Grafana Alerting rule on the kube-audit Loki stream; `t_detect` wired into the ns-restore drill for the first time | A drill run produces a real, non-null `t_detect` | done |
 
 Phase 1 notes: `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner,
 k8s v1.36.2), Cilium v1.19.6, and Argo CD v3.4.5, with a scoped AppProject and a working
@@ -241,7 +242,36 @@ would exercise, just without the redirect UI. Evidence:
 [`docs/evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt`](docs/evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt),
 [`docs/evidence/samples/argocd-rbac-verification-20260729045300.txt`](docs/evidence/samples/argocd-rbac-verification-20260729045300.txt).
 
-Phases 9–15 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
+Phase 9 notes: a real Grafana Alerting rule (`apps/grafana.yaml`, file-provisioned like
+everything else in this repo) watching the kube-apiserver audit log — shipped to Loki since
+Phase 4, no audit-policy change needed — for the exact real signal the ns-restore drill's own
+fault injection produces: a `delete` verb against `objectRef.resource=namespaces`,
+`objectRef.name=canary`. This also finalizes the Grafana-vs-Elastic technology trial flagged
+back in Phase 6/7: Grafana was already the most integrated option (real TLS, OIDC SSO, a live
+Loki datasource), and building the platform's actual detection engine on it settled the
+comparison rather than standing up a second stack to re-litigate it. `t_detect` — "first alert
+fired" per build-spec, not something a drill gets to self-report — is captured by having the
+ns-restore workflow poll Grafana's own live Alerting API immediately after fault injection
+(not reconstructed after the fact), authenticated via a Viewer-scoped service-account token
+(`infrastructure/observability/configure-grafana-alerting.sh`) and verifying the platform's
+real CA chain rather than skipping TLS verification. Three real bugs found and fixed by
+actually running it, not assumed from a clean provisioning apply: Grafana's persisted SQLite
+datasource state conflicted with pinning an explicit `uid` on the Loki datasource, fixed by
+wiping the PVC (Grafana's own DB was never meant to be durable here, same reasoning as
+Keycloak's `dev-mem`); the alert rule's threshold expression rejected a `queryType: range`
+Loki query with "only reduced data can be alerted on," fixed with `queryType: instant`; and
+even after that fix, a 60-second lookback window was too tight against real
+shipping+ingestion+evaluation latency (a genuine ~66-second gap, confirmed via the rule's own
+`/api/prometheus/.../rules` status), widened to 3 minutes. Two of the three real drill runs in
+this verification pass genuinely failed to detect anything and left `t_detect` unset rather
+than fabricated — the third succeeded with a real 6-second detection latency. Also closed a
+long-flagged gap while touching this exact boundary: Grafana's ingress had no explicit Cilium
+rule at all until now (an unrestricted-by-default gap noted since Phase 6/7), replaced with an
+explicit allow-list for kubelet probes and the argo-workflows namespace. Evidence:
+[`docs/evidence/samples/detection-latency-20260729135024.txt`](docs/evidence/samples/detection-latency-20260729135024.txt),
+[`docs/evidence/samples/ns-restore-20260729135024.json`](docs/evidence/samples/ns-restore-20260729135024.json).
+
+Phases 10–15 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
 milestone.
 
 ## Docs

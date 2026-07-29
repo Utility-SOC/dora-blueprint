@@ -143,15 +143,16 @@ kubectl -n cert-manager create secret tls intermediate-ca \
   --dry-run=client -o yaml | kubectl apply -f -
 rm -f "$CERT_CA_TMP" "$CERT_CA_CRT_TMP" "$CERT_CA_KEY_TMP"
 
-echo "==> [8/9] IAM secrets (OpenLDAP bind password, OIDC client secrets)"
+echo "==> [8/9] IAM secrets (OpenLDAP bind password, Keycloak admin, OIDC client secrets)"
 # Same "manual step creates the Secret(s), GitOps references them" pattern as every
 # other credential in this repo. One encrypted source
 # (infrastructure/keycloak/secrets/iam-secrets.enc.yaml), several K8s Secrets across
 # namespaces since Secrets don't cross namespace boundaries: openldap-admin (the
-# directory's own bind password), and the two OIDC client secrets duplicated into both
-# their consuming app's namespace AND keycloak's own namespace (Keycloak's realm-import
-# JSON substitutes $(env:VAR) at boot, reading from its own pod's environment, so it
-# needs its own copy of secrets the client apps also hold).
+# directory's own bind password), keycloak-admin (Keycloak's own bootstrap admin user),
+# and the two OIDC client secrets duplicated into both their consuming app's namespace
+# AND keycloak's own namespace -- infrastructure/keycloak/configure-realm.sh (run
+# separately, once Keycloak is actually up) needs its own copy of the same secrets the
+# client apps hold, to configure the matching client credentials via kcadm.sh.
 kubectl create namespace openldap --dry-run=client -o yaml | kubectl apply -f -
 kubectl create namespace keycloak --dry-run=client -o yaml | kubectl apply -f -
 
@@ -161,9 +162,14 @@ sops --decrypt "$REPO_ROOT/infrastructure/keycloak/secrets/iam-secrets.enc.yaml"
 LDAP_BIND_PW="$(awk '/^ldap_bind_password:/ {print $2}' "$IAM_TMP")"
 ARGOCD_OIDC_SECRET="$(awk '/^argocd_oidc_client_secret:/ {print $2}' "$IAM_TMP")"
 GRAFANA_OIDC_SECRET="$(awk '/^grafana_oidc_client_secret:/ {print $2}' "$IAM_TMP")"
+KEYCLOAK_ADMIN_PW="$(awk '/^keycloak_admin_password:/ {print $2}' "$IAM_TMP")"
 
 kubectl -n openldap create secret generic openldap-admin \
   --from-literal=password="$LDAP_BIND_PW" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl -n keycloak create secret generic keycloak-admin \
+  --from-literal=password="$KEYCLOAK_ADMIN_PW" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl -n keycloak create secret generic iam-secrets \

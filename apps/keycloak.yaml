@@ -1,0 +1,59 @@
+# Phase 8 (IAM): the IdP. codecentric/keycloakx, not bitnami/keycloak -- checked directly
+# that bitnami/openldap no longer exists in Bitnami's catalog at all (their free-tier
+# catalog has been shrinking), which is exactly the kind of instability worth avoiding
+# for the IdP itself. keycloakx is an actively maintained, Quarkus-based (modern
+# Keycloak.X) community chart.
+#
+# database.vendor: dev-mem, not a real Postgres -- deliberate lab choice, same "featured,
+# not fully functional, documented" pattern as Velero's TTL and the PKI throwaway
+# container. Realm/client/LDAP-federation config is scripted via kcadm.sh against the
+# live admin API (see infrastructure/keycloak/configure-realm.sh), not a hand-written
+# realm-export JSON -- more reliable than guessing at the modern component-based LDAP
+# federation schema, and every step is independently verifiable against the real running
+# instance. Since realm config isn't baked into a mounted file, an in-memory DB losing
+# state on restart would also lose the realm -- acceptable for now (re-run the configure
+# script), revisit once this is proven working end-to-end.
+#
+# Admin bootstrap credentials via KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD (the current
+# Keycloak 26.x convention -- KEYCLOAK_ADMIN/KEYCLOAK_ADMIN_PASSWORD were deprecated).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  source:
+    repoURL: https://codecentric.github.io/helm-charts
+    chart: keycloakx
+    targetRevision: 7.2.2
+    helm:
+      valuesObject:
+        replicas: 1
+        database:
+          vendor: dev-mem
+        extraEnv: |
+          - name: KC_BOOTSTRAP_ADMIN_USERNAME
+            value: admin
+          - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: keycloak-admin
+                key: password
+          - name: KC_HEALTH_ENABLED
+            value: "true"
+        startupProbe:
+          enabled: true
+          periodSeconds: 10
+          failureThreshold: 60
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -23,6 +23,7 @@ with nothing built yet is listed as such, not skipped — see §0.8/§0.9 below.
 | Cryptography (PKI) | Offline Root/Intermediate CA hierarchy, `ca`-type `ClusterIssuer` issuing real leaf certs | Request its own `Certificate` from `platform-ca` for any distinct hostname it needs | [`pki-chain-verification-20260729025500.txt`](evidence/samples/pki-chain-verification-20260729025500.txt) |
 | Identity (IAM) | Nothing yet — not built | Not applicable until Phase 8 lands | not yet generated — Phase 8 |
 | Detection (SIEM) | Nothing yet — not built | Not applicable until Phase 9 lands | not yet generated — Phase 9 |
+| Incident response | Classification-as-code, both regulatory clocks, automated ticket creation in a self-hosted ITSM tool | Its own human review of every classification decision, and the real regulatory notification this repo cannot and does not send | [`incident-response-20260729210627.txt`](evidence/samples/incident-response-20260729210627.txt) |
 
 ## Network segmentation (Cilium)
 
@@ -179,6 +180,37 @@ than an artificial debounce), not an exhaustive rule set for every tenant's own 
 **Explicitly still missing:** evidence write-once/tamper-evidence guarantees (build-spec P7) —
 today's evidence samples are plain git-tracked files, so git history is the only tamper-evidence
 property they have; real ILM/write-only-ingest/object-locked-snapshot guarantees aren't built.
-Notification delivery (a real webhook receiver, as opposed to Grafana's non-functional default
-contact point) is deferred to build-spec Phase 11, where the same alert state this phase makes
-queryable becomes the trigger for a real ticket in GLPI, this platform's self-hosted ITSM tool.
+
+## Incident response — built
+
+**Platform guarantees:** classification-as-code (build-spec Phase 11) that combines two real,
+measured fields from the drill's own record (duration from `measured_rto_seconds`, data loss
+from `integrity_check`/`measured_rpo_records_lost`) with a documented, synthetic per-scenario
+severity profile (`drills/lib/classification-profiles.json`) — a simplified approximation of
+the real DORA Art. 18 RTS (Commission Delegated Regulation (EU) 2024/1772), stated as such, not
+a verbatim transcription. Both regulatory notification clocks (`drills/lib/clocks.py`) are
+computed from the same real timeline — DORA Art. 19 from classification, capped at 24h from
+detection; NIS2 Art. 23 from detection directly, this repo's stand-in for "awareness" — so the
+DORA-lex-specialis-to-NIS2 divergence (`docs/00-scope.md` §0.2) is verifiable from real
+timestamps rather than asserted in prose. Every drill opens a real ticket, regardless of
+classification outcome, in GLPI — this platform's self-hosted ITSM tool
+(`infrastructure/glpi/`), chosen over GitHub Issues to keep incident tracking on the same
+self-hosted footing as everything else here — pre-filled with the classification decision, both
+deadlines, artifact links, and a post-incident-review section (DORA Art. 13, ISO A.5.27). See
+[`incident-response-20260729210627.txt`](evidence/samples/incident-response-20260729210627.txt)
+for a real run's classification, both hand-verified deadlines, and the resulting ticket's
+content fetched directly from GLPI's own API.
+
+**Tenant must bring:** its own review of every classification decision — the platform computes
+a classification, it doesn't adjudicate one, and a human reviewer is expected to confirm or
+override it before any real regulatory clock is acted on. If a drill is ever actually classified
+major, the tenant (not the platform) performs the real DORA Art. 19 / NIS2 Art. 23 notification
+this repo cannot and does not send — no webhook or API call to a real supervisory authority
+exists, deliberately, since this is a lab.
+
+**Explicitly still missing:** the severity-profile inputs (`clients_affected_pct`,
+`geographical_spread_member_states`, `economic_impact_eur`, `reputational_impact`,
+`critical_service_affected`) are fixed lab fixtures per scenario, not computed from a live
+business-impact assessment — see `docs/04-limitations.md`. GLPI's own asset-management module
+is a real future source for a DORA Art. 28 Register of Information, not built as part of this
+phase.

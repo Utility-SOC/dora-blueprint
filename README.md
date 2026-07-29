@@ -53,7 +53,8 @@ Built phase-by-phase per [`BUILD-SPEC.md`](BUILD-SPEC.md) §12, breadth-last. Ph
 milestone the build spec names as the point the project's thesis is proven — everything after
 is expansion, not proof of concept.
 
-**Current phase: 11 (Incident response), in progress.**
+**Phase 11 (Incident response) is done. Next phase not yet chosen — Phase 10 (scenario breadth)
+and Phase 12 (supply chain) are both unstarted and ready to pick up.**
 
 | Phase | Deliverable | Status |
 |---|---|---|
@@ -68,7 +69,7 @@ is expansion, not proof of concept.
 | 8 | IAM — Keycloak + OpenLDAP, OIDC SSO, real RBAC | done |
 | 9 | Detection — real Grafana Alerting rule, real `t_detect` | done |
 | 10 | Scenario breadth (1, 3, 4, 5) + RTO/RPO trend dashboard | not started |
-| 11 | Incident response — classification, regulatory clocks, GLPI ticket automation | **in progress** |
+| 11 | Incident response — classification, regulatory clocks, GLPI ticket automation | done |
 | 12 | Supply chain — apko/cosign image signing, `verifyImages`, generated Register of Information | not started |
 | 13 | Endpoint runtime security | not started |
 | 14 | Remaining scenarios, kube-bench, evidence report generator | not started |
@@ -83,12 +84,6 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   Scenarios 1 (node kill), 3 (PVC corruption → snapshot restore), 4 (control-plane/etcd loss),
   and 5 (network partition) are designed in `BUILD-SPEC.md` §6.3 but not built, plus an RTO/RPO
   trend chart across multiple runs.
-- **Phase 11 — Incident response (in progress).** Classification and regulatory-clock logic
-  (`drills/lib/classify.py`, `clocks.py`) are done and locally verified. Remaining: a self-hosted
-  GLPI deployment (`infrastructure/glpi/`) so drills open real tickets with computed DORA/NIS2
-  deadlines, rather than GitHub Issues — GLPI was chosen deliberately to keep ticketing
-  self-hosted like everything else here, and because its asset-management module is a real
-  future source for Phase 12's Register of Information.
 - **Phase 12 — Supply chain.** Build-time image signing (apko + cosign keyless signing),
   `verifyImages` admission enforcement, and a generated Register of Information / SBOMs for
   DORA Art. 28–30. Not started; the likely target is repackaging `canary/writer.py` as a signed

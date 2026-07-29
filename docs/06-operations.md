@@ -4,8 +4,8 @@ This document answers three questions a reviewer or a real operator would ask th
 control matrix and shared-responsibility doc don't cover: how do you actually run this thing
 day to day, what's the change procedure when something needs to be modified, and what happens
 to the evidence this repo generates. It's written against the platform as it exists today
-(Phase 9 complete, Phase 11 in progress) — sections below say plainly where the real answer is
-"not built yet" rather than describing an aspirational process.
+(Phases 0–9 and 11 complete, Phase 10 not yet started) — sections below say plainly where the
+real answer is "not built yet" rather than describing an aspirational process.
 
 ## 1. Bringing the lab up and using it
 
@@ -19,7 +19,7 @@ to the evidence this repo generates. It's written against the platform as it exi
   are and why each one can't be expressed as a synced manifest.
 - `make drill SCENARIO=<name>` runs a drill (currently `ns-restore`; more scenarios land in
   Phase 10) via `drills/lib/run-drill.sh`, which also classifies the result, computes both
-  regulatory clocks, and opens a GLPI ticket (Phase 11) after a successful run. Output is a drill
+  regulatory clocks, and opens a real GLPI ticket every time (Phase 11, done). Output is a drill
   record — see `drills/schema/drill-record.schema.json` — printed to stdout and, for now,
   manually promoted to `docs/evidence/samples/` when it's worth keeping as citable evidence
   (§3 below).
@@ -164,5 +164,5 @@ Two things worth being explicit about in the meantime, since "not built yet" doe
 |---|---|---|
 | How do I bring the lab up? | `make lab-core` (idempotent, re-runnable) | — |
 | How do I make a change? | Direct push to `master`, Argo CD auto-syncs; higher-risk classes (Cilium, Kyverno, secrets) get an audit-first or decrypt/re-encrypt step, per §2 | CI + branch protection (not built — single-operator lab today) |
-| Do I need a ticketing system? | Yes — GLPI, self-hosted on this cluster (Phase 11, in progress) | Drills auto-open GLPI tickets with computed DORA/NIS2 deadlines; also a future source for DORA Art. 28's Register of Information via GLPI's asset module |
+| Do I need a ticketing system? | Yes — GLPI, self-hosted on this cluster. Every drill auto-opens a real ticket with computed DORA/NIS2 deadlines (Phase 11, done) | GLPI's asset-management module as a future source for DORA Art. 28's Register of Information (Phase 12) |
 | Where is evidence parsed? | Nowhere automated — `docs/03-control-matrix.md` is the hand-maintained index into `docs/evidence/samples/` | Phase 14: `make evidence` generates a consolidated report; write-once/tamper-evidence guarantees (build-spec P7) not yet scheduled to a specific phase |

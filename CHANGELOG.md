@@ -172,7 +172,7 @@ workflow's counter-capture logic, spawned as its own follow-up task
 Evidence: [`detection-latency-20260729135024.txt`](docs/evidence/samples/detection-latency-20260729135024.txt),
 [`ns-restore-20260729135024.json`](docs/evidence/samples/ns-restore-20260729135024.json).
 
-## Phase 11 — Incident response (in progress)
+## Phase 11 — Incident response (classification, clocks, self-hosted GLPI ticket automation)
 
 Closes out `drills/lib/classify.py` and `drills/lib/clocks.py`, both named in build-spec since
 Phase 0 but never built. `classify.py` combines real measured fields (duration, data loss) with
@@ -191,7 +191,41 @@ deployed on this same cluster (bare Deployment/Service/PVC for both GLPI and Mar
 official Helm chart exists, same shape of problem OpenLDAP already hit; MariaDB uses the
 official `mariadb` image, explicitly not `bitnami/mariadb`, whose free-tier images have moved to
 an unmaintained "Legacy" repo — the same instability class already avoided for
-`bitnami/openldap`). Still in progress — see `README.md`'s roadmap for current status.
+`bitnami/openldap`).
+
+Seven real bugs found and fixed deploying GLPI, none assumed from a clean apply: the official
+image's `/opt/startup.sh` has no execute permission for non-root (`-rwxr--r-- root root`,
+confirmed via `docker run --entrypoint sh`), so GLPI runs without a restricted `securityContext`,
+with a Kyverno exclude scoped to the `glpi-*` name pattern only (MariaDB needed no such
+exception, verified reaching `1/1 Running` under unmodified `restricted` first); the image bakes
+`GLPI_SKIP_AUTOINSTALL=false` as a literal string, defeating an empty-string check, fixed with an
+explicit `value: ""` override; `GLPI_DB_PORT` was silently empty in the container's own command
+line (confirmed via `ps aux` inside the pod); `bin/console` crashed on a missing
+`/var/glpi/marketplace` directory; the REST API needs both `enable_api` and
+`enable_api_login_credentials` opted in (confirmed via a real `ERROR_LOGIN_WITH_CREDENTIALS_DISABLED`);
+GLPI's own `_reset_api_token` mechanism regenerates a user's token server-side but never returns
+it in the API response (confirmed by reading GLPI's own `User.php` source), so the token is read
+directly from the `glpi_users` table via the `mariadb` client (not `mysql` — the official image
+ships the newer binary name); and a manual `kubectl scale` to debug a crash-loop fought Argo CD's
+own `selfHeal` and left a PVC stuck `Terminating`, resolved by scaling to zero and letting Argo
+CD's own sync recreate everything rather than continuing to fight it by hand.
+
+Two more real bugs surfaced verifying the wired-up drill end-to-end, both confirmed via an actual
+failing run rather than code review: `open-incident.py` (like `enrich.py`) runs host-side on
+appserv, invoked by `run-drill.sh` *after* the workflow pod has already exited — unlike Phase 9's
+Grafana-detection-poll, which runs *inside* the pod — so it had no route to GLPI's in-cluster
+Service DNS name and needed the same LAN port-forward address already used for human access to
+every other service (`socket.gaierror` confirmed live); and the workflow template's own record
+emission reassigns the JSON through plain `jq` whenever `t_detect` is captured — the normal,
+successful-detection case — which pretty-prints and silently broke `run-drill.sh`'s single-line
+grep extraction for every detected drill (`jq -c` fixes it).
+
+Verified end-to-end with a real drill: classification `non-major` (criteria `data_losses`), both
+notification deadlines hand-checked against `docs/00-scope.md` §0.4's formulas, and a real GLPI
+ticket fetched directly from GLPI's own API (not assumed from the creation call's 2xx response)
+with correct name, urgency, classification, both deadlines, all three artifact links, the runbook
+reference, and the post-incident-review section. Evidence:
+[`incident-response-20260729210627.txt`](docs/evidence/samples/incident-response-20260729210627.txt).
 
 ## Follow-ups spawned, not yet resolved
 

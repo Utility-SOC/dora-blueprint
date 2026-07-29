@@ -81,14 +81,20 @@ spec:
         # Real leaf cert from the platform's own CA (infrastructure/cert-manager/
         # certificates/grafana.yaml), not self-signed -- Phase 7. The chart has no
         # cert-manager convenience block, unlike Argo CD's "checks for a secret of this
-        # exact name" behavior, so this is wired manually: mount the Certificate's
-        # secret, point grafana.ini's [server] block at the mounted paths.
-        extraVolumes:
+        # exact name" behavior, so this is wired manually.
+        #
+        # CAUGHT LIVE: a first attempt used the generic extraVolumes/extraVolumeMounts
+        # with a plain `secret: {secretName: ...}` volume source -- the pod came up with
+        # an *empty* /etc/grafana/tls (grafana-server errored "cannot find SSL cert_file"
+        # and crash-looped). `helm template` with the exact same values confirmed why:
+        # this chart's extraVolumes only recognizes a fixed set of shorthand keys
+        # (existingClaim, hostPath, csi, ...) and silently falls back to `emptyDir: {}`
+        # for anything it doesn't recognize -- `secret:` isn't one of them. The chart has
+        # a *separate*, purpose-built key for exactly this, extraSecretMounts, which
+        # combines the volume and mount in one entry.
+        extraSecretMounts:
           - name: grafana-tls
-            secret:
-              secretName: grafana-tls
-        extraVolumeMounts:
-          - name: grafana-tls
+            secretName: grafana-tls
             mountPath: /etc/grafana/tls
             readOnly: true
         grafana.ini:

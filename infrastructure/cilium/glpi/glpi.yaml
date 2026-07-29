@@ -1,0 +1,73 @@
+# Phase 11 (Incident response): GLPI's own network policy. Ingress explicit-allow list from
+# the start, not left implicitly-unrestricted the way Grafana's was until Phase 9 forced a
+# retrofit -- kubelet host probes (port 80, GLPI's real container port -- confirmed via the
+# Service's own targetPort, same convention as every other namespace in this repo) plus the
+# argo-workflows namespace (the drill's own ticket-creation calls via open-incident.py),
+# explicit namespace label from the start (this exact cross-namespace-matchLabels mistake has
+# recurred enough times elsewhere in this repo to get it right here without a first attempt).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: glpi
+  namespace: glpi
+spec:
+  endpointSelector:
+    matchLabels:
+      app: glpi
+  ingress:
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": argo-workflows
+          matchExpressions:
+            - key: workflows.argoproj.io/workflow
+              operator: Exists
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app: mariadb
+      toPorts:
+        - ports:
+            - port: "3306"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+---
+# MariaDB: reachable only from GLPI within this namespace -- no egress needed, a pure
+# responder, same reasoning already established for OpenLDAP's own egressDeny.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: mariadb
+  namespace: glpi
+spec:
+  endpointSelector:
+    matchLabels:
+      app: mariadb
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app: glpi
+      toPorts:
+        - ports:
+            - port: "3306"
+              protocol: TCP
+  egressDeny:
+    - {}

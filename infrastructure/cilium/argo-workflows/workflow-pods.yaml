@@ -17,6 +17,10 @@
 # the cross-namespace-matchLabels mistake (omitting the namespace label here) has broken
 # traffic silently three separate times already this session; written explicitly here to
 # not make it a fourth.
+#
+# Phase 11 (Incident response) adds a second exception, same shape: open-incident.py's
+# GLPI REST calls (initSession + create-Ticket), port 80 -- GLPI's real container port,
+# same convention as Grafana's 3000 above.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -47,4 +51,12 @@ spec:
       toPorts:
         - ports:
             - port: "3000"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": glpi
+            app: glpi
+      toPorts:
+        - ports:
+            - port: "80"
               protocol: TCP

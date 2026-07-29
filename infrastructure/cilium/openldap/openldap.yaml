@@ -1,0 +1,32 @@
+# Confirmed via Hubble (all 3 nodes): the only real traffic this pod ever sees is
+# ingress from Keycloak on port 389 (LDAP), captured during a real federation sync.
+# No egress observed at all -- this directory never calls out to anything, matching
+# its role as a purely passive federation source (locked-in design: LDAP is exclusively
+# a Keycloak-to-OpenLDAP conversation, never exposed to end users or other services).
+# egressDeny is safe here (unlike, say, openebs's provisioners): nothing else in this
+# namespace grants openldap egress, so there's no Deny-overrides-Allow conflict risk.
+#
+# fromEndpoints explicitly includes the namespace reserved label -- learned the hard way
+# during kube-system's coredns policy (see that file's own comment): an unscoped
+# matchLabels selector is implicitly restricted to the SAME namespace as the policy by
+# Cilium's own semantics, and keycloak lives in a different namespace than openldap.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openldap
+  namespace: openldap
+spec:
+  endpointSelector:
+    matchLabels:
+      app: openldap
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": keycloak
+            app.kubernetes.io/name: keycloakx
+      toPorts:
+        - ports:
+            - port: "389"
+              protocol: TCP
+  egressDeny:
+    - {}

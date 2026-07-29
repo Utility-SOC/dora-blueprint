@@ -1,0 +1,58 @@
+# Confirmed via Hubble (all 3 nodes): ingress is `host` entity on port 9000 (the
+# management interface -- Keycloak's kubelet health/readiness probes hit this port, not
+# the main 8080 app port, confirmed by matching the observed ~5s cadence and destination
+# port against the pod's own probe config). No ingress rule needed for the browser-facing
+# OIDC login flow or the hairpin-NAT server-to-server calls -- both traverse
+# `kubectl port-forward`, already confirmed elsewhere in this pass to bypass Cilium's CNI
+# enforcement entirely on the destination side too.
+#
+# Egress: openldap:389 (LDAP user/group federation -- real traffic captured triggering a
+# live sync, not assumed), CoreDNS. No kube-apiserver egress -- Keycloak isn't
+# Kubernetes-aware in this deployment (dev-mem database, no K8s-based clustering
+# configured), confirmed by its absence across every capture window in this namespace's
+# verification.
+#
+# CAUGHT LIVE, AGAIN: the first version of this rule used a bare `app: openldap`
+# matchLabels with no namespace scope -- the exact same mistake already documented and
+# fixed once in infrastructure/cilium/openldap/openldap.yaml's own comment, made a
+# second time in this same policy despite that. An unscoped matchLabels selector is
+# implicitly restricted to the SAME namespace as the policy (keycloak), so it matched
+# nothing in openldap's namespace and silently denied all LDAP egress -- confirmed by
+# deleting both this and openldap's policy one at a time against a real sync attempt
+# (removing openldap's policy alone still dropped traffic; removing this one too
+# restored it, isolating the bug to this file specifically).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: keycloak
+  namespace: keycloak
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: keycloakx
+  ingress:
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "9000"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": openldap
+            app: openldap
+      toPorts:
+        - ports:
+            - port: "389"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

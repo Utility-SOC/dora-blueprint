@@ -1,0 +1,47 @@
+# HIGH BLAST RADIUS: kyverno-resource-validating-webhook-cfg (and several others) target
+# this pod's service (kyverno-svc:443 -> 9443) with failurePolicy: Fail -- if this policy
+# is wrong, EVERY resource create/update cluster-wide starts failing, not just something
+# in this namespace. Verified extra carefully: audit-mode first, a real test-pod creation
+# to trigger a genuine admission review, checked across all 3 node agents for drops,
+# before ever flipping to enforce.
+#
+# Confirmed via Hubble (all 3 nodes) that ingress arrives from two distinct identities,
+# not one:
+#   - `remote-node`: the real webhook call from kube-apiserver, which runs on the
+#     control-plane node -- a different node than this pod (scheduled on worker-2) --
+#     so it's genuinely cross-node traffic from Cilium's perspective.
+#   - `host`: the local kubelet's readiness probe (periodSeconds: 10 on the deployment
+#     matches this traffic's ~10s cadence exactly) -- same-node kubelet-to-pod traffic
+#     is host-identity, not remote-node, unlike the cross-node webhook call above.
+# Both are required; either one missing breaks something different (webhook calls vs.
+# pod readiness, which also gates whether kube-apiserver considers the webhook available).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: admission-controller
+  namespace: kyverno
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: admission-controller
+  ingress:
+    - fromEntities:
+        - remote-node
+        - host
+      toPorts:
+        - ports:
+            - port: "9443"
+              protocol: TCP
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

@@ -1,0 +1,29 @@
+# Confirmed via Hubble (all 3 nodes): background-controller only ever calls out to
+# kube-apiserver (applying background remediation for existing resources) -- no
+# webhook, no ingress observed at all. Explicit ingressDeny (rather than leaving it
+# uncovered) since, unlike admission/cleanup-controller, nothing in this cluster is
+# meant to reach it directly.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: background-controller
+  namespace: kyverno
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: background-controller
+  ingressDeny:
+    - {}
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

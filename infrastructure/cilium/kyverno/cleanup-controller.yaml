@@ -1,0 +1,36 @@
+# Same reasoning and same verified traffic shape as admission-controller.yaml: this pod
+# also fronts its own webhooks (kyverno-cleanup-validating-webhook-cfg failurePolicy:
+# Fail, kyverno-ttl-validating-webhook-cfg failurePolicy: Ignore), and Hubble confirmed
+# the identical two-source ingress pattern -- `remote-node` for the real webhook call
+# from kube-apiserver (cross-node, control-plane -> worker-2), `host` for the local
+# kubelet readiness probe (periodSeconds: 10, same cadence match).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cleanup-controller
+  namespace: kyverno
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/component: cleanup-controller
+  ingress:
+    - fromEntities:
+        - remote-node
+        - host
+      toPorts:
+        - ports:
+            - port: "9443"
+              protocol: TCP
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

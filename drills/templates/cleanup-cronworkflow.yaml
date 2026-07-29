@@ -17,7 +17,8 @@ metadata:
   name: cleanup-restored-namespaces
   namespace: argo-workflows
 spec:
-  schedule: "*/30 * * * *"
+  schedules:
+    - "*/30 * * * *"
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 300
   workflowSpec:

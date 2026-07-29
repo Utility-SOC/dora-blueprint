@@ -103,7 +103,7 @@ scenario breadth work (build-spec Phase 10) lands. The platform demonstrates the
 one scenario; it isn't a claim that one scenario is sufficient coverage for every tenant's risk
 register.
 
-## Cryptography (PKI) — built; IAM still not
+## Cryptography (PKI) — built
 
 **Platform guarantees:** a real offline-root/online-intermediate hierarchy (build-spec Phase 7),
 not a flat `selfSigned` `ClusterIssuer`. The Root CA (10yr) never touches the cluster — it lives
@@ -119,11 +119,37 @@ the same `ClusterIssuer` for free. A tenant that needs its own distinct hostname
 cert would request its own `Certificate` resource referencing `platform-ca`, same pattern as
 Argo CD/Grafana's.
 
-IAM (Keycloak, build-spec Phase 8) is still genuinely not built — listed here rather than
-omitted, per the same discipline as the rest of this repository: no platform/tenant split can be
-described for a control that doesn't exist, and claiming otherwise would violate build-spec P1
-("No claim without an implementation"). Both Argo CD and Grafana still authenticate with local
-admin accounts, not OIDC SSO, until Phase 8 lands.
+## Identity and access management (IAM) — built
+
+**Platform guarantees:** a self-hosted Keycloak IdP (build-spec Phase 8) federating from a toy
+OpenLDAP directory (`infrastructure/openldap/`) — the pattern a regulated tenant's existing
+AD/LDAP source of truth would plug into, rather than an IdP-native user database. Client apps
+(Argo CD, Grafana) never see LDAP directly; they speak OIDC only, and Keycloak issues real ID
+tokens with a `groups` claim populated from LDAP-federated group membership
+(`infrastructure/keycloak/configure-realm.sh`). Both Argo CD and Grafana authenticate through
+Keycloak's login page rather than a local password, and `argocd-rbac-cm`'s `policy.csv` maps
+Keycloak groups to Argo CD roles (`platform-admins` → `role:admin`, `platform-viewers` →
+`role:readonly`). This was verified as a live authorization decision — real ID tokens for two
+LDAP-federated users, presented as Bearer credentials against Argo CD's own
+`/api/v1/account/can-i/...` API — not inferred from `policy.csv`'s contents; see
+[`keycloak-ldap-oidc-verification-20260729043900.txt`](evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt)
+and
+[`argocd-rbac-verification-20260729045300.txt`](evidence/samples/argocd-rbac-verification-20260729045300.txt).
+
+**Tenant must bring:** its own group-to-role mapping if it needs roles beyond the two
+demonstrated here (admin/read-only) — `policy.csv` entries and Keycloak group names are a
+platform-provided pattern, not a fixed enumeration. A tenant onboarding its own application
+behind OIDC would register a new Keycloak client and request the same `groups` protocol mapper
+already wired for Argo CD/Grafana, rather than standing up a separate IdP.
+
+**Explicitly still local, not platform-provided:** Argo CD and Grafana both keep their local
+admin account active alongside OIDC SSO (deliberate — see build-spec Phase 8's own note on not
+cutting over until OIDC is proven reliable across real logins); Keycloak itself runs against an
+in-memory (`dev-mem`) database, so realm/client/federation config is durable only because it's
+declared via `infrastructure/keycloak/configure-realm.sh` and re-applied, not because Keycloak's
+own runtime state persists across a restart. A real deployment would run Keycloak against an
+external Postgres for session/audit durability — stated plainly as a lab simplification, not
+glossed over.
 
 ## Detection (SIEM) — not yet built
 

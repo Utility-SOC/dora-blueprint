@@ -24,6 +24,7 @@ maintenance risks drift (tracked as a Phase 5+ task, not required for the Phase 
 | ISO A.8.16 | Monitoring | observability profile | Detection latency (`t_detect` − `t_inject`) | not yet generated — Phase 2/9 |
 | ISO A.8.17 | Clock synchronisation | `platform/talos/` chrony config | NTP drift metrics, clock-skew drill | not yet generated — Phase 1/14 |
 | ISO A.8.24 | Use of cryptography | `infrastructure/cert-manager/` (offline Root CA -> Intermediate CA -> `ca`-type `ClusterIssuer`) | [`docs/evidence/samples/pki-chain-verification-20260729025500.txt`](evidence/samples/pki-chain-verification-20260729025500.txt) — Argo CD and Grafana's actually-served certificates checked live, both chaining to the platform's own Root CA | generated |
+| ISO A.5.15–A.5.18 / A.8.2 | Access control, privileged access rights | `infrastructure/keycloak/`, `infrastructure/openldap/`, `argocd-cm`/`argocd-rbac-cm` OIDC+RBAC config | [`docs/evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt`](evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt), [`docs/evidence/samples/argocd-rbac-verification-20260729045300.txt`](evidence/samples/argocd-rbac-verification-20260729045300.txt) — real LDAP-federated login, real groups claim, a real API authorization decision distinguishing an admin role from a read-only one | generated |
 | ISO A.8.29 | Security testing | CI pipeline, drills | Pipeline runs, drill records | not yet generated — Phase 12/14 |
 
 ## Reading this table

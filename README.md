@@ -41,7 +41,7 @@ make drill SCENARIO=ns-restore
 
 ## Build order and status
 
-This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **8**.
+This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **9**.
 Phase 3 was the milestone the build spec names as the point the project's thesis is proven —
 everything after this is expansion, not proof of concept. The build order past Phase 4 was
 revised once a security-plane scope expansion (SIEM/detection, scanning, endpoint, IAM/PKI)
@@ -57,6 +57,7 @@ surfaced — see `BUILD-SPEC.md` §12's note on the revision for the full ration
 | 5 | Platform/landing-zone generalization — `docs/00-scope.md` reframed from single-entity to platform+tenant | Docs are internally consistent; no stale single-tenant claims remain | done |
 | 6 | Network segmentation: Cilium `CiliumNetworkPolicy` default-deny + explicit allows across all 8 core platform namespaces, each verified against real traffic before and after enforcement | A real functional test (backup, GitOps sync, admission webhook, DNS lookup) passes under genuine enforcement in every namespace | done |
 | 7 | PKI foundation: offline Root CA (10yr) signs an Intermediate CA (5yr, rotated at 4y11mo); cert-manager `ca`-type `ClusterIssuer` issues real leaf certs for Argo CD and Grafana | Both services serve real, cert-manager-issued TLS, chain verified against the actual served certificate | done |
+| 8 | IAM: Keycloak + OpenLDAP federation, Argo CD and Grafana switched to OIDC SSO, real RBAC roles | Logging into Argo CD and Grafana both go through Keycloak's login page, not a local password; a non-admin role is denied an action an admin role can perform | done |
 
 Phase 1 notes: `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner,
 k8s v1.36.2), Cilium v1.19.6, and Argo CD v3.4.5, with a scoped AppProject and a working
@@ -206,7 +207,41 @@ certificates were checked directly against a live TLS handshake and verified aga
 file, not assumed from `Certificate` status:
 [`docs/evidence/samples/pki-chain-verification-20260729025500.txt`](docs/evidence/samples/pki-chain-verification-20260729025500.txt).
 
-Phases 8–15 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
+Phase 8 notes: OpenLDAP (`infrastructure/openldap/`, osixia/openldap image, bare Deployment —
+no maintained free Helm chart exists) seeded with two toy users in two groups
+(`alice`/platform-admins, `bob`/platform-viewers), federated into Keycloak
+(`codecentric/keycloakx` chart, `infrastructure/keycloak/`) via `configure-realm.sh`'s
+`kcadm.sh`-scripted realm/LDAP-federation/OIDC-client setup — chosen over a hand-written
+realm-export JSON because LDAP federation's component-based schema is fragile to get right by
+hand, every step instead verified against the real running instance. Four real bugs found and
+fixed: OpenLDAP's own init framework needs root, not just an LDAP-specific chown step, confirmed
+by an A/B test (root boots cleanly with full logs; non-root prints one line and dies) — handled
+with a Kyverno ClusterPolicy `exclude` rather than a `PolicyException`, given the same
+kyverno/kyverno#12888 pod-level-violation bug Phase 4 already hit; OpenLDAP's seed script wasn't
+idempotent across restarts (`ldap_add: Already exists`), fixed with a real PVC instead of
+re-seeding on every boot; Keycloak's chart-default `startupProbe` override and its missing
+`securityContext` fields both broke admission/startup, and neither the chart nor the image
+default to a real start command, needing an explicit `args: ["start-dev"]`; and the exact
+cross-namespace-`matchLabels` Cilium bug from Phase 6's coredns work
+(`infrastructure/cilium/kube-system/coredns.yaml`) recurred **twice** in this phase — once in
+OpenLDAP's own ingress rule, once in Keycloak's egress rule to OpenLDAP, the second time despite
+already being documented in the first file's own comment — isolated by deleting each policy one
+at a time against a real sync attempt and fixed with an explicit namespace label both times.
+Argo CD's `argocd-cm`/`argocd-rbac-cm` were patched directly (no Helm `valuesObject` exists for
+them, since Argo CD itself installs from upstream manifests) with `oidc.config` and a real
+`policy.csv` mapping LDAP groups to Argo CD roles; Grafana got an equivalent
+`auth.generic_oauth` block. Both apps deliberately keep their local admin account active
+alongside OIDC, per the phase's own stated caution against a one-shot cutover. Final
+verification hit an environment limit rather than a code bug: neither the sandboxed browser pane
+(no route to the private LAN) nor the Chrome extension (not connected) could drive an actual
+browser login, so RBAC enforcement was instead verified via real OIDC ID tokens obtained
+directly from Keycloak's token endpoint and presented as Bearer credentials against Argo CD's own
+`/api/v1/account/can-i/...` API — the identical server-side validation path a browser login
+would exercise, just without the redirect UI. Evidence:
+[`docs/evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt`](docs/evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt),
+[`docs/evidence/samples/argocd-rbac-verification-20260729045300.txt`](docs/evidence/samples/argocd-rbac-verification-20260729045300.txt).
+
+Phases 9–15 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
 milestone.
 
 ## Docs

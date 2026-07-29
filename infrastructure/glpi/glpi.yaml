@@ -12,6 +12,15 @@
 # GLPI_SKIP_AUTOINSTALL is deliberately left at its default (false): setting the four
 # GLPI_DB_* env vars triggers a real automatic database install on first boot, no manual setup
 # wizard click-through needed -- matches this repo's GitOps-everything discipline.
+#
+# CAUGHT LIVE: a first attempt used a full restricted-compliant securityContext
+# (runAsNonRoot/runAsUser 1000/allowPrivilegeEscalation false/capabilities drop ALL), which
+# crash-looped immediately with "/opt/startup.sh: Permission denied". Confirmed directly, not
+# assumed: `docker run --entrypoint sh glpi/glpi:10.0.18 -c 'ls -la /opt/startup.sh'` shows
+# `-rwxr--r-- root root` -- execute permission genuinely isn't set for non-owner, so no
+# securityContext short of running as root can exec it. Exempted via a namespace+name-scoped
+# Kyverno exclude (infrastructure/kyverno/policies/require-pod-security-restricted.yaml), same
+# mechanism as the openldap/alloy/velero exceptions -- see docs/exceptions/glpi.md.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -39,19 +48,9 @@ spec:
       labels:
         app: glpi
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        fsGroup: 1000
-        seccompProfile:
-          type: RuntimeDefault
       containers:
         - name: glpi
           image: glpi/glpi:10.0.18
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
           env:
             - name: GLPI_DB_HOST
               value: mariadb.glpi.svc.cluster.local

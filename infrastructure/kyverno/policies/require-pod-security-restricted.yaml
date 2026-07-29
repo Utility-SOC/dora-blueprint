@@ -77,6 +77,11 @@ spec:
                 - openldap
               names:
                 - "openldap*"
+          - resources:
+              namespaces:
+                - glpi
+              names:
+                - "glpi-*"
       validate:
         failureAction: Enforce
         podSecurity:

@@ -138,10 +138,82 @@ spec:
             apiVersion: 1
             datasources:
               - name: Loki
+                uid: loki
                 type: loki
                 access: proxy
                 url: http://loki-gateway.observability.svc.cluster.local
                 isDefault: true
+        # Phase 9 (Detection): the platform's first real alerting rule, file-provisioned the
+        # same declarative way as the datasource above -- not clicked in through the UI. Watches
+        # the kube-apiserver audit log (shipped to Loki since Phase 4, job="kube-audit") for the
+        # exact real signal ns-restore's own fault injection produces: a `delete` verb against
+        # objectRef.resource=namespaces, objectRef.name=canary. No audit-policy change needed --
+        # Metadata-level logging (the policy's default for everything except secrets/RBAC)
+        # already includes verb/objectRef/stage, which is all this needs.
+        #
+        # CAUGHT LIVE: a first attempt used a bare `| json` with no field list, which parses
+        # every nested key in the audit event (user.extra.*, annotations.*, sourceIPs, ...) into
+        # its own label -- real audit traffic has enough distinct field combinations that this
+        # tripped Loki's "maximum number of series (500) reached" limit on a plain 5m window,
+        # confirmed by running the query directly against the live Loki instance. Explicit field
+        # extraction (`| json verb=`verb`, res=`objectRef.resource`, ...`) only ever produces the
+        # handful of label combinations this query actually needs.
+        #
+        # interval/for are both short and 0s respectively so the rule fires on the very first
+        # evaluation that observes the event -- this repo's own `t_detect` is defined as "first
+        # alert fired," and a longer debounce would inflate the measured detection latency with
+        # nothing real behind it.
+        alerting:
+          rules.yaml:
+            apiVersion: 1
+            groups:
+              - orgId: 1
+                name: detection
+                folder: Detection
+                interval: 10s
+                rules:
+                  - uid: canary-ns-delete-detect
+                    title: "Canary namespace deleted"
+                    condition: C
+                    data:
+                      - refId: A
+                        datasourceUid: loki
+                        relativeTimeRange:
+                          from: 60
+                          to: 0
+                        model:
+                          refId: A
+                          queryType: range
+                          intervalMs: 1000
+                          maxDataPoints: 43200
+                          expr: 'count_over_time({job="kube-audit"} | json verb=`verb`, res=`objectRef.resource`, objname=`objectRef.name` | verb=`delete` | res=`namespaces` | objname=`canary` [1m])'
+                      - refId: C
+                        datasourceUid: "-100"
+                        model:
+                          refId: C
+                          type: threshold
+                          expression: A
+                          datasource:
+                            type: __expr__
+                            uid: "-100"
+                          conditions:
+                            - evaluator:
+                                type: gt
+                                params: [0]
+                              operator:
+                                type: and
+                              query:
+                                params: ["C"]
+                              reducer:
+                                type: last
+                                params: []
+                    noDataState: OK
+                    execErrState: OK
+                    for: 0s
+                    labels:
+                      severity: detection
+                    annotations:
+                      summary: "Canary namespace deletion detected via the kube-apiserver audit log (job=kube-audit)"
   destination:
     server: https://kubernetes.default.svc
     namespace: observability

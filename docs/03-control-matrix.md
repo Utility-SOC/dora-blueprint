@@ -11,19 +11,19 @@ maintenance risks drift (tracked as a Phase 5+ task, not required for the Phase 
 
 | Control ID | Requirement | Implemented by | Evidence artifact | Status |
 |---|---|---|---|---|
-| DORA Art. 9 | Protection & prevention | `infrastructure/kyverno/policies/` | [`docs/evidence/samples/kyverno-admission-20260728202845.txt`](evidence/samples/kyverno-admission-20260728202845.txt) — real admission denial of a privileged pod | generated |
+| DORA Art. 9 | Protection & prevention | `infrastructure/kyverno/policies/`, `infrastructure/cilium/` | [`docs/evidence/samples/kyverno-admission-20260728202845.txt`](evidence/samples/kyverno-admission-20260728202845.txt) — real admission denial of a privileged pod; [`docs/evidence/samples/cilium-network-segmentation-20260729015300.txt`](evidence/samples/cilium-network-segmentation-20260729015300.txt) — default-deny blocking unwanted egress while explicit allows and cross-namespace DNS keep working, across all 8 segmented namespaces | generated |
 | DORA Art. 11 | Response & recovery | `drills/scenarios/ns-restore.yaml`, `apps/velero.yaml` | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) — measured RTO 110s | generated |
 | DORA Art. 12 | Backup & restoration | `apps/velero.yaml` (hourly Schedule) | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) — measured RPO 71 records lost | generated |
-| DORA Art. 18 | Classification | `drills/lib/classify.py` | Classification decisions in drill records | not yet generated — Phase 10 |
-| DORA Art. 19 | Reporting clocks | `drills/lib/clocks.py` | Computed deadlines per drill | not yet generated — Phase 10 |
-| DORA Art. 24–27 | Resilience testing | `drills/`, kube-bench job | Drill record history, CIS benchmark output | not yet generated — Phase 9/13 |
-| DORA Art. 28–30 | Third-party risk | `images/`, `verifyImages` policies | Generated Register of Information, SBOMs | not yet generated — Phase 11 |
+| DORA Art. 18 | Classification | `drills/lib/classify.py` | Classification decisions in drill records | not yet generated — Phase 11 |
+| DORA Art. 19 | Reporting clocks | `drills/lib/clocks.py` | Computed deadlines per drill | not yet generated — Phase 11 |
+| DORA Art. 24–27 | Resilience testing | `drills/`, kube-bench job | Drill record history, CIS benchmark output | not yet generated — Phase 10/14 |
+| DORA Art. 28–30 | Third-party risk | `images/`, `verifyImages` policies | Generated Register of Information, SBOMs | not yet generated — Phase 12 |
 | NIS2 21(2)(c) | Business continuity | `drills/scenarios/ns-restore.yaml` | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) | generated |
-| NIS2 Art. 23 | Reporting | `drills/lib/clocks.py` | Computed deadlines | not yet generated — Phase 10 |
+| NIS2 Art. 23 | Reporting | `drills/lib/clocks.py` | Computed deadlines | not yet generated — Phase 11 |
 | ISO A.8.13 | Information backup | `apps/velero.yaml`, `apps/openebs-localpv.yaml` | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) | generated |
-| ISO A.8.16 | Monitoring | observability profile | Detection latency (`t_detect` − `t_inject`) | not yet generated — Phase 2/8 |
-| ISO A.8.17 | Clock synchronisation | `platform/talos/` chrony config | NTP drift metrics, clock-skew drill | not yet generated — Phase 1/13 |
-| ISO A.8.29 | Security testing | CI pipeline, drills | Pipeline runs, drill records | not yet generated — Phase 11/13 |
+| ISO A.8.16 | Monitoring | observability profile | Detection latency (`t_detect` − `t_inject`) | not yet generated — Phase 2/9 |
+| ISO A.8.17 | Clock synchronisation | `platform/talos/` chrony config | NTP drift metrics, clock-skew drill | not yet generated — Phase 1/14 |
+| ISO A.8.29 | Security testing | CI pipeline, drills | Pipeline runs, drill records | not yet generated — Phase 12/14 |
 
 ## Reading this table
 

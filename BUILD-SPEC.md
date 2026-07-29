@@ -385,30 +385,42 @@ Do not build breadth-first. Get one drill measuring one number end to end before
 | 3 | Velero + MinIO + **scenario 2** (namespace delete → restore) | `make drill SCENARIO=ns-restore` prints a measured RTO **and** RPO |
 | 4 | Kyverno policies + exceptions + audit→enforce plan; API audit logging shipping | A privileged pod is denied; the agent exception is documented |
 | 5 | Platform/landing-zone generalization — `docs/00-scope.md` reframed from single-entity to platform+tenant | Docs are internally consistent; no stale single-tenant claims remain |
-| 6 | PKI foundation: offline Root CA signs an Intermediate CA; cert-manager `ca`-type `ClusterIssuer` issues real leaf certs | Services serve real, cert-manager-issued TLS, verified via the certificate's issuer chain |
-| 7 | IAM: Keycloak (+ LDAP federation), platform services switched from local admin accounts to OIDC SSO, real RBAC demonstrated | Login goes through Keycloak, not a local password; RBAC roles are actually enforced |
-| 8 | Detection layer: alerting rules firing on defined conditions; `t_detect` wired into the drill record schema/emitter for the first time | A drill run produces a real, non-null `t_detect` |
-| 9 | Scenarios 1, 3, 4, 5; RTO/RPO trend dashboard | Drill history chartable |
-| 10 | Incident response: classification, clocks (fed by real `t_detect`), GitHub issue automation, runbooks | Drill opens an issue with both deadlines computed from real timestamps |
-| 11 | Supply chain: apko images, cosign, `verifyImages`, generated RoI | Unsigned image is rejected at admission |
-| 12 | Endpoint runtime security; scenario 8 (credential compromise → shell spawn → runtime detection) | Alert reaches the correct runbook within the drill's own measured N seconds |
-| 13 | Scenarios 6, 7, 9; kube-bench; evidence report generator | `make evidence` produces the report |
-| 14 | README polish, asciinema, screenshots, `bare-metal/` Ansible alternative | A stranger can run it |
+| 6 | Network segmentation: Cilium `CiliumNetworkPolicy` default-deny plus explicit allows, one namespace at a time, each verified against real observed traffic (Hubble, every node agent) before *and* after enforcement | All 8 core platform namespaces segmented; a real functional test specific to each namespace (a backup, a GitOps sync, the admission webhook, a DNS lookup) passes under genuine enforcement, not just a clean `kubectl apply` |
+| 7 | PKI foundation: offline Root CA signs an Intermediate CA; cert-manager `ca`-type `ClusterIssuer` issues real leaf certs | Services serve real, cert-manager-issued TLS, verified via the certificate's issuer chain |
+| 8 | IAM: Keycloak (+ LDAP federation), platform services switched from local admin accounts to OIDC SSO, real RBAC demonstrated | Login goes through Keycloak, not a local password; RBAC roles are actually enforced |
+| 9 | Detection layer: alerting rules firing on defined conditions; `t_detect` wired into the drill record schema/emitter for the first time | A drill run produces a real, non-null `t_detect` |
+| 10 | Scenarios 1, 3, 4, 5; RTO/RPO trend dashboard | Drill history chartable |
+| 11 | Incident response: classification, clocks (fed by real `t_detect`), GitHub issue automation, runbooks | Drill opens an issue with both deadlines computed from real timestamps |
+| 12 | Supply chain: apko images, cosign, `verifyImages`, generated RoI | Unsigned image is rejected at admission |
+| 13 | Endpoint runtime security; scenario 8 (credential compromise → shell spawn → runtime detection) | Alert reaches the correct runbook within the drill's own measured N seconds |
+| 14 | Scenarios 6, 7, 9; kube-bench; evidence report generator | `make evidence` produces the report |
+| 15 | README polish, asciinema, screenshots, `bare-metal/` Ansible alternative | A stranger can run it |
 
 **Phase 3 is the milestone that matters.** Once one drill produces one honestly measured RTO and RPO, the project's thesis is proven and everything after is expansion.
 
-**Phases 5–14, revised (build-spec originally specified 5–9):** Phase 4's completion surfaced a
+**Phases 5–15, revised twice (build-spec originally specified 5–9):** Phase 4's completion surfaced a
 security-plane scope expansion — SIEM/detection, continuous scanning, endpoint runtime security,
 and (added after a real access-management bug: an auto-generated credential silently changed
 between two GitOps syncs) IAM and PKI. Access management had zero control-matrix representation
 and was judged more foundational than SIEM/scanning/endpoint, which still route through
-individually-fragile logins without it — so PKI (6) and IAM (7) were inserted directly after the
-platform/tenant reframing (5), ahead of everything else, bumping the original Phase 5–9 content to
-9–14. The original "Phase 6" (supply chain) also split into scanning (folded into the detection
-work) and build-time signing (now Phase 11) — runtime vulnerability scanning and build-time
-provenance are different concerns at very different effort levels, not one deliverable. Phase 10
-(incident response) now has a hard dependency on Phase 8's `t_detect` that didn't exist in the
-original ordering, where incident response preceded a detection layer that was never built.
+individually-fragile logins without it — so PKI and IAM were inserted directly after the
+platform/tenant reframing (5), ahead of everything else. The original "Phase 6" (supply chain)
+also split into scanning (folded into the detection work) and build-time signing (now Phase 12) —
+runtime vulnerability scanning and build-time provenance are different concerns at very different
+effort levels, not one deliverable. Phase 11 (incident response) has a hard dependency on Phase
+9's `t_detect` that didn't exist in the original ordering, where incident response preceded a
+detection layer that was never built.
+
+A second revision then inserted **network segmentation** (now Phase 6, ahead of PKI/IAM) once
+work actually started: it was faster and cheaper than PKI/IAM, used infrastructure that had been
+live since Phase 1 (Cilium+Hubble, just never had policies written), and is what makes a
+"regulatory scope boundary" claim technically verifiable rather than asserted — the same
+reasoning that motivated inserting PKI/IAM in the first revision, just resolved by building the
+cheaper thing first. This bumped every phase 6–14 up by one. Consistent with this file's own
+build-order discipline ("do not build breadth-first"), this renumbering happened only once
+network segmentation was actually complete and verified against the real cluster — not
+speculatively, the way the first revision's numbers were also revised once more before anything
+in that range was built.
 
 ---
 

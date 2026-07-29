@@ -52,7 +52,7 @@ reviewer later: the `core`/`full` tiers target reviewer laptops via the Docker p
 specifically *because* it's fast and low-footprint (build spec §4, "`talosctl cluster create`
 gives a multi-node cluster in Docker in roughly 90 seconds"). The disk-encryption and
 Secure-Boot rows are why `platform/bare-metal/` exists as a stated (not yet built) secondary
-path — see build-spec §12 Phase 9.
+path — see build-spec §12 Phase 15.
 
 ## SOPS + age — lab-only key, stated plainly
 

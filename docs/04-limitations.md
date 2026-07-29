@@ -40,6 +40,31 @@ gaps to be closed, the claim doesn't get made.
   all self-resolved without intervention, just slower than a real cluster's rolling-restart
   behavior would be. No claim of "resilient to host reboot" in this repo should be read as
   "recovers in seconds" — it means "recovers on its own, given about half an hour."
+- **Cilium's `policy.cilium.io/audit-mode: "true"` annotation is not fully reliable on this
+  Cilium version.** The documented behavior is "log what would be dropped, enforce nothing" —
+  used throughout `infrastructure/cilium/` as the standard safety step before flipping any
+  namespace to genuine enforcement. Three separate times during network segmentation, a policy
+  carrying this annotation was observed genuinely enforcing (real `DROPPED` verdicts in Hubble,
+  not just logged ones) instead: `observability/loki.yaml`'s kube-apiserver egress,
+  `openebs/provisioner.yaml`'s Google-telemetry egress, and `kube-system/coredns.yaml` during
+  its own fix cycle — the last of which broke cluster DNS for several minutes before being
+  caught and fixed. In two of the three cases the early enforcement happened to match the
+  intended final policy; in coredns's case it didn't. Every namespace was still verified with a
+  full audit-mode observation window *and* a post-enforcement functional test — this finding
+  doesn't invalidate that verification, but the annotation itself should be treated as advisory,
+  not a hard guarantee, on this Cilium version.
+- **Network segmentation covers 8 of the platform's namespaces, not all of them, and `kube-system`
+  is deliberately excluded from Argo CD's automated management, not just from policy.**
+  `cilium-agent`/`cilium-envoy`/`cilium-operator` and Talos's control-plane static pods
+  (`kube-apiserver`, `kube-controller-manager`, `kube-scheduler`, `kube-proxy`) all run
+  `hostNetwork: true` and are left unsegmented — per-pod CiliumNetworkPolicy isn't the right
+  tool for hostNetwork traffic, and writing policy that restricts the pods which *implement*
+  Cilium's own enforcement is a well-known way to end up with no `kubectl` left to fix a mistake
+  with. Separately, `kube-system`'s three in-scope policies (coredns, hubble-relay, hubble-ui)
+  are applied by hand (`kubectl apply`), not through `apps/cilium-policies.yaml` —
+  a real sync attempt showed the `platform` AppProject's own `destinations` allowlist already
+  excludes `kube-system`, and that boundary was kept rather than widened. Full reasoning in
+  `infrastructure/cilium/kube-system/README.md`.
 - **Backup retention (`apps/velero.yaml`'s `ttl: 3h0m0s`) is sized for this lab's disk budget,
   not a compliance-appropriate recovery/record-keeping policy.** One physical host, one MinIO
   PVC — a real retention window (weeks of daily backups plus longer-tiered archival, per DORA's

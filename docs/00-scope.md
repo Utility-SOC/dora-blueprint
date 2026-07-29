@@ -116,24 +116,23 @@ lab scope."
 ## 0.6 Platform controls vs. tenant-specific artifacts
 
 Since §0.1 splits this repository into a shared platform and the tenants onboarded onto it, it's
-worth being explicit about which mechanisms are which:
+worth being explicit about which mechanisms are which. In short:
 
-**Platform-level** (shared, apply regardless of how many tenants are onboarded):
-- Cilium default-deny network policy plus explicit allows
-- Kyverno PSS `restricted` enforcement, and (once built) supply-chain `verifyImages` policies
-- Trivy continuous vulnerability scanning (once built)
-- Velero's backup mechanism and scheduling infrastructure
-- Tetragon/runtime detection rules (once built)
-- The Loki/Alloy log pipeline and any detection rules built on it
-- The drill/evidence framework itself (`drills/lib/`, the record schema, the emitter)
+**Platform-level** (shared, apply regardless of how many tenants are onboarded): Cilium
+default-deny network policy plus explicit allows, Kyverno PSS `restricted` enforcement, Velero's
+backup mechanism and scheduling infrastructure, Argo CD's GitOps automation and its AppProject
+destination boundary, and the drill/evidence framework itself.
 
-**Tenant-level** (declared per onboarded tenant; exactly one instance exists today):
-- The tenant's namespace(s)
-- The tenant's specific Velero Schedule target
-- The tenant's DORA Art. 18 classification inputs (client counts, economic impact — already
-  flagged as synthetic in `docs/04-limitations.md`)
-- The tenant's DORA Art. 16 eligibility determination (§0.3)
-- The tenant's Register of Information entries (once built)
+**Tenant-level** (declared per onboarded tenant; exactly one instance exists today): the
+tenant's namespace(s), its own network policy for any workload the platform doesn't already
+cover, its specific Velero Schedule target and retention sizing, its DORA Art. 18 classification
+inputs (already flagged as synthetic in `docs/04-limitations.md`), its DORA Art. 16 eligibility
+determination (§0.3), and its Register of Information entries (once built).
+
+The full control-by-control breakdown — what the platform guarantees versus what each tenant
+must bring, per control area, with evidence citations — lives in
+**`docs/05-shared-responsibility.md`**, not here; this section stays a short pointer so it
+doesn't drift out of sync with that document as new controls land.
 
 ## 0.7 What "compliant" does not mean here
 

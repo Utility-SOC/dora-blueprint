@@ -19,7 +19,7 @@ namespace, restores it from a real Velero backup into a freshly-named namespace,
 *measured* RTO and RPO — not asserted numbers. Sample record:
 [`docs/evidence/samples/ns-restore-20260728152755.json`](docs/evidence/samples/ns-restore-20260728152755.json)
 (RTO 110s, RPO 71 records, hash-chain `integrity_check: pass`). RTO/RPO trend chart across
-multiple runs is Phase 9; asciinema recording is Phase 14 — both still outstanding.
+multiple runs is Phase 10; asciinema recording is Phase 15 — both still outstanding.
 
 ## Tiers
 
@@ -41,7 +41,7 @@ make drill SCENARIO=ns-restore
 
 ## Build order and status
 
-This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **6**.
+This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **7**.
 Phase 3 was the milestone the build spec names as the point the project's thesis is proven —
 everything after this is expansion, not proof of concept. The build order past Phase 4 was
 revised once a security-plane scope expansion (SIEM/detection, scanning, endpoint, IAM/PKI)
@@ -55,6 +55,7 @@ surfaced — see `BUILD-SPEC.md` §12's note on the revision for the full ration
 | 3 | Velero + MinIO + scenario 2 (namespace delete → restore) | `make drill SCENARIO=ns-restore` prints measured RTO and RPO | done |
 | 4 | Kyverno policies + exceptions + audit→enforce plan; API audit logging shipping | A privileged pod is denied; the agent exception is documented | done |
 | 5 | Platform/landing-zone generalization — `docs/00-scope.md` reframed from single-entity to platform+tenant | Docs are internally consistent; no stale single-tenant claims remain | done |
+| 6 | Network segmentation: Cilium `CiliumNetworkPolicy` default-deny + explicit allows across all 8 core platform namespaces, each verified against real traffic before and after enforcement | A real functional test (backup, GitOps sync, admission webhook, DNS lookup) passes under genuine enforcement in every namespace | done |
 
 Phase 1 notes: `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner,
 k8s v1.36.2), Cilium v1.19.6, and Argo CD v3.4.5, with a scoped AppProject and a working
@@ -144,7 +145,38 @@ stale single-tenant claims, cross-checking phase-number references across all fo
 re-reading every new sentence against build-spec §13's "does this assert a capability that
 exists?" question, rather than trusting a runtime check that doesn't apply here.
 
-Phases 6–14 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
+Phase 6 notes: `infrastructure/cilium/` went from an empty, long-flagged directory to a full
+default-deny-plus-explicit-allow policy set across all 8 core platform namespaces, built and
+verified one namespace at a time, lowest-risk first (`canary` → `observability` → `velero` →
+`argo-workflows` → `openebs`/`local-path-storage` → `kyverno` → `argocd` → `kube-system`). Every
+namespace's rules came from real Hubble traffic (every node agent, not an architecture diagram),
+audit-mode-verified, then enforced and re-verified with a functional test specific to that
+namespace. `kyverno` was the highest deliberate-risk step — its admission webhook runs
+`failurePolicy: Fail`, so a wrong rule would have broken cluster-wide resource admission, not
+just this namespace — and it turned up a genuinely non-obvious finding: the real webhook call
+and the local kubelet readiness probe arrive as two different Cilium identities (`remote-node`
+vs. `host`) despite looking like one traffic flow. `kube-system` then found real bugs live, not
+just in logs: an early coredns ingress rule (`fromEndpoints: [{}]`) broke cluster DNS outright,
+because Cilium scopes an empty `fromEndpoints` to the *same namespace as the policy* — the same
+gotcha as native K8s NetworkPolicy's `podSelector: {}` without a `namespaceSelector` — caught via
+a real failed `nslookup` and fixed within the same test cycle. A second gap surfaced right after:
+coredns also needed egress to Talos's own per-node link-local DNS resolver, the actual path
+external names like `github.com` resolve through — an initial "no external DNS observed"
+assumption was simply wrong. Along the way, unrelated to kube-system itself, found and fixed a
+real production gap in the earlier `velero` pass: Kopia repository-maintenance CronJobs
+(`velero.io/repo-name` label, missed by the original hosting-pod policies) had been failing
+continuously against MinIO — confirmed fixed by watching a live CronJob run actually succeed.
+`kube-system`'s own CiliumNetworkPolicies are deliberately **not** Argo CD-managed: a real sync
+attempt surfaced that the `platform` AppProject's destination allowlist already excludes
+`kube-system`, kept rather than widened, given what this phase had just demonstrated about how
+easily a kube-system mistake cascades. Full reasoning in
+`infrastructure/cilium/kube-system/README.md`; evidence:
+[`docs/evidence/samples/cilium-network-segmentation-20260729015300.txt`](docs/evidence/samples/cilium-network-segmentation-20260729015300.txt).
+Also added `docs/05-shared-responsibility.md`, expanding `docs/00-scope.md` §0.6's two-list
+sketch into a full control-by-control platform-vs-tenant breakdown now that network segmentation
+gives it a second real platform control (alongside Kyverno) to describe.
+
+Phases 7–15 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
 milestone.
 
 ## Docs
@@ -152,6 +184,7 @@ milestone.
 - [`docs/00-scope.md`](docs/00-scope.md) — platform/tenant framing, lex specialis reasoning, per-tenant DORA Art. 16 analysis
 - [`docs/03-control-matrix.md`](docs/03-control-matrix.md) — control traceability, the front-door artifact
 - [`docs/04-limitations.md`](docs/04-limitations.md) — what this lab cannot demonstrate, and why
+- [`docs/05-shared-responsibility.md`](docs/05-shared-responsibility.md) — control-by-control platform-vs-tenant breakdown
 - [`BUILD-SPEC.md`](BUILD-SPEC.md) — the full build specification this repo follows
 
 ## Observability

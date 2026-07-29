@@ -50,3 +50,31 @@ This mirrors the general principle used throughout this pass (openebs's
 unlabeled ephemeral pods, argocd-repo-server's un-pinnable GitHub/Helm egress):
 segment what real evidence shows can be segmented safely, and document,
 rather than silently omit, what's deliberately left alone.
+
+## Applied out-of-band, not via Argo CD
+
+The three in-scope policies here are **not** managed by `apps/cilium-policies.yaml`
+the way every other namespace's policies are. `infrastructure/cilium/kube-system/`
+is explicitly excluded from that Application's sync scope
+(`directory.exclude: "kube-system/*"`).
+
+This isn't a shortcut -- it surfaces an existing, deliberate boundary. The
+`platform` AppProject's own `destinations` field is an 11-namespace allowlist
+(`argocd`, `local-path-storage`, `openebs`, `cert-manager`, `kyverno`,
+`argo-workflows`, `litmus`, `velero`, `trivy-system`, `observability`, `canary`)
+that already excludes `kube-system` -- confirmed by a real sync attempt failing
+with `namespace kube-system is not permitted in project 'platform'`, not assumed
+from reading the spec. Rather than widen that allowlist to make this Application
+green, the exclusion is treated as correct and left in place: handing Argo CD's
+`prune: true, selfHeal: true` automation write access to kube-system is a
+materially larger blast-radius grant than any other namespace in this pass, and
+this exact segmentation step already demonstrated -- twice, live -- how easily a
+kube-system change can take down cluster DNS. A compromised or buggy git push
+should not be able to auto-reconcile the control plane's own namespace.
+
+These three policies are applied directly (`kubectl apply -f
+infrastructure/cilium/kube-system/`) and kept in git for review, audit, and
+change history -- the same "featured, documented, not fully automated" pattern
+used for the offline Root CA in this repo's PKI design. If they ever need to
+change, that's a manual, deliberate `kubectl apply`, not a side effect of an
+unrelated commit landing.

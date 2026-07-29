@@ -6,6 +6,16 @@
 # mistake in a namespace like kube-system or argocd can break the whole cluster's
 # connectivity, unlike an admission-control mistake which only affects new pod
 # creation, so this is deliberately slower and more cautious than the Kyverno rollout.
+#
+# `infrastructure/cilium/kube-system/` is excluded from this Application's sync scope
+# on purpose, not an oversight: the `platform` AppProject's own destinations allowlist
+# already excludes kube-system as a deliberate deployment target (11 explicit
+# namespaces, kube-system deliberately not among them) -- confirmed by a real sync
+# attempt failing with "namespace kube-system is not permitted in project 'platform'".
+# That policies exist and are git-tracked for review, but are applied out-of-band via
+# kubectl, not GitOps-automated with prune+selfHeal -- see
+# infrastructure/cilium/kube-system/README.md for the full reasoning, which mirrors
+# this file's own AppProject boundary.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -21,6 +31,7 @@ spec:
     path: infrastructure/cilium
     directory:
       recurse: true
+      exclude: "kube-system/*"
   destination:
     server: https://kubernetes.default.svc
     namespace: canary

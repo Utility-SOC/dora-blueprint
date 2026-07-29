@@ -52,6 +52,17 @@ spec:
         - name: glpi
           image: glpi/glpi:10.0.18
           env:
+            # CAUGHT LIVE: the image bakes in GLPI_SKIP_AUTOINSTALL=false as a literal string
+            # default (confirmed via `kubectl exec ... env`), but /opt/install.sh's own check is
+            # `[[ -z "$GLPI_SKIP_AUTOINSTALL" ]]` -- an empty-string test, not a truthiness check.
+            # The non-empty string "false" makes that test false, so auto-install was silently
+            # SKIPPED every boot despite no database ever being installed -- confirmed by a real
+            # pod that stayed 1/1 Running (Apache came up fine) while GLPI itself served "Database
+            # configuration file ... is missing" on every request. A Kubernetes env var can't
+            # delete an image-baked ENV, only override it -- explicit empty string here is what
+            # actually satisfies the upstream script's own (arguably buggy) check.
+            - name: GLPI_SKIP_AUTOINSTALL
+              value: ""
             - name: GLPI_DB_HOST
               value: mariadb.glpi.svc.cluster.local
             - name: GLPI_DB_NAME

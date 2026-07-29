@@ -174,6 +174,15 @@ spec:
         # apply -- a real drill run's detection-poll genuinely timed out because of this before
         # it was caught. `queryType: instant` makes the Loki query return one reduced value per
         # evaluation, which is what alerting on a `count_over_time(...)` aggregate actually needs.
+        #
+        # CAUGHT LIVE, AGAIN (same drill re-run after the instant-query fix): a 60s window was too
+        # tight against real pipeline latency -- the rule's own state showed the correct labels
+        # appearing (job/verb/objname all matched) but still `Normal (NoData)`, with `activeAt`
+        # landing ~66s after the real fault-injection timestamp, i.e. just past the edge of a 60s
+        # `[1m]` lookback by the time Alloy shipped the audit line, Loki ingested it, and Grafana's
+        # own evaluation tick landed. Widened to a 3m window/lookback -- still requires the exact
+        # same real audit event, just gives the real shipping+ingestion+evaluation pipeline
+        # realistic slack rather than fighting sub-minute propagation timing.
         alerting:
           rules.yaml:
             apiVersion: 1
@@ -190,14 +199,14 @@ spec:
                       - refId: A
                         datasourceUid: loki
                         relativeTimeRange:
-                          from: 60
+                          from: 180
                           to: 0
                         model:
                           refId: A
                           queryType: instant
                           intervalMs: 1000
                           maxDataPoints: 43200
-                          expr: 'count_over_time({job="kube-audit"} | json verb=`verb`, res=`objectRef.resource`, objname=`objectRef.name` | verb=`delete` | res=`namespaces` | objname=`canary` [1m])'
+                          expr: 'count_over_time({job="kube-audit"} | json verb=`verb`, res=`objectRef.resource`, objname=`objectRef.name` | verb=`delete` | res=`namespaces` | objname=`canary` [3m])'
                       - refId: C
                         datasourceUid: "-100"
                         model:

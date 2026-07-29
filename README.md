@@ -250,6 +250,7 @@ milestone.
 - [`docs/03-control-matrix.md`](docs/03-control-matrix.md) — control traceability, the front-door artifact
 - [`docs/04-limitations.md`](docs/04-limitations.md) — what this lab cannot demonstrate, and why
 - [`docs/05-shared-responsibility.md`](docs/05-shared-responsibility.md) — control-by-control platform-vs-tenant breakdown
+- [`docs/06-operations.md`](docs/06-operations.md) — usage, change procedures, ticketing, and where evidence gets parsed (today vs. planned)
 - [`BUILD-SPEC.md`](BUILD-SPEC.md) — the full build specification this repo follows
 
 ## Observability

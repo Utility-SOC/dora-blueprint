@@ -4,8 +4,8 @@ This document answers three questions a reviewer or a real operator would ask th
 control matrix and shared-responsibility doc don't cover: how do you actually run this thing
 day to day, what's the change procedure when something needs to be modified, and what happens
 to the evidence this repo generates. It's written against the platform as it exists today
-(Phase 8 complete) — sections below say plainly where the real answer is "not built yet" rather
-than describing an aspirational process.
+(Phase 9 complete, Phase 11 in progress) — sections below say plainly where the real answer is
+"not built yet" rather than describing an aspirational process.
 
 ## 1. Bringing the lab up and using it
 
@@ -13,14 +13,16 @@ than describing an aspirational process.
   allows. It's idempotent (safe to re-run) and brings up: Talos cluster → Cilium → Argo CD →
   the `platform` AppProject → `root-app` (the app-of-apps). From that point on, everything else
   is GitOps-managed; `bootstrap/install.sh` only re-runs when a *secret* needs creating or an
-  Argo CD ConfigMap needs a non-Helm-managed patch (steps 7–10 — cert-manager's Intermediate CA,
-  IAM secrets, Argo CD OIDC/RBAC config, MinIO/Velero credentials). See the script's own header
-  comments for exactly which steps those are and why each one can't be expressed as a synced
-  manifest.
+  Argo CD ConfigMap needs a non-Helm-managed patch (steps 7–12 — cert-manager's Intermediate CA,
+  IAM secrets, Argo CD OIDC/RBAC config, MinIO/Velero credentials, Grafana's alerting API token,
+  GLPI/MariaDB credentials). See the script's own header comments for exactly which steps those
+  are and why each one can't be expressed as a synced manifest.
 - `make drill SCENARIO=<name>` runs a drill (currently `ns-restore`; more scenarios land in
-  Phase 10). Output is a drill record — see `drills/schema/drill-record.schema.json` — printed
-  to stdout and, for now, manually promoted to `docs/evidence/samples/` when it's worth keeping
-  as citable evidence (§3 below).
+  Phase 10) via `drills/lib/run-drill.sh`, which also classifies the result, computes both
+  regulatory clocks, and opens a GLPI ticket (Phase 11) after a successful run. Output is a drill
+  record — see `drills/schema/drill-record.schema.json` — printed to stdout and, for now,
+  manually promoted to `docs/evidence/samples/` when it's worth keeping as citable evidence
+  (§3 below).
 - `make lab-full`, `make lab-dr`, `make evidence`, `make images` all exist as stubs today and
   fail loudly rather than silently no-op — build-spec P1 ("no claim without an implementation").
   Don't trust a green run of these; they're not implemented yet.
@@ -94,28 +96,29 @@ as a real, current limitation rather than silently assumed away.
 
 ## 3. Do you need a ticketing system?
 
-**Not to run this lab today, and GitHub Issues is the right amount of ticketing once you do
-need one** — a full ITSM tool (Jira, ServiceNow) would be scope-inappropriate for a
-single-operator reference architecture and adds nothing a `git log` plus GitHub Issues doesn't
-already give you.
+**Yes, and this platform now runs one: GLPI, self-hosted on the same cluster as everything
+else** (`infrastructure/glpi/`, build-spec Phase 11). Earlier drafts of this doc argued GitHub
+Issues was "the right amount of ticketing" for a single-operator lab — that held up until the
+GitHub-token setup step surfaced the real question ("why GitHub specifically?") and the honest
+answer was "zero new infrastructure," not "the right tool." Once a real self-hosted ITSM tool
+was on the table, it was a deliberate, not incidental, choice: this repo already self-hosts
+Keycloak, OpenLDAP, Grafana, and MinIO — nothing else here calls out to a SaaS product for a
+core function, and ticketing shouldn't be the one exception.
 
-Where a ticketing system genuinely becomes load-bearing is incident response, and that's not
-built yet: build-spec Phase 11 is "classification, clocks (fed by real `t_detect`), **GitHub
-issue automation**, runbooks" — the design is a drill (or eventually a real detection) opening a
-GitHub Issue with the DORA Art. 19 / NIS2 Art. 23 reporting deadlines computed and stamped onto
-it from real timestamps, not a human filing a ticket after the fact. That's deliberately
-GitHub Issues via the API, not a separate ITSM integration — it fits this repo's own "the
-platform is GitHub-native" pattern (Argo CD already reads this repo directly) and keeps the
-evidence trail in one auditable place instead of splitting it across two systems.
+**Why GLPI specifically**, over a lighter ticketing-only tool: it's a real ITSM/ITIL-shaped
+product (Incident/Problem/Change/Service Request as first-class objects), has a mature Docker
+deployment story (official `glpi/glpi` image, weekly security rebuilds), a real REST API, and —
+the deciding factor — its asset-management module is a legitimate future source for DORA
+Art. 28's Register of Information (build-spec's own later supply-chain phase). A pure ticketing
+tool would only ever serve incident response; GLPI sets up a second real payoff without being
+asked to do anything it isn't already designed for.
 
-If this pattern were lifted into a real organization with an existing ITSM tool (which most
-regulated financial institutions will have, per `docs/00-scope.md`'s own tenant framing), the
-right integration point is the same one Phase 11 is designed around: the drill/detection emits a
-structured record (already true today — see `drills/schema/drill-record.schema.json`), and
-*something* turns that record into a ticket. Swapping "open a GitHub Issue" for "call the
-org's ITSM API" is a small, isolated change at that one boundary — it doesn't touch anything
-upstream of it. Nothing about the current design assumes GitHub Issues specifically; it's just
-the lowest-friction choice for a repo that doesn't have a real ITSM system to integrate with.
+The drill/detection pipeline emits a structured record (`drills/schema/drill-record.schema.json`)
+regardless of destination — `drills/lib/enrich.py` computes classification and both DORA/NIS2
+deadlines from real timestamps, and `drills/lib/open-incident.py` is the one place that record
+gets turned into a ticket (GLPI's `initSession` → `Ticket` REST flow). That's still a real,
+isolated boundary: swapping GLPI for a different self-hosted tool, or a real organization's
+existing ITSM system, is a change to that one file, not to anything upstream of it.
 
 ## 4. Where does the evidence get parsed?
 
@@ -161,5 +164,5 @@ Two things worth being explicit about in the meantime, since "not built yet" doe
 |---|---|---|
 | How do I bring the lab up? | `make lab-core` (idempotent, re-runnable) | — |
 | How do I make a change? | Direct push to `master`, Argo CD auto-syncs; higher-risk classes (Cilium, Kyverno, secrets) get an audit-first or decrypt/re-encrypt step, per §2 | CI + branch protection (not built — single-operator lab today) |
-| Do I need a ticketing system? | No — GitHub Issues is sufficient for what exists | Phase 11: drills auto-open GitHub Issues with computed DORA/NIS2 deadlines; swappable for a real ITSM at that one boundary |
-| Where is evidence parsed? | Nowhere automated — `docs/03-control-matrix.md` is the hand-maintained index into `docs/evidence/samples/` | Phase 14: `make evidence` generates a consolidated report; Phase 9 adds write-once/tamper-evidence guarantees |
+| Do I need a ticketing system? | Yes — GLPI, self-hosted on this cluster (Phase 11, in progress) | Drills auto-open GLPI tickets with computed DORA/NIS2 deadlines; also a future source for DORA Art. 28's Register of Information via GLPI's asset module |
+| Where is evidence parsed? | Nowhere automated — `docs/03-control-matrix.md` is the hand-maintained index into `docs/evidence/samples/` | Phase 14: `make evidence` generates a consolidated report; write-once/tamper-evidence guarantees (build-spec P7) not yet scheduled to a specific phase |

@@ -17,11 +17,11 @@ steps:
     automated: true
   - name: Compute both DORA Art. 19 and NIS2 Art. 23 notification deadlines
     automated: true
-  - name: Open a GitHub Issue with the classification, both deadlines, and a post-incident-review section
+  - name: Open a GLPI ticket with the classification, both deadlines, and a post-incident-review section
     automated: true
-  - name: A human reviews the issue, confirms the classification decision, and — only if actually major — performs the real regulatory notification (this repo cannot and does not file one)
+  - name: A human reviews the ticket, confirms the classification decision, and — only if actually major — performs the real regulatory notification (this repo cannot and does not file one)
     automated: false
-  - name: A human closes the issue once the post-incident review's manual-step gaps are addressed or explicitly accepted
+  - name: A human closes the ticket once the post-incident review's manual-step gaps are addressed or explicitly accepted
     automated: false
 ---
 
@@ -52,16 +52,16 @@ criteria a lab genuinely cannot measure (clients affected, geographical spread, 
 reputational impact) — see that file's own comment, and `docs/04-limitations.md`, before treating
 any classification decision from this runbook as more than a demonstration of the *logic*.
 
-## Why every drill opens an issue, not just "major" ones
+## Why every drill opens a ticket, not just "major" ones
 
-Per build-spec §6.8, "the issue tracker becomes a timestamped incident register." Gating issue
+Per build-spec §6.8, "the issue tracker becomes a timestamped incident register." Gating ticket
 creation on the classification outcome would mean losing the record of *why* a non-major
 incident was correctly judged non-major — which is itself useful evidence that the
 classification logic works, not just a log of escalations.
 
 ## What still needs a human
 
-Everything after the issue is opened. This repo does not, and should not, autonomously notify a
+Everything after the ticket is opened. This repo does not, and should not, autonomously notify a
 real regulator — DORA/NIS2 notification is a real legal act with real consequences, not
 something a lab script should be able to trigger. The runbook's own front matter marks that step
 `automated: false` deliberately, matching `manual_runbook_steps_required`'s existing role in

@@ -259,7 +259,7 @@ One flat JSON document per drill. Keep it boring.
 
 ### 6.8 Incident response, not just recovery
 
-- Alert webhook → small service that opens a **GitHub Issue from a template**, pre-filled with the classification decision, both computed notification deadlines, and links to drill artifacts. The issue tracker becomes a timestamped incident register.
+- Drill → small script that opens a **ticket from a template** in a self-hosted ITSM tool (GLPI — chosen over GitHub Issues to keep incident tracking on the same self-hosted footing as everything else in this repo, Phase 11), pre-filled with the classification decision, both computed notification deadlines, and links to drill artifacts. The ticket tracker becomes a timestamped incident register.
 - **Runbooks as code** in `docs/runbooks/`, each with machine-readable front matter listing steps and marking each `automated: true|false`. Alerts link to the specific runbook. The drill executes automated steps and records the manual ones as a gap.
 - **Post-incident review** template auto-generated from the drill record (DORA Art. 13, ISO A.5.27).
 
@@ -390,7 +390,7 @@ Do not build breadth-first. Get one drill measuring one number end to end before
 | 8 | IAM: Keycloak (+ LDAP federation), platform services switched from local admin accounts to OIDC SSO, real RBAC demonstrated | Login goes through Keycloak, not a local password; RBAC roles are actually enforced |
 | 9 | Detection layer: alerting rules firing on defined conditions; `t_detect` wired into the drill record schema/emitter for the first time | A drill run produces a real, non-null `t_detect` |
 | 10 | Scenarios 1, 3, 4, 5; RTO/RPO trend dashboard | Drill history chartable |
-| 11 | Incident response: classification, clocks (fed by real `t_detect`), GitHub issue automation, runbooks | Drill opens an issue with both deadlines computed from real timestamps |
+| 11 | Incident response: classification, clocks (fed by real `t_detect`), self-hosted GLPI ticket automation, runbooks | Drill opens a ticket with both deadlines computed from real timestamps |
 | 12 | Supply chain: apko images, cosign, `verifyImages`, generated RoI | Unsigned image is rejected at admission |
 | 13 | Endpoint runtime security; scenario 8 (credential compromise → shell spawn → runtime detection) | Alert reaches the correct runbook within the drill's own measured N seconds |
 | 14 | Scenarios 6, 7, 9; kube-bench; evidence report generator | `make evidence` produces the report |

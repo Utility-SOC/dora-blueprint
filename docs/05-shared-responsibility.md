@@ -181,4 +181,4 @@ today's evidence samples are plain git-tracked files, so git history is the only
 property they have; real ILM/write-only-ingest/object-locked-snapshot guarantees aren't built.
 Notification delivery (a real webhook receiver, as opposed to Grafana's non-functional default
 contact point) is deferred to build-spec Phase 11, where the same alert state this phase makes
-queryable becomes the trigger for a real GitHub Issue.
+queryable becomes the trigger for a real ticket in GLPI, this platform's self-hosted ITSM tool.

@@ -20,7 +20,8 @@ with nothing built yet is listed as such, not skipped — see §0.8/§0.9 below.
 | Backup & recovery | Backup mechanism, Schedule infrastructure, proven restore path | Its own retention/RPO sizing, and which namespaces need a Schedule target | [`ns-restore-20260728204154.json`](evidence/samples/ns-restore-20260728204154.json) |
 | Change management (GitOps) | Git-as-source-of-truth, automated drift correction, a destination allowlist bounding blast radius | Its own review/branch-protection discipline (organizational, not platform-enforced) | not yet generated — no CI evidence pipeline exists |
 | Evidence & drill framework | Record schema, emitter, the ns-restore scenario | Additional scenarios specific to its own risk profile, once scenario breadth (Phase 10) lands | [`ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) |
-| Identity & cryptography (PKI/IAM) | Nothing yet — not built | Not applicable until Phase 7/8 land | not yet generated — Phase 7/8 |
+| Cryptography (PKI) | Offline Root/Intermediate CA hierarchy, `ca`-type `ClusterIssuer` issuing real leaf certs | Request its own `Certificate` from `platform-ca` for any distinct hostname it needs | [`pki-chain-verification-20260729025500.txt`](evidence/samples/pki-chain-verification-20260729025500.txt) |
+| Identity (IAM) | Nothing yet — not built | Not applicable until Phase 8 lands | not yet generated — Phase 8 |
 | Detection (SIEM) | Nothing yet — not built | Not applicable until Phase 9 lands | not yet generated — Phase 9 |
 
 ## Network segmentation (Cilium)
@@ -102,13 +103,27 @@ scenario breadth work (build-spec Phase 10) lands. The platform demonstrates the
 one scenario; it isn't a claim that one scenario is sufficient coverage for every tenant's risk
 register.
 
-## Identity & cryptography (PKI/IAM) — not yet built
+## Cryptography (PKI) — built; IAM still not
 
-Nothing here exists yet. cert-manager has a reserved-but-empty namespace slot in the
-AppProject and Keycloak is planned (build-spec Phases 7/8), but as of this document neither is
-deployed. Listed here rather than omitted, per the same discipline as the rest of this
-repository: no platform/tenant split can be described for a control that doesn't exist, and
-claiming otherwise would violate build-spec P1 ("No claim without an implementation").
+**Platform guarantees:** a real offline-root/online-intermediate hierarchy (build-spec Phase 7),
+not a flat `selfSigned` `ClusterIssuer`. The Root CA (10yr) never touches the cluster — it lives
+in an isolated, shelved environment, generated and rotated per
+`docs/runbooks/pki-root-ca-issuance.md`. The Intermediate CA (5yr, rotated at 4y11mo) does the
+actual day-to-day leaf-cert issuance via a `ca`-type `ClusterIssuer`. Argo CD and Grafana both
+serve real, cert-manager-issued TLS as of this phase — checked directly against the live served
+certificate, not assumed from a `Certificate` resource's `Ready` status; see
+[`pki-chain-verification-20260729025500.txt`](evidence/samples/pki-chain-verification-20260729025500.txt).
+
+**Tenant must bring:** nothing extra to *use* this — any platform service gets a leaf cert from
+the same `ClusterIssuer` for free. A tenant that needs its own distinct hostname/SAN set on a
+cert would request its own `Certificate` resource referencing `platform-ca`, same pattern as
+Argo CD/Grafana's.
+
+IAM (Keycloak, build-spec Phase 8) is still genuinely not built — listed here rather than
+omitted, per the same discipline as the rest of this repository: no platform/tenant split can be
+described for a control that doesn't exist, and claiming otherwise would violate build-spec P1
+("No claim without an implementation"). Both Argo CD and Grafana still authenticate with local
+admin accounts, not OIDC SSO, until Phase 8 lands.
 
 ## Detection (SIEM) — not yet built
 

@@ -41,7 +41,7 @@ make drill SCENARIO=ns-restore
 
 ## Build order and status
 
-This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **7**.
+This repo is being built phase-by-phase per the build spec, breadth-last. Current phase: **8**.
 Phase 3 was the milestone the build spec names as the point the project's thesis is proven —
 everything after this is expansion, not proof of concept. The build order past Phase 4 was
 revised once a security-plane scope expansion (SIEM/detection, scanning, endpoint, IAM/PKI)
@@ -56,6 +56,7 @@ surfaced — see `BUILD-SPEC.md` §12's note on the revision for the full ration
 | 4 | Kyverno policies + exceptions + audit→enforce plan; API audit logging shipping | A privileged pod is denied; the agent exception is documented | done |
 | 5 | Platform/landing-zone generalization — `docs/00-scope.md` reframed from single-entity to platform+tenant | Docs are internally consistent; no stale single-tenant claims remain | done |
 | 6 | Network segmentation: Cilium `CiliumNetworkPolicy` default-deny + explicit allows across all 8 core platform namespaces, each verified against real traffic before and after enforcement | A real functional test (backup, GitOps sync, admission webhook, DNS lookup) passes under genuine enforcement in every namespace | done |
+| 7 | PKI foundation: offline Root CA (10yr) signs an Intermediate CA (5yr, rotated at 4y11mo); cert-manager `ca`-type `ClusterIssuer` issues real leaf certs for Argo CD and Grafana | Both services serve real, cert-manager-issued TLS, chain verified against the actual served certificate | done |
 
 Phase 1 notes: `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner,
 k8s v1.36.2), Cilium v1.19.6, and Argo CD v3.4.5, with a scoped AppProject and a working
@@ -176,7 +177,36 @@ Also added `docs/05-shared-responsibility.md`, expanding `docs/00-scope.md` §0.
 sketch into a full control-by-control platform-vs-tenant breakdown now that network segmentation
 gives it a second real platform control (alongside Kyverno) to describe.
 
-Phases 7–15 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
+Phase 7 notes: real offline-root/online-intermediate PKI, not a flat `selfSigned`
+`ClusterIssuer`. Root CA (RSA 4096, 10yr) and Intermediate CA (RSA 4096, 5yr, signed by the
+Root) generated in a network-isolated Docker container on appserv (`--network none`, confirmed
+directly — only a loopback interface present) standing in for the "throwaway VM" described in
+earlier conversation, since appserv has no KVM/libvirt tooling and standing up a full hypervisor
+solely to generate one root key pair would be disproportionate to what the isolation property
+actually requires. A real gotcha along the way: a first attempt bind-mounted the Root CA's
+private key into the "isolated" container, which meant it was sitting in a plain host-readable
+directory the whole time regardless of network isolation — fixed by moving it into the
+container's own filesystem layer before extracting anything. Full process in
+`docs/runbooks/pki-root-ca-issuance.md`. cert-manager (`apps/cert-manager.yaml`, v1.21.0) then
+found the same AppProject boundary Phase 6 established: its chart defaults leader-election RBAC
+to `kube-system` for legacy reasons, caught by a real sync failure and fixed with
+`global.leaderElection.namespace` rather than widening the AppProject. The `ca`-type
+`ClusterIssuer` (`infrastructure/cert-manager/issuer/`) references an Intermediate CA secret
+created out-of-band by `bootstrap/install.sh`, same "manual step creates the Secret, GitOps
+references it" pattern as MinIO's root credentials — and reached `Ready` with a genuine
+`KeyPairVerified` condition, not just a clean `kubectl apply`. Real leaf certs for Argo CD and
+Grafana (`infrastructure/cert-manager/certificates/`) surfaced two more real bugs: Grafana's
+chart's generic `extraVolumes` only recognizes a fixed set of shorthand keys and silently falls
+back to `emptyDir` for a plain `secret:` volume source, confirmed via `helm template` before and
+after the fix (the chart's dedicated `extraSecretMounts` key is what actually works); and
+switching `server.protocol` to `https` breaks Grafana's default liveness/readiness probes, which
+don't parameterize scheme by protocol — anticipated from this same deployment's earlier
+startup-probe crash loop rather than hit a second time. Both services' actually-served
+certificates were checked directly against a live TLS handshake and verified against the chain
+file, not assumed from `Certificate` status:
+[`docs/evidence/samples/pki-chain-verification-20260729025500.txt`](docs/evidence/samples/pki-chain-verification-20260729025500.txt).
+
+Phases 8–15 are described in full in `BUILD-SPEC.md` §12 and are out of scope for the current
 milestone.
 
 ## Docs

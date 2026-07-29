@@ -1,0 +1,75 @@
+PKI leaf-certificate chain verification — captured live against the running cluster,
+2026-07-29T02:55:00Z. Confirms Argo CD and Grafana both serve real, cert-manager-issued
+TLS chaining to this platform's own offline Root CA (docs/runbooks/pki-root-ca-issuance.md)
+— not self-signed, and not just "the Certificate resource says Ready."
+
+=== ClusterIssuer genuinely validated the Intermediate CA key pair ===
+$ kubectl get clusterissuer platform-ca -o wide
+
+NAME          READY   STATUS                AGE
+platform-ca   True    Signing CA verified   36s
+
+$ kubectl get clusterissuer platform-ca -o jsonpath='{.status.conditions}'
+
+[{"lastTransitionTime":"2026-07-29T02:45:39Z","message":"Signing CA verified",
+"observedGeneration":1,"reason":"KeyPairVerified","status":"True","type":"Ready"}]
+
+=== both Certificates reached Ready with real secrets ===
+$ kubectl -n argocd get certificate argocd-server-tls
+NAME                READY   SECRET              AGE
+argocd-server-tls   True    argocd-server-tls   47s
+
+$ kubectl -n observability get certificate grafana-tls
+NAME          READY   SECRET        AGE
+grafana-tls   True    grafana-tls   47s
+
+=== Argo CD's actually-served certificate, checked directly against the live TLS
+    handshake, not the Certificate resource's status ===
+$ kubectl -n argocd exec deploy/argocd-server -- sh -c \
+    'echo | openssl s_client -connect localhost:8080 -servername argocd-server 2>/dev/null | openssl x509 -noout -issuer -subject'
+
+issuer=C=IE, O=Resilience Lab, OU=Platform PKI, CN=Resilience Lab Intermediate CA
+subject=CN=argocd-server
+
+=== Grafana's actually-served certificate, same method (via port-forward from appserv,
+    since Grafana's own minimal image has no openssl to check from inside) ===
+$ kubectl -n observability port-forward svc/grafana 19443:80 &
+$ echo | openssl s_client -connect localhost:19443 2>/dev/null | openssl x509 -noout -issuer -subject
+
+issuer=C = IE, O = Resilience Lab, OU = Platform PKI, CN = Resilience Lab Intermediate CA
+subject=CN = grafana
+
+=== full chain verification: each leaf cert cryptographically validates against the
+    chain file (Intermediate + Root, the exact file cert-manager's ClusterIssuer holds) ===
+$ openssl verify -CAfile ~/pki-root-ca/ca-chain.crt /tmp/argocd-leaf.crt
+/tmp/argocd-leaf.crt: OK
+
+$ openssl verify -CAfile ~/pki-root-ca/ca-chain.crt /tmp/grafana-leaf.crt
+/tmp/grafana-leaf.crt: OK
+
+=== both services functional after the TLS switchover, not just serving a cert ===
+$ kubectl -n argocd get pods -l app.kubernetes.io/name=argocd-server
+NAME                             READY   STATUS    RESTARTS   AGE
+argocd-server-7b96988549-fpflh   1/1     Running   0          5m
+
+$ kubectl -n observability get pods -l app.kubernetes.io/name=grafana
+NAME                      READY   STATUS    RESTARTS   AGE
+grafana-6cd66c45d-lwvcm   1/1     Running   0          75s
+
+=== real bugs found and fixed getting here, not a clean first pass ===
+- cert-manager's Helm chart defaults leader-election Role/RoleBinding creation to
+  kube-system (legacy default) — the platform AppProject deliberately excludes that
+  namespace (Phase 6). Fixed with global.leaderElection.namespace, pointed at
+  cert-manager's own namespace instead of widening the AppProject.
+- Grafana's chart extraVolumes only recognizes a fixed set of shorthand keys
+  (existingClaim, hostPath, csi) and silently falls back to emptyDir for anything
+  else — a plain `secret: {secretName: ...}` volume source produced an EMPTY mounted
+  directory and a real crash loop ("cannot find SSL cert_file"), not an error at
+  apply time. Confirmed the actual cause via `helm template` against the exact same
+  values before attempting a fix, then confirmed the fix the same way before
+  redeploying. The chart's dedicated extraSecretMounts key is what actually works.
+- Switching Grafana's server.protocol to https breaks its default liveness/readiness
+  probes (they don't parameterize scheme by protocol) — anticipated from a previous,
+  different startup-probe failure on this same deployment, added scheme: HTTPS to all
+  three probes (startup/readiness/liveness) up front rather than hitting a second
+  crash loop to find it again.

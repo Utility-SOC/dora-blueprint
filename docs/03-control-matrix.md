@@ -23,6 +23,7 @@ maintenance risks drift (tracked as a Phase 5+ task, not required for the Phase 
 | ISO A.8.13 | Information backup | `apps/velero.yaml`, `apps/openebs-localpv.yaml` | [`docs/evidence/samples/ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) | generated |
 | ISO A.8.16 | Monitoring | observability profile | Detection latency (`t_detect` − `t_inject`) | not yet generated — Phase 2/9 |
 | ISO A.8.17 | Clock synchronisation | `platform/talos/` chrony config | NTP drift metrics, clock-skew drill | not yet generated — Phase 1/14 |
+| ISO A.8.24 | Use of cryptography | `infrastructure/cert-manager/` (offline Root CA -> Intermediate CA -> `ca`-type `ClusterIssuer`) | [`docs/evidence/samples/pki-chain-verification-20260729025500.txt`](evidence/samples/pki-chain-verification-20260729025500.txt) — Argo CD and Grafana's actually-served certificates checked live, both chaining to the platform's own Root CA | generated |
 | ISO A.8.29 | Security testing | CI pipeline, drills | Pipeline runs, drill records | not yet generated — Phase 12/14 |
 
 ## Reading this table

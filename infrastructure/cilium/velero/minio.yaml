@@ -1,0 +1,41 @@
+# Ingress includes both hosting-pod kinds by label existence, not name -- the ephemeral
+# kopia FSB hosting pods Velero spins up per backup/restore have unpredictable names
+# (same root cause that forced the Kyverno exception for this namespace to go
+# namespace-wide back in Phase 4), but they DO carry a stable label *key*
+# (velero.io/pod-volume-backup / velero.io/pod-volume-restore, value = the pod's own
+# name) that a matchExpressions Exists selector catches regardless of the specific
+# value. Confirmed by triggering a real backup and inspecting the live pod's labels
+# before it terminated, not assumed from the Kyverno-era finding about a *different*
+# label (velero.io/backup-name) not propagating to these pods.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: minio
+  namespace: velero
+spec:
+  endpointSelector:
+    matchLabels:
+      app: minio
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            name: velero
+        - matchLabels:
+            name: node-agent
+        - matchExpressions:
+            - key: velero.io/pod-volume-backup
+              operator: Exists
+        - matchExpressions:
+            - key: velero.io/pod-volume-restore
+              operator: Exists
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

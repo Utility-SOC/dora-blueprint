@@ -1,0 +1,30 @@
+# Matched by `name: velero` specifically, not `app.kubernetes.io/name: velero` -- that
+# broader label is shared with node-agent (both are Velero chart components), which
+# needs a separate policy since it has different egress needs (no direct MinIO chunk
+# traffic pattern difference in practice, but kept distinct to mirror how the chart
+# itself separates the two workloads).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: velero-server
+  namespace: velero
+spec:
+  endpointSelector:
+    matchLabels:
+      name: velero
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: minio

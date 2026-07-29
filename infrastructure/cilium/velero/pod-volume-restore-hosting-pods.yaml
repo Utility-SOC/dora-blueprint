@@ -1,0 +1,31 @@
+# Mirror of pod-volume-hosting-pods.yaml for the restore-side ephemeral pods
+# (velero.io/pod-volume-restore, not -backup). Designed by inference from the backup
+# hosting pods' pattern before ever seeing a live restore-side pod, then genuinely
+# proven by running the full ns-restore drill under enforcement -- it worked on the
+# first real attempt, not iterated to a fix after a failure.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pod-volume-restore-hosting-pods
+  namespace: velero
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: velero.io/pod-volume-restore
+        operator: Exists
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: minio

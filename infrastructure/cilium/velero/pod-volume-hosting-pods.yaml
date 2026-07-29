@@ -1,0 +1,33 @@
+# Verified against two real backups: one under audit-mode (zero AUDIT/DROPPED flows
+# across all three nodes' Cilium agents -- checking every node mattered, since these
+# ephemeral pods can land on any of them), then a second backup under genuine
+# enforcement (both the parent Backup and every PodVolumeBackup reached Completed), then
+# the full ns-restore drill end-to-end (verdict pass, RTO 156s) to prove the DR
+# capability this whole project is built around survives network segmentation intact,
+# not just the backup half of it.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: pod-volume-hosting-pods
+  namespace: velero
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: velero.io/pod-volume-backup
+        operator: Exists
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: minio

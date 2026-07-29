@@ -2,8 +2,18 @@
 # readiness both hit /healthz on 8080 from the local kubelet (`host` entity, periodSeconds
 # matches). Real egress: kube-apiserver (server's own resource reads), redis:6379
 # (session cache), repo-server:8081 (manifest rendering for the UI/API), CoreDNS
-# (resolving in-namespace service names). No dex-server egress observed -- this lab uses
-# local admin auth, not OIDC SSO yet (queued for Phase 7).
+# (resolving in-namespace service names).
+#
+# Phase 8 (IAM) adds egress to Keycloak -- deliberately via the same external LAN address
+# (192.168.1.106:9083) the browser uses for the OIDC login redirect, not Keycloak's
+# in-cluster Service DNS name. Confirmed necessary, not just a style choice: Keycloak
+# detects its own issuer URL dynamically from each request's Host header, so a
+# server-to-server call via the in-cluster name would get back a *different* issuer
+# string than what the browser's authorization-code flow used, and Argo CD's OIDC client
+# validates that the token's `iss` claim matches its configured issuer exactly --
+# mismatched issuers would break login even though each half works in isolation. Hairpin
+# NAT (a pod reaching back out to the cluster's own host's external-facing LAN IP) was
+# confirmed working directly, not assumed, before relying on this path.
 #
 # The externally-reachable path (kubectl port-forward --address 192.168.1.106 ... for the
 # UI/CLI) bypasses Cilium's CNI enforcement entirely -- confirmed empirically earlier in
@@ -52,4 +62,10 @@ spec:
             - port: "53"
               protocol: UDP
             - port: "53"
+              protocol: TCP
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "9083"
               protocol: TCP

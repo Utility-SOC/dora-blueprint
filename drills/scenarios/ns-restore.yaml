@@ -7,6 +7,9 @@ description: >
   backup into a freshly named namespace — never in place, per build-spec §6.3
   ("restoring in place proves nothing"). RPO is the exact record count written to
   the canary between that backup and the fault; RTO is inject-to-first-passing-probe.
+  Phase 9 (Detection) adds a real t_detect: a genuine Grafana Alerting rule watching the
+  kube-apiserver audit log independently observes and fires on the fault injection, not
+  something this scenario self-reports.
 target_rto_seconds: 300
 target_rpo_seconds: 3600
 controls:
@@ -15,4 +18,6 @@ controls:
   - NIS2-21.2.c
   - ISO-A.8.13
   - ISO-A.5.29
+  - ISO-A.8.16
+  - DORA-Art10
 workflow_template: ns-restore

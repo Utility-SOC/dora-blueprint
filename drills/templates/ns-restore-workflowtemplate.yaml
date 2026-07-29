@@ -4,7 +4,9 @@
 # is simpler as script variables than as Argo output-parameter plumbing between
 # steps for a first scenario. bitnami/kubectl only — no python in this image; the
 # hash-chain check runs where python already lives, inside the canary pods
-# themselves, via `kubectl exec`.
+# themselves, via `kubectl exec`. curl and jq are both present in this image
+# (confirmed directly, not assumed) -- Phase 9 (Detection) uses them to poll
+# Grafana's Alerting API for a real t_detect, no new image needed.
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
@@ -23,6 +25,10 @@ spec:
         runAsUser: 1001
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+        - name: platform-ca
+          configMap:
+            name: platform-ca
       container:
         image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
         command: ["bash", "-ceu"]
@@ -30,6 +36,16 @@ spec:
           allowPrivilegeEscalation: false
           capabilities:
             drop: ["ALL"]
+        env:
+          - name: GRAFANA_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: grafana-api-token
+                key: token
+        volumeMounts:
+          - name: platform-ca
+            mountPath: /etc/platform-ca
+            readOnly: true
         args:
           - |
             DRILL_ID="ns-restore-$(date -u +%Y%m%d%H%M%S)"
@@ -52,6 +68,32 @@ spec:
 
             echo "[$DRILL_ID] t_inject=$T_INJECT — deleting namespace canary (fault injection)"
             kubectl delete namespace canary --wait=true --timeout=120s
+
+            # Phase 9 (Detection): t_detect is "first alert fired" (build-spec), a genuine
+            # independent signal -- not something this script gets to self-report the way it
+            # self-reports t_inject. Polled right after injection (not after the whole drill
+            # completes) so a real, already-fired alert instance can't go stale/resolve before
+            # we check, and so the timeline mirrors a real incident: fault -> detect -> respond.
+            echo "[$DRILL_ID] polling Grafana's Alerting API for real detection of the fault"
+            T_DETECT=""
+            for i in $(seq 1 20); do
+              ALERTS_JSON="$(curl -s --cacert /etc/platform-ca/ca-chain.crt \
+                -H "Authorization: Bearer ${GRAFANA_API_TOKEN}" \
+                https://grafana.observability.svc.cluster.local/api/alertmanager/grafana/api/v2/alerts)"
+              CANDIDATE="$(echo "$ALERTS_JSON" | jq -r --arg t "$T_INJECT" '
+                [.[] | select(.labels.alertname == "Canary namespace deleted" and .startsAt >= $t)]
+                | sort_by(.startsAt) | .[0].startsAt // empty
+              ')"
+              if [ -n "$CANDIDATE" ]; then
+                T_DETECT="$CANDIDATE"
+                echo "[$DRILL_ID] t_detect=$T_DETECT (Grafana alert canary-ns-delete-detect fired)"
+                break
+              fi
+              sleep 3
+            done
+            if [ -z "$T_DETECT" ]; then
+              echo "[$DRILL_ID] WARNING: no detection alert observed within the poll window -- t_detect will be omitted from the record. A real detection gap, not fabricated." >&2
+            fi
 
             RESTORE_NS="canary-restored-$(date -u +%Y%m%d%H%M%S)"
             RESTORE_NAME="${DRILL_ID}-restore"
@@ -105,9 +147,14 @@ spec:
             if [ "$INTEGRITY" = "pass" ]; then VERDICT="pass"; else VERDICT="fail"; fi
 
             echo "[$DRILL_ID] emitting drill record"
-            cat <<EOF
-            {"drill_id":"${DRILL_ID}","scenario":"ns-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","restored namespace: ${RESTORE_NS}"]}
+            RECORD="$(cat <<EOF
+            {"drill_id":"${DRILL_ID}","scenario":"ns-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29","ISO-A.8.16","DORA-Art10"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","restored namespace: ${RESTORE_NS}"]}
             EOF
+            )"
+            if [ -n "$T_DETECT" ]; then
+              RECORD="$(echo "$RECORD" | jq --arg t "$T_DETECT" '. + {t_detect: $t}')"
+            fi
+            echo "$RECORD"
 
             echo "RESULT_RTO_SECONDS=${RTO}"
             echo "RESULT_RPO_RECORDS_LOST=${RPO_RECORDS}"

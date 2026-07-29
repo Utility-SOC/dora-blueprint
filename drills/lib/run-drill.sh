@@ -62,16 +62,16 @@ echo "=== enriched drill record (classification + regulatory clocks) ==="
 echo "$ENRICHED_RECORD" | python3 -m json.tool
 
 echo
-echo "=== opening incident issue ==="
-GITHUB_TOKEN_TMP="$(mktemp)"
-trap 'shred -u "$GITHUB_TOKEN_TMP" 2>/dev/null || rm -f "$GITHUB_TOKEN_TMP"' EXIT
+echo "=== opening incident ticket (GLPI) ==="
+GLPI_TOKEN_TMP="$(mktemp)"
+trap 'shred -u "$GLPI_TOKEN_TMP" 2>/dev/null || rm -f "$GLPI_TOKEN_TMP"' EXIT
 REPO_ROOT="$(cd "$LIB_DIR/../.." && pwd)"
-sops --decrypt "$REPO_ROOT/drills/secrets/github-token.enc.yaml" > "$GITHUB_TOKEN_TMP"
-GITHUB_TOKEN="$(awk '/^github_token:/ {print $2}' "$GITHUB_TOKEN_TMP")"
-rm -f "$GITHUB_TOKEN_TMP"
+sops --decrypt "$REPO_ROOT/infrastructure/glpi/secrets/glpi-api-token.enc.yaml" > "$GLPI_TOKEN_TMP"
+GLPI_API_TOKEN="$(awk '/^glpi_api_token:/ {print $2}' "$GLPI_TOKEN_TMP")"
+rm -f "$GLPI_TOKEN_TMP"
 
-ISSUE_RESULT="$(echo "$ENRICHED_RECORD" | GITHUB_TOKEN="$GITHUB_TOKEN" python3 "$LIB_DIR/open-incident.py")"
-echo "$ISSUE_RESULT" | python3 -m json.tool
+TICKET_RESULT="$(echo "$ENRICHED_RECORD" | GLPI_API_TOKEN="$GLPI_API_TOKEN" python3 "$LIB_DIR/open-incident.py")"
+echo "$TICKET_RESULT" | python3 -m json.tool
 
 echo
 echo "=== summary ==="

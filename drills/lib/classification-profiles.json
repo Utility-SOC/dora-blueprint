@@ -1,0 +1,11 @@
+{
+  "_comment": "Synthetic DORA Art. 18 RTS inputs, per scenario -- build-spec §6.5: 'say so in the docstring rather than pretending the numbers are real.' These are lab fixtures for the platform's example tenant, Meridian Pay (docs/00-scope.md §0.1.2: ~2,400 SME merchants, ~40M transactions/year, 11-country EU passporting), not measurements of a real incident. See classify.py for how these combine with the drill record's own real, measured fields (duration, data loss).",
+  "ns-restore": {
+    "_comment": "Namespace-level delete+restore: a contained incident by design (one tenant workload, one region) -- these numbers are chosen to be plausible for that shape of fault, not tuned to force a particular classification outcome.",
+    "clients_affected_pct": 3.5,
+    "geographical_spread_member_states": 1,
+    "economic_impact_eur": 15000,
+    "reputational_impact": "low",
+    "critical_service_affected": false
+  }
+}

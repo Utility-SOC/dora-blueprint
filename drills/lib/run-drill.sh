@@ -43,9 +43,36 @@ if [ "$PHASE" != "Succeeded" ]; then
   exit 1
 fi
 
+RAW_RECORD="$(echo "$LOGS" | grep '^{"drill_id"' | tail -1)"
+
 echo
-echo "=== drill record ==="
-echo "$LOGS" | grep '^{"drill_id"' | tail -1 | python3 -m json.tool 2>/dev/null || echo "$LOGS" | grep '^{"drill_id"'
+echo "=== drill record (as emitted) ==="
+echo "$RAW_RECORD" | python3 -m json.tool
+
+# Phase 11 (Incident response, build-spec §6.5/§6.4/§6.8): classify, compute both regulatory
+# clocks, re-validate the enriched record through emit.py's own schema check, then open a real
+# GitHub Issue. Host-side, not inside the workflow pod -- keeps the workflow template's own job
+# (inject/detect/recover/verify) separate from response concerns, and lets emit.py's existing
+# validation logic actually get exercised for the first time outside its own design intent.
+LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENRICHED_RECORD="$(echo "$RAW_RECORD" | python3 "$LIB_DIR/enrich.py")"
+
+echo
+echo "=== enriched drill record (classification + regulatory clocks) ==="
+echo "$ENRICHED_RECORD" | python3 -m json.tool
+
+echo
+echo "=== opening incident issue ==="
+GITHUB_TOKEN_TMP="$(mktemp)"
+trap 'shred -u "$GITHUB_TOKEN_TMP" 2>/dev/null || rm -f "$GITHUB_TOKEN_TMP"' EXIT
+REPO_ROOT="$(cd "$LIB_DIR/../.." && pwd)"
+sops --decrypt "$REPO_ROOT/drills/secrets/github-token.enc.yaml" > "$GITHUB_TOKEN_TMP"
+GITHUB_TOKEN="$(awk '/^github_token:/ {print $2}' "$GITHUB_TOKEN_TMP")"
+rm -f "$GITHUB_TOKEN_TMP"
+
+ISSUE_RESULT="$(echo "$ENRICHED_RECORD" | GITHUB_TOKEN="$GITHUB_TOKEN" python3 "$LIB_DIR/open-incident.py")"
+echo "$ISSUE_RESULT" | python3 -m json.tool
+
 echo
 echo "=== summary ==="
 echo "$LOGS" | grep '^RESULT_'

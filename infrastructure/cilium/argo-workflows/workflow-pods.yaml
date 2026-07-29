@@ -1,0 +1,32 @@
+# Matches every pod belonging to any Workflow execution (drills and the cleanup
+# CronWorkflow both) by label *key* existence, not a specific workflow name --
+# `workflows.argoproj.io/workflow`'s value is per-execution and unpredictable, same
+# shape of problem as velero's ephemeral FSB hosting pods. All of this namespace's real
+# workflow traffic (confirmed via Hubble, and by running the full ns-restore drill
+# under both audit-mode and genuine enforcement) is kubectl-against-the-API-server --
+# these pods do their actual work (namespace delete/create, Velero Backup/Restore CRs,
+# pod exec for hash-chain verification) entirely through the Kubernetes API, not direct
+# pod-to-pod network calls.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: workflow-pods
+  namespace: argo-workflows
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: workflows.argoproj.io/workflow
+        operator: Exists
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

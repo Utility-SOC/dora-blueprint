@@ -1,18 +1,20 @@
 # Toy directory seed data — enough to make Phase 8's RBAC "done when" concretely
 # demonstrable (build-spec §12: "a non-admin Keycloak role is denied an action an admin
-# role can perform"), not a synthetic large-scale directory. Two users in two different
-# groups: alice/platform-admins, bob/platform-viewers. Passwords are real, random,
-# SOPS-encrypted alongside every other credential in this repo
+# role can perform"), not a synthetic large-scale directory. Users in two different
+# groups: alice/utility in platform-admins, bob in platform-viewers. Passwords are real,
+# random, SOPS-encrypted alongside every other credential in this repo
 # (infrastructure/keycloak/secrets/iam-secrets.enc.yaml) -- what's committed here is only
 # their one-way {SSHA} hashes (via `slappasswd`), safe to commit the same way a Unix
 # /etc/shadow hash would be.
 #
-# No persistent volume mounted for LDAP data on purpose: osixia/openldap's
-# LDAP_SEED_INTERNAL_LDIF_PATH mechanism only seeds an EMPTY data directory, so every
-# pod restart re-seeds cleanly from this file — the directory's actual state is always
-# exactly what's declared here, no drift possible, matching this repo's GitOps-everything
-# discipline. A real deployment would obviously persist a real directory; this one is a
-# toy federation source, not the thing being protected.
+# CORRECTION (this comment was stale): a real PVC is now mounted for LDAP data
+# (infrastructure/openldap/deployment.yaml) -- LDAP_SEED_INTERNAL_LDIF_PATH only seeds an
+# EMPTY data directory, and a pod restart within the same PVC is NOT empty once seeding
+# has run once, so this file is only the *initial* seed, not a live source of truth
+# thereafter. `utility` was added live via ldapadd/ldapmodify against the running
+# directory (2026-07-29) and mirrored here afterward for reproducibility -- if the PVC is
+# ever wiped, this file is what a fresh seed would restore, so it needs to match live
+# reality, not the other way around.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -43,11 +45,20 @@ data:
     uid: bob
     mail: bob@platform.local
     userPassword: {SSHA}3mKpVHlM5ZtwwKIG5kfI3jaONFUEV0BI
+
+    dn: cn=utility,ou=people,dc=platform,dc=local
+    objectClass: inetOrgPerson
+    cn: utility
+    sn: Admin
+    uid: utility
+    mail: utility@platform.local
+    userPassword: {SSHA}mkEYU1j1zmuDnLBOSvlCc2nfghd1cYNJ
   03-groups.ldif: |
     dn: cn=platform-admins,ou=groups,dc=platform,dc=local
     objectClass: groupOfNames
     cn: platform-admins
     member: cn=alice,ou=people,dc=platform,dc=local
+    member: cn=utility,ou=people,dc=platform,dc=local
 
     dn: cn=platform-viewers,ou=groups,dc=platform,dc=local
     objectClass: groupOfNames

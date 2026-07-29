@@ -6,8 +6,19 @@
 # bootstrap/install.sh from infrastructure/keycloak/secrets/iam-secrets.enc.yaml's
 # ldap_bind_password field -- same pattern as every other credential in this repo.
 # LDAP_SEED_INTERNAL_LDIF_PATH points at the mounted seed-ldif.yaml ConfigMap
-# (infrastructure/openldap/seed-ldif.yaml) -- see that file's own comment for why no PVC
-# is mounted here.
+# (infrastructure/openldap/seed-ldif.yaml).
+#
+# CAUGHT LIVE: an earlier version of this file deliberately mounted no PVC, on the
+# (wrong) assumption that LDAP_SEED_INTERNAL_LDIF_PATH re-seeds cleanly from nothing on
+# every restart. Real behavior: the seed step only runs against a genuinely *empty*
+# `/var/lib/ldap`, and a pod restart within the same container's writable layer is NOT
+# empty once any prior attempt got even partway through seeding -- confirmed via a real
+# crash loop (`ldap_add: Already exists (68)` on the second and every later attempt,
+# right after the exact same LDIF that succeeded, or partially succeeded, on the first).
+# Fixed with a real PVC: seeding now only ever runs once, against genuinely fresh
+# storage, the same way a real LDAP server's data survives its own restarts -- closer to
+# real directory-server behavior than the original "wipe and reseed every time" design,
+# which wasn't actually how the mechanism works regardless.
 #
 # No restricted-PSS securityContext here -- confirmed directly (a real crash loop, zero
 # useful log output under runAsNonRoot/runAsUser:1000, contrasted against a clean,
@@ -16,6 +27,21 @@
 # function at all. Exempted via a namespace+name-scoped Kyverno exclude
 # (infrastructure/kyverno/policies/require-pod-security-restricted.yaml), same mechanism
 # as the alloy exception -- see docs/exceptions/openldap.md.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openldap-data
+  namespace: openldap
+spec:
+  accessModes: ["ReadWriteOnce"]
+  # local-path-provisioner (the cluster default), not openebs-hostpath -- this data is
+  # never backed up by Velero (an ephemeral toy directory, not the thing being
+  # protected), same reasoning as Loki/MinIO staying on local-path-provisioner.
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -56,10 +82,19 @@ spec:
             - name: seed-ldif
               mountPath: /container/service/slapd/assets/config/bootstrap/ldif/custom
               readOnly: true
+            - name: data
+              mountPath: /var/lib/ldap
+              subPath: var-lib-ldap
+            - name: data
+              mountPath: /etc/ldap/slapd.d
+              subPath: etc-ldap-slapd.d
       volumes:
         - name: seed-ldif
           configMap:
             name: openldap-seed
+        - name: data
+          persistentVolumeClaim:
+            claimName: openldap-data
 ---
 apiVersion: v1
 kind: Service

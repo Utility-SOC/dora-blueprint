@@ -1,0 +1,59 @@
+Keycloak LDAP federation + OIDC groups-claim verification — captured live against the
+running cluster, 2026-07-29T04:39:00Z. Confirms the full chain (OpenLDAP -> Keycloak LDAP
+federation -> Keycloak group sync -> OIDC groups claim) actually works end-to-end, not
+just that each piece was configured.
+
+=== LDAP users synced into the platform realm ===
+$ kcadm.sh get users -r platform --fields username,email,enabled
+
+[ {
+  "username" : "alice",
+  "email" : "alice@platform.local",
+  "enabled" : true
+}, {
+  "username" : "bob",
+  "email" : "bob@platform.local",
+  "enabled" : true
+} ]
+
+=== LDAP groups synced into the platform realm ===
+$ kcadm.sh get groups -r platform
+
+[ { "name" : "platform-admins", ... }, { "name" : "platform-viewers", ... } ]
+
+=== group membership correctly carried across from OpenLDAP ===
+$ kcadm.sh get users/<alice-id>/groups -r platform --fields name
+[ { "name" : "platform-admins" } ]
+
+$ kcadm.sh get users/<bob-id>/groups -r platform --fields name
+[ { "name" : "platform-viewers" } ]
+
+=== a REAL access token for alice, requested against the actual running Keycloak,
+    decoded to confirm the groups claim actually reaches the token (not just that a
+    protocol mapper resource exists) ===
+$ curl -s -X POST http://localhost:18080/auth/realms/platform/protocol/openid-connect/token \
+    -d grant_type=password -d client_id=argocd -d client_secret=*** \
+    -d username=alice -d password=*** -d 'scope=openid profile email' \
+  | jq -r .access_token | cut -d. -f2 | base64 -d
+
+{
+  "iss": "http://localhost:18080/auth/realms/platform",
+  "azp": "argocd",
+  "realm_access": {"roles": ["offline_access","uma_authorization","default-roles-platform"]},
+  "scope": "openid profile email",
+  "groups": ["platform-admins"],
+  "preferred_username": "alice",
+  "email": "alice@platform.local"
+}
+
+This is the concrete evidence the eventual RBAC decisions in Argo CD/Grafana depend on: the
+"groups" claim is what argocd-rbac-cm's `g, platform-admins, role:admin` policy line and
+Grafana's role_attribute_path both match against. Without this claim actually present in a
+real issued token, an RBAC policy referencing group names would be syntactically valid but
+functionally inert -- checked here before wiring either downstream consumer, not after.
+
+Note: `directAccessGrantsEnabled` was temporarily flipped to `true` on the argocd client
+specifically to run this password-grant verification request, then flipped back to `false`
+immediately after (`infrastructure/keycloak/configure-realm.sh` creates both clients with
+only the standard authorization-code flow enabled, matching how a real browser login
+actually works) -- this was a one-off verification tool, not the client's real posture.

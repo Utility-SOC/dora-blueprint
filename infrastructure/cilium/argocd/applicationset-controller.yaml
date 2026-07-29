@@ -1,0 +1,30 @@
+# No ApplicationSet resources exist in this cluster today (checked directly:
+# `kubectl get applicationsets -A` returns nothing), and this deployment has no
+# liveness/readiness probe configured at all -- so, confirmed via Hubble, its only real
+# traffic is watching kube-apiserver. If ApplicationSets are adopted later this will need
+# a repo-server:8081 egress rule added (mirrors application-controller's), same
+# "featured not fully functional yet" transparency as this repo's other lab-scoped gaps.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: applicationset-controller
+  namespace: argocd
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-applicationset-controller
+  ingressDeny:
+    - {}
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

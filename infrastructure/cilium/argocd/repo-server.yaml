@@ -1,0 +1,63 @@
+# Confirmed via Hubble (all 3 nodes): ingress is `host` (kubelet probe, /healthz on 8084,
+# matches the deployment's probe spec) plus real gRPC calls from argocd-server and
+# argocd-application-controller on 8081 (manifest rendering requests).
+#
+# Egress genuinely reaches the public internet: a real git-over-SSH fetch to GitHub
+# (140.82.116.3:22, GitHub's documented IP range) for this repo, and separate HTTPS
+# (:443) traffic for Helm chart repos (grafana, kyverno, velero, argo-workflows charts
+# each live at different hosts). This can't be pinned to specific destination IPs/FQDNs
+# with the tooling set up so far in this pass (no toFQDNs/DNS-proxy policy has been
+# configured anywhere in this cluster yet) -- scoped as tightly as the evidence allows:
+# `world` on exactly the two ports actually observed, not a blanket egress-allow. Revisit
+# with toFQDNs if/when Cilium's DNS-aware policy is set up.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: repo-server
+  namespace: argocd
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-repo-server
+  ingress:
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8084"
+              protocol: TCP
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: argocd-server
+        - matchLabels:
+            app.kubernetes.io/name: argocd-application-controller
+      toPorts:
+        - ports:
+            - port: "8081"
+              protocol: TCP
+  egress:
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "22"
+              protocol: TCP
+            - port: "443"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: argocd-redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

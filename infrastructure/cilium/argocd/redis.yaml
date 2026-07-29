@@ -1,0 +1,29 @@
+# Pure responder: confirmed via Hubble that redis only ever receives from server,
+# repo-server, and application-controller on 6379, and never initiates a connection of
+# its own. Explicit egressDeny -- safe here since nothing else in this namespace grants
+# redis egress, so there's no Deny-overrides-Allow conflict risk (contrast with the
+# provisioners in infrastructure/cilium/openebs, where a namespace-wide egressDeny was
+# deliberately avoided for exactly that reason).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: redis
+  namespace: argocd
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-redis
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: argocd-server
+        - matchLabels:
+            app.kubernetes.io/name: argocd-repo-server
+        - matchLabels:
+            app.kubernetes.io/name: argocd-application-controller
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+  egressDeny:
+    - {}

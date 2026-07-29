@@ -1,0 +1,28 @@
+# Not used for auth yet -- this lab authenticates with the local admin account, not OIDC
+# SSO (queued for Phase 7's Keycloak work). No probe configured, and Hubble confirmed its
+# only real traffic today is reading its own ConfigMap/Secret from kube-apiserver. Once
+# OIDC SSO lands, this will need ingress from argocd-server on 5556/5557 added.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: dex-server
+  namespace: argocd
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-dex-server
+  ingressDeny:
+    - {}
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

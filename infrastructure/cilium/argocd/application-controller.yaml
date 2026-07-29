@@ -1,0 +1,53 @@
+# The core GitOps reconciliation loop -- watches/applies every Application cluster-wide.
+# Breaking its egress wouldn't fail-closed the way kyverno's admission webhook would
+# (no failurePolicy involved), but it would silently stop all GitOps sync, which is its
+# own kind of dangerous since nothing would visibly error. Verified with a real
+# `argocd app sync` round trip, same rigor as kyverno.
+#
+# Confirmed via Hubble: ingress is `host` only (readiness probe, /healthz on 8082, no
+# liveness probe configured on this StatefulSet). Egress: kube-apiserver (the actual
+# apply/watch traffic), redis:6379 (state cache), repo-server:8081 (fetching rendered
+# manifests to diff against live state), CoreDNS.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: application-controller
+  namespace: argocd
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-application-controller
+  ingress:
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8082"
+              protocol: TCP
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: argocd-redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: argocd-repo-server
+      toPorts:
+        - ports:
+            - port: "8081"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

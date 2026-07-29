@@ -1,0 +1,55 @@
+# Confirmed via Hubble (all 3 nodes) plus the deployment's own probe spec: liveness/
+# readiness both hit /healthz on 8080 from the local kubelet (`host` entity, periodSeconds
+# matches). Real egress: kube-apiserver (server's own resource reads), redis:6379
+# (session cache), repo-server:8081 (manifest rendering for the UI/API), CoreDNS
+# (resolving in-namespace service names). No dex-server egress observed -- this lab uses
+# local admin auth, not OIDC SSO yet (queued for Phase 7).
+#
+# The externally-reachable path (kubectl port-forward --address 192.168.1.106 ... for the
+# UI/CLI) bypasses Cilium's CNI enforcement entirely -- confirmed empirically earlier in
+# this pass -- so no LAN/CIDR ingress rule is needed for it today. That changes once the
+# bastion/jumphost work (Phase 6/7) replaces port-forward with a real Ingress/Gateway,
+# which would traverse the CNI dataplane and need its own explicit ingress rule then.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: argocd-server
+  namespace: argocd
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-server
+  ingress:
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: argocd-redis
+      toPorts:
+        - ports:
+            - port: "6379"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: argocd-repo-server
+      toPorts:
+        - ports:
+            - port: "8081"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

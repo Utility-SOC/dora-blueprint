@@ -1,0 +1,103 @@
+# Phase 11 (Incident response): self-hosted GLPI, the incident-ticket destination for the
+# ns-restore drill's classification+clocks output (drills/lib/open-incident.py), replacing an
+# earlier GitHub-Issues-based design -- self-hosted to match every other credential/service in
+# this repo (Keycloak, OpenLDAP, Grafana, MinIO all self-hosted; nothing here calls out to a
+# SaaS product for a core function).
+#
+# Official `glpi/glpi` image (Docker Hub/GHCR, maintained by the GLPI project itself, weekly
+# security rebuilds -- same trust tier as grafana/grafana or docker.io/keycloak). No official
+# Helm chart exists (only unverified community ones), same shape of problem as OpenLDAP -- bare
+# Deployment/Service/PVC, not a third-party chart of uncertain maintenance quality.
+#
+# GLPI_SKIP_AUTOINSTALL is deliberately left at its default (false): setting the four
+# GLPI_DB_* env vars triggers a real automatic database install on first boot, no manual setup
+# wizard click-through needed -- matches this repo's GitOps-everything discipline.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: glpi-data
+  namespace: glpi
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glpi
+  namespace: glpi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: glpi
+  template:
+    metadata:
+      labels:
+        app: glpi
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: glpi
+          image: glpi/glpi:10.0.18
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: GLPI_DB_HOST
+              value: mariadb.glpi.svc.cluster.local
+            - name: GLPI_DB_NAME
+              value: glpi
+            - name: GLPI_DB_USER
+              value: glpi
+            - name: GLPI_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: glpi-db
+                  key: glpiDbPassword
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: data
+              mountPath: /var/glpi
+          startupProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: glpi-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glpi
+  namespace: glpi
+spec:
+  selector:
+    app: glpi
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

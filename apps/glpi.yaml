@@ -1,0 +1,24 @@
+# Phase 11 (Incident response): self-hosted GLPI + MariaDB. Bare manifests, not a Helm chart --
+# no official GLPI chart exists, matching OpenLDAP's own precedent for the same reason.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: glpi
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: infrastructure/glpi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: glpi
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

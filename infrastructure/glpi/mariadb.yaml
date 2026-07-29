@@ -1,0 +1,87 @@
+# Phase 11 (Incident response): GLPI's database. Official `mariadb` Docker Hub image (Docker
+# Official Images program, maintained by the MariaDB Foundation), deliberately NOT
+# `bitnami/mariadb` -- confirmed directly (Bitnami's own docs) that Bitnami's free-tier images
+# have moved into an unmaintained "Legacy" repository with only a `latest` tag, the identical
+# instability class already avoided for `bitnami/openldap` in Phase 8.
+#
+# Bare Deployment/Service/PVC, not a chart -- GLPI has no official Helm chart either (only
+# unverified community ones), so this whole component follows OpenLDAP's own established
+# pattern rather than mixing a charted DB with an unchartered app.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-data
+  namespace: glpi
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 4Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mariadb
+  namespace: glpi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mariadb
+  template:
+    metadata:
+      labels:
+        app: mariadb
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: mariadb
+          image: mariadb:11.4
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: glpi-db
+                  key: mariadbRootPassword
+            - name: MARIADB_DATABASE
+              value: glpi
+            - name: MARIADB_USER
+              value: glpi
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: glpi-db
+                  key: glpiDbPassword
+          ports:
+            - name: mysql
+              containerPort: 3306
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: mariadb-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mariadb
+  namespace: glpi
+spec:
+  selector:
+    app: mariadb
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306

@@ -40,3 +40,14 @@ gaps to be closed, the claim doesn't get made.
   all self-resolved without intervention, just slower than a real cluster's rolling-restart
   behavior would be. No claim of "resilient to host reboot" in this repo should be read as
   "recovers in seconds" — it means "recovers on its own, given about half an hour."
+- **Backup retention (`apps/velero.yaml`'s `ttl: 3h0m0s`) is sized for this lab's disk budget,
+  not a compliance-appropriate recovery/record-keeping policy.** One physical host, one MinIO
+  PVC — a real retention window (weeks of daily backups plus longer-tiered archival, per DORA's
+  emphasis on ICT risk management being proportionate to the entity's own risk assessment rather
+  than a fixed regulatory number) would need storage this lab doesn't have. This repo is
+  deliberately **featured, not fully functional** here: the mechanism (Velero's TTL-based backup
+  expiry, the hourly Schedule, the actual restore path — all real, all verified end-to-end in
+  Phase 3/4's drill evidence) is what's being demonstrated; the 3-hour number is a lab constraint,
+  not a value to copy. A real deployment should size `ttl` — and likely add more `Schedule`
+  resources at different cadences (daily/weekly/monthly tiers, not one flat TTL) — from the
+  organization's own risk-assessed RPO and record-keeping obligations.

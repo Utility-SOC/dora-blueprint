@@ -56,7 +56,16 @@ spec:
                 - canary
               storageLocation: default
               defaultVolumesToFsBackup: true
-              ttl: 168h0m0s
+              # ttl: 3h, not a compliance-appropriate retention value -- deliberately
+              # sized for this lab's actual disk budget (one physical host, one MinIO
+              # PVC), not for a real recovery/record-keeping policy. Featured, not
+              # fully functional: the mechanism (Velero TTL-based backup expiry) is the
+              # real thing being demonstrated; the number is a lab constraint. A real
+              # deployment should size ttl (and likely add more Schedules at different
+              # cadences -- daily/weekly/monthly tiers, not one flat TTL) from the
+              # organization's own risk-assessed RPO and record-keeping obligations,
+              # not copy this value. See docs/04-limitations.md.
+              ttl: 3h0m0s
   destination:
     server: https://kubernetes.default.svc
     namespace: velero

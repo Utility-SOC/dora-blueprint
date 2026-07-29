@@ -1,0 +1,27 @@
+# Unlike Argo CD, Grafana's chart has no "checks for a secret of this name" convenience
+# -- the resulting secret is mounted explicitly via extraVolumes/extraVolumeMounts and
+# wired into grafana.ini's [server] block in apps/grafana.yaml. Same SAN reasoning as
+# argocd-server.yaml: 192.168.1.106 is the real LAN access address in use, plus the
+# in-cluster service names and localhost for the other real access paths.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls
+  namespace: observability
+spec:
+  secretName: grafana-tls
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  issuerRef:
+    name: platform-ca
+    kind: ClusterIssuer
+  commonName: grafana
+  dnsNames:
+    - grafana
+    - grafana.observability
+    - grafana.observability.svc
+    - grafana.observability.svc.cluster.local
+    - localhost
+  ipAddresses:
+    - 192.168.1.106
+    - 127.0.0.1

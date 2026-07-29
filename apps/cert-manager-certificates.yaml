@@ -1,0 +1,26 @@
+# Sync-wave 2 -- after cert-manager itself (wave 0) and the ClusterIssuer (wave 1), so
+# the issuer these Certificates reference already exists by the time they're created.
+# Points at infrastructure/cert-manager/certificates/ specifically, same reasoning as
+# cert-manager-issuer.yaml: the parent infrastructure/cert-manager/ tree also holds
+# non-manifest files (ca-certs/*.crt, the SOPS-encrypted secrets/ file) that would break
+# a recursive sync.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-certificates
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: infrastructure/cert-manager/certificates
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

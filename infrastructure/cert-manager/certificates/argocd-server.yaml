@@ -1,0 +1,35 @@
+# Producing a secret literally named `argocd-server-tls` matters: argocd-server checks
+# for a secret of that exact name in its own namespace at startup and serves it directly
+# if present and valid, falling back to a self-generated self-signed cert only when it's
+# absent -- no chart values or extra config wiring needed on the Argo CD side, confirmed
+# by checking directly that this secret didn't already exist before this Certificate was
+# created. A pod restart is still needed once the secret first appears (argocd-server
+# doesn't hot-reload it), which is why apps/README or the runbook should note that.
+#
+# ipAddresses includes 192.168.1.106 -- the LAN address every `kubectl port-forward
+# --address 192.168.1.106` in this session's access pattern actually uses in a browser
+# URL bar, which is what a served certificate needs to match for the browser not to
+# warn. DNS names cover the other real access paths (in-cluster service name,
+# plain `kubectl port-forward` to localhost).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-server-tls
+  namespace: argocd
+spec:
+  secretName: argocd-server-tls
+  duration: 2160h # 90d
+  renewBefore: 360h # 15d
+  issuerRef:
+    name: platform-ca
+    kind: ClusterIssuer
+  commonName: argocd-server
+  dnsNames:
+    - argocd-server
+    - argocd-server.argocd
+    - argocd-server.argocd.svc
+    - argocd-server.argocd.svc.cluster.local
+    - localhost
+  ipAddresses:
+    - 192.168.1.106
+    - 127.0.0.1

@@ -56,8 +56,46 @@ spec:
           httpGet:
             path: /api/health
             port: grafana
+            scheme: HTTPS
           periodSeconds: 10
           failureThreshold: 60
+        # Chart defaults for these two don't parameterize scheme by protocol -- switching
+        # server.protocol to https below (real cert-manager-issued TLS, not self-signed)
+        # would otherwise leave both probes hitting a TLS port with a plain HTTP GET,
+        # which fails identically to the startupProbe timeout this repo already hit and
+        # fixed once before (see the startupProbe comment above) -- anticipated here
+        # rather than found by a second crash loop.
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: grafana
+            scheme: HTTPS
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: grafana
+            scheme: HTTPS
+          initialDelaySeconds: 60
+          timeoutSeconds: 30
+          failureThreshold: 10
+        # Real leaf cert from the platform's own CA (infrastructure/cert-manager/
+        # certificates/grafana.yaml), not self-signed -- Phase 7. The chart has no
+        # cert-manager convenience block, unlike Argo CD's "checks for a secret of this
+        # exact name" behavior, so this is wired manually: mount the Certificate's
+        # secret, point grafana.ini's [server] block at the mounted paths.
+        extraVolumes:
+          - name: grafana-tls
+            secret:
+              secretName: grafana-tls
+        extraVolumeMounts:
+          - name: grafana-tls
+            mountPath: /etc/grafana/tls
+            readOnly: true
+        grafana.ini:
+          server:
+            protocol: https
+            cert_file: /etc/grafana/tls/tls.crt
+            cert_key: /etc/grafana/tls/tls.key
         datasources:
           datasources.yaml:
             apiVersion: 1

@@ -13,6 +13,13 @@
 # Grafana's core function (querying Loki, serving dashboards) doesn't need internet
 # access, and blocking unsolicited external egress by default is the actual point of
 # this namespace's segmentation. Grafana's own /api/health stayed 200 throughout.
+#
+# Phase 8 (IAM) adds egress to Keycloak on port 9083, via the external LAN address
+# (192.168.1.106) -- same reasoning as argocd-server's identical addition: Keycloak's
+# dynamic per-request issuer detection means Grafana's own server-to-server OIDC calls
+# need to go through the same hostname the browser's redirect uses, not the in-cluster
+# Service name, or the issuer/audience values would mismatch between the two halves of
+# the flow.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -40,4 +47,10 @@ spec:
             - port: "53"
               protocol: UDP
             - port: "53"
+              protocol: TCP
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "9083"
               protocol: TCP

@@ -97,11 +97,42 @@ spec:
             secretName: grafana-tls
             mountPath: /etc/grafana/tls
             readOnly: true
+        # Phase 8 (IAM): OIDC SSO through Keycloak. client_secret comes in via
+        # envValueFrom -> GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET (Grafana's env-var
+        # convention for overriding any grafana.ini value, [section]_key ->
+        # GF_SECTION_KEY), sourced from the grafana-oidc-secret bootstrap/install.sh
+        # creates -- kept out of the committed grafana.ini block itself, same
+        # "credential never lands in git" discipline as the admin password above.
+        # auth_url/token_url/api_url point at the same external LAN address
+        # (192.168.1.106:9083) used everywhere else in this phase, not Keycloak's
+        # in-cluster Service name -- Keycloak's dynamic per-request issuer detection
+        # means mixing hostnames between the browser redirect and Grafana's own
+        # server-to-server calls would produce inconsistent issuer/audience values.
+        # role_attribute_path maps the groups claim (verified actually present in a
+        # real token -- see docs/evidence/samples/keycloak-ldap-oidc-verification-
+        # 20260729043900.txt) to Grafana's own role model; unmapped groups fall
+        # through to Viewer, not Admin -- fail closed, not open.
+        envValueFrom:
+          GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET:
+            secretKeyRef:
+              name: grafana-oidc-secret
+              key: clientSecret
         grafana.ini:
           server:
             protocol: https
             cert_file: /etc/grafana/tls/tls.crt
             cert_key: /etc/grafana/tls/tls.key
+            root_url: "https://192.168.1.106:9082/"
+          auth.generic_oauth:
+            enabled: true
+            name: Keycloak
+            client_id: grafana
+            scopes: "openid profile email groups"
+            auth_url: "http://192.168.1.106:9083/auth/realms/platform/protocol/openid-connect/auth"
+            token_url: "http://192.168.1.106:9083/auth/realms/platform/protocol/openid-connect/token"
+            api_url: "http://192.168.1.106:9083/auth/realms/platform/protocol/openid-connect/userinfo"
+            role_attribute_path: "contains(groups[*], 'platform-admins') && 'Admin' || contains(groups[*], 'platform-viewers') && 'Viewer' || 'Viewer'"
+            role_attribute_strict: false
         datasources:
           datasources.yaml:
             apiVersion: 1

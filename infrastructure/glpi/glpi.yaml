@@ -65,6 +65,8 @@ spec:
               value: ""
             - name: GLPI_DB_HOST
               value: mariadb.glpi.svc.cluster.local
+            - name: GLPI_DB_PORT
+              value: "3306"
             - name: GLPI_DB_NAME
               value: glpi
             - name: GLPI_DB_USER

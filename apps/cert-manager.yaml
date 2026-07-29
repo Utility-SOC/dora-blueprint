@@ -1,0 +1,36 @@
+# PKI foundation (build-spec §12 Phase 7): cert-manager itself. The actual ClusterIssuer
+# and Certificate resources live in infrastructure/cert-manager/, synced by
+# apps/cert-manager-issuer.yaml -- same chart-vs-config split as kyverno.yaml/
+# kyverno-policies.yaml, and for the same reason (chart upgrades and policy/config
+# changes are different concerns, shouldn't ship in the same sync).
+#
+# installCRDs: true, not a separate CRD-apply step -- cert-manager's own chart supports
+# this directly. ServerSideApply=true for the same class of problem BUILD-SPEC.md line 56
+# already flags: cert-manager's CRDs exceed client-side apply's last-applied-configuration
+# annotation size limit, identical to kyverno's ClusterPolicy/PolicyException CRDs.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: platform
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.21.0
+    helm:
+      valuesObject:
+        installCRDs: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

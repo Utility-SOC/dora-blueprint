@@ -77,9 +77,12 @@ spec:
             echo "[$DRILL_ID] polling Grafana's Alerting API for real detection of the fault"
             T_DETECT=""
             for i in $(seq 1 20); do
+              # Port 80 is Grafana's real Service port (the Service has no listener on 443
+              # at all -- confirmed live: an unqualified https:// URL here defaults to 443
+              # and fails with connection refused, not a TLS or Cilium problem).
               ALERTS_JSON="$(curl -s --cacert /etc/platform-ca/ca-chain.crt \
                 -H "Authorization: Bearer ${GRAFANA_API_TOKEN}" \
-                https://grafana.observability.svc.cluster.local/api/alertmanager/grafana/api/v2/alerts)"
+                https://grafana.observability.svc.cluster.local:80/api/alertmanager/grafana/api/v2/alerts)"
               CANDIDATE="$(echo "$ALERTS_JSON" | jq -r --arg t "$T_INJECT" '
                 [.[] | select(.labels.alertname == "Canary namespace deleted" and .startsAt >= $t)]
                 | sort_by(.startsAt) | .[0].startsAt // empty

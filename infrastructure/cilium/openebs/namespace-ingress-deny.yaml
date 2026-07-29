@@ -1,0 +1,26 @@
+# Nothing observed (via Hubble, all 3 node agents) initiates connections INTO this
+# namespace, so ingress is denied cluster/host-wide here. Deliberately NOT pairing this
+# with an egressDeny catch-all: Cilium's explicit Deny rules always win over a concurrent
+# Allow from another policy on the same identity, and openebs-localpv-provisioner (see
+# provisioner.yaml) has real egress it needs -- a namespace-wide egressDeny would silently
+# override that allow and break provisioning.
+#
+# Known, documented gap: the provisioner's ephemeral helper pods (`init-pvc-*`, spawned
+# per-PVC to chmod/mkdir the hostPath, living ~1-2s) carry NO labels at all (confirmed via
+# `--show-labels` across their full Pending -> ContainerCreating -> Completed lifecycle),
+# so they can't be targeted by a matchLabels/matchExpressions egress-allow policy the way
+# velero's and argo-workflows' labeled ephemeral pods were. Also confirmed via Hubble
+# (all 3 nodes) that they generate ZERO network flows -- purely local filesystem ops --
+# so leaving them outside any egress-restricting policy has no functional effect, but it
+# does mean their egress is default-allow by omission rather than an explicit, verified
+# deny. Same "featured not fully functional, documented" transparency pattern as this
+# repo's Velero TTL choice -- see docs/04-limitations.md.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: namespace-ingress-deny
+  namespace: openebs
+spec:
+  endpointSelector: {}
+  ingressDeny:
+    - {}

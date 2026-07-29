@@ -1,0 +1,34 @@
+# Confirmed via Hubble (all 3 node agents) that openebs-localpv-provisioner talks to
+# kube-apiserver (watching PVCs, creating PVs) and ALSO makes outbound calls to Google
+# IPs (142.250.73.110, 74.125.135.100, 74.125.135.138:443) plus a direct DNS query to
+# 8.8.8.8:53 that bypasses CoreDNS entirely -- this is provisioner analytics/telemetry,
+# same class of call Grafana made and had blocked earlier in this namespace-by-namespace
+# pass. Deliberately NOT allowed here: default-deny means it's silently dropped rather
+# than reaching the internet, consistent with "segmentation blocks unnecessary external
+# egress by default." (During audit-mode verification, Hubble actually showed this
+# connection get a genuine DROPPED verdict despite the audit-mode annotation being set --
+# a second confirmed instance of the audit-mode-unreliability limitation first found on
+# loki's kube-apiserver egress. Here it happened to match the intended outcome rather
+# than break anything, but it's the same underlying gap.)
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: openebs-localpv-provisioner
+  namespace: openebs
+spec:
+  endpointSelector:
+    matchLabels:
+      openebs.io/component-name: openebs-localpv-provisioner
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

@@ -1,0 +1,20 @@
+# Same reasoning as infrastructure/cilium/openebs/namespace-ingress-deny.yaml: nothing
+# observed initiates connections into this namespace, so ingress is denied cluster/host-
+# wide. No egressDeny catch-all, for the same reason -- would override the provisioner's
+# real egress allow (see provisioner.yaml), since Cilium Deny rules always win over a
+# concurrent Allow on the same identity.
+#
+# Same documented gap as openebs: the provisioner's ephemeral helper pods
+# (`helper-pod-create-pvc-*`, spawned per-PVC, living ~1-2s) carry NO labels (confirmed
+# via `--show-labels` across their full lifecycle) and generate ZERO network flows
+# (confirmed via Hubble, all 3 nodes) -- left outside any egress-restricting policy by
+# necessity, with no functional effect since they never attempt a network call.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: namespace-ingress-deny
+  namespace: local-path-storage
+spec:
+  endpointSelector: {}
+  ingressDeny:
+    - {}

@@ -1,0 +1,25 @@
+# Confirmed via Hubble (all 3 node agents) that local-path-provisioner talks only to
+# kube-apiserver (watching PVCs, creating PVs) -- no telemetry/external calls observed,
+# unlike openebs-localpv-provisioner in the sibling namespace.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: local-path-provisioner
+  namespace: local-path-storage
+spec:
+  endpointSelector:
+    matchLabels:
+      app: local-path-provisioner
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

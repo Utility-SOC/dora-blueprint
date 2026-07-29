@@ -26,7 +26,7 @@ for bin in talosctl kubectl helm sops; do
   command -v "$bin" >/dev/null || { echo "missing required binary: $bin" >&2; exit 1; }
 done
 
-echo "==> [1/7] Talos cluster (docker provisioner, pinned $TALOS_VERSION / k8s $KUBERNETES_VERSION)"
+echo "==> [1/8] Talos cluster (docker provisioner, pinned $TALOS_VERSION / k8s $KUBERNETES_VERSION)"
 # `talosctl cluster show` exits 0 even for a nonexistent cluster (empty NODES table), so
 # existence is checked against the actual docker container the provisioner creates.
 if docker ps -a --format '{{.Names}}' | grep -q "^${CLUSTER_NAME}-controlplane-1$"; then
@@ -51,7 +51,7 @@ else
     --config-patch-controlplanes @"$REPO_ROOT/platform/talos/patches/control-plane.yaml"
 fi
 
-echo "==> [2/7] Merging kubeconfig and waiting for the API server"
+echo "==> [2/8] Merging kubeconfig and waiting for the API server"
 # Re-run on both branches: `cluster create` only auto-merges kubeconfig on the create path,
 # and the "already exists" branch needs a fresh context set up too. `talosctl kubeconfig`
 # needs an explicit node target against a fresh single-context talosconfig (it has no
@@ -62,7 +62,7 @@ talosctl kubeconfig --talosconfig "$TALOSCONFIG" --nodes "$CP_IP" --force >/dev/
 kubectl config use-context "admin@${CLUSTER_NAME}" >/dev/null
 until kubectl get --raw=/readyz >/dev/null 2>&1; do sleep 2; done
 
-echo "==> [3/7] Installing Cilium $CILIUM_CHART_VERSION (CNI is not an Argo CD sync-wave — see platform/talos/README.md)"
+echo "==> [3/8] Installing Cilium $CILIUM_CHART_VERSION (CNI is not an Argo CD sync-wave — see platform/talos/README.md)"
 helm repo add cilium https://helm.cilium.io/ >/dev/null 2>&1 || true
 helm repo update cilium >/dev/null
 # Talos-specific settings per docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium:
@@ -88,10 +88,10 @@ helm upgrade --install cilium cilium/cilium \
   --set hubble.ui.enabled=true \
   --wait --timeout 10m
 
-echo "==> [4/7] Waiting for nodes Ready"
+echo "==> [4/8] Waiting for nodes Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout=180s
 
-echo "==> [5/7] Installing Argo CD $ARGOCD_VERSION"
+echo "==> [5/8] Installing Argo CD $ARGOCD_VERSION"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 # --server-side: same class of issue build-spec §2 flags for cert-manager CRDs.
 # applicationsets.argoproj.io's schema exceeds client-side apply's 262144-byte
@@ -102,7 +102,7 @@ kubectl apply -n argocd --server-side --force-conflicts \
 kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
 kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 
-echo "==> [6/7] Repo credential, AppProject (never 'default'), and app-of-apps"
+echo "==> [6/8] Repo credential, AppProject (never 'default'), and app-of-apps"
 SSH_KEY_TMP="$(mktemp)"
 trap 'shred -u "$SSH_KEY_TMP" 2>/dev/null || rm -f "$SSH_KEY_TMP"' EXIT
 sops --decrypt "$REPO_ROOT/bootstrap/secrets/argocd-repo-key.enc.yaml" \
@@ -119,7 +119,31 @@ kubectl -n argocd create secret generic elastic-dora-blueprint-repo \
 kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/appproject-platform.yaml"
 kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/root-app.yaml"
 
-echo "==> [7/7] MinIO/Velero credentials"
+echo "==> [7/8] cert-manager Intermediate CA secret"
+# cert-manager's ca-type ClusterIssuer (infrastructure/cert-manager/cluster-issuer.yaml)
+# reads this secret directly — it needs to exist before that Application syncs
+# successfully, same "manual step creates the Secret, GitOps references it via
+# existingSecret/secretName" pattern as MinIO/Velero below and the Argo CD repo
+# credential above. tls.crt is the full chain (Intermediate + Root, in that order) —
+# leaf certs need the whole chain to verify back to a client's trusted Root, not just
+# the immediate issuer. See docs/runbooks/pki-root-ca-issuance.md for how these were
+# generated.
+kubectl create namespace cert-manager --dry-run=client -o yaml | kubectl apply -f -
+
+CERT_CA_TMP="$(mktemp)"
+trap 'shred -u "$SSH_KEY_TMP" "$CERT_CA_TMP" 2>/dev/null || rm -f "$SSH_KEY_TMP" "$CERT_CA_TMP"' EXIT
+sops --decrypt "$REPO_ROOT/infrastructure/cert-manager/secrets/intermediate-ca.enc.yaml" > "$CERT_CA_TMP"
+CERT_CA_CRT_TMP="$(mktemp)"
+CERT_CA_KEY_TMP="$(mktemp)"
+awk '/^tls_crt:/{f=1;next} /^tls_key:/{f=0} f' "$CERT_CA_TMP" | sed 's/^    //' > "$CERT_CA_CRT_TMP"
+awk '/^tls_key:/{f=1;next} f' "$CERT_CA_TMP" | sed 's/^    //' > "$CERT_CA_KEY_TMP"
+
+kubectl -n cert-manager create secret tls intermediate-ca \
+  --cert="$CERT_CA_CRT_TMP" --key="$CERT_CA_KEY_TMP" \
+  --dry-run=client -o yaml | kubectl apply -f -
+rm -f "$CERT_CA_TMP" "$CERT_CA_CRT_TMP" "$CERT_CA_KEY_TMP"
+
+echo "==> [8/8] MinIO/Velero credentials"
 # Namespace created here, not left to Argo CD's CreateNamespace=true on the minio/velero
 # Applications — those sync asynchronously, and this step needs the namespace to exist
 # right now, not eventually.

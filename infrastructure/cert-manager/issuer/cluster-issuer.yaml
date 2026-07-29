@@ -1,0 +1,14 @@
+# The `ca`-type ClusterIssuer, not `selfSigned` -- this is what makes every leaf cert
+# issued from here chain to the offline Root CA generated in
+# docs/runbooks/pki-root-ca-issuance.md, not to nothing. References the
+# `intermediate-ca` Secret created out-of-band by bootstrap/install.sh (step 7/8) from
+# infrastructure/cert-manager/secrets/intermediate-ca.enc.yaml -- same
+# "manual step creates the Secret, GitOps references it" pattern as MinIO's root
+# credentials.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: platform-ca
+spec:
+  ca:
+    secretName: intermediate-ca

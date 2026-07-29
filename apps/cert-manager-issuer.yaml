@@ -1,0 +1,27 @@
+# Sync-wave after cert-manager itself (which installs the ClusterIssuer CRD) -- the
+# actual issuer config lands once the CRD exists. Points at
+# infrastructure/cert-manager/issuer/ specifically, not the whole
+# infrastructure/cert-manager/ tree: that directory also holds ca-certs/ (plain .crt
+# reference files) and secrets/ (a SOPS-encrypted file with no apiVersion/kind) --
+# neither parses as a Kubernetes manifest, so this Application deliberately does not
+# recurse from the parent.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-issuer
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: infrastructure/cert-manager/issuer
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

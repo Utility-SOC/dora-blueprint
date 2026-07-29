@@ -8,6 +8,13 @@
 # this directly. ServerSideApply=true for the same class of problem BUILD-SPEC.md line 56
 # already flags: cert-manager's CRDs exceed client-side apply's last-applied-configuration
 # annotation size limit, identical to kyverno's ClusterPolicy/PolicyException CRDs.
+#
+# global.leaderElection.namespace: cert-manager's chart defaults leader-election Role/
+# RoleBinding creation to kube-system (a legacy default predating the chart's own
+# configurable namespace support) -- caught by a real sync failure ("namespace
+# kube-system is not permitted in project 'platform'"), the same AppProject boundary
+# Phase 6 deliberately established and is not being widened here either. Pointed at this
+# chart's own namespace instead.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -24,6 +31,9 @@ spec:
     helm:
       valuesObject:
         installCRDs: true
+        global:
+          leaderElection:
+            namespace: cert-manager
   destination:
     server: https://kubernetes.default.svc
     namespace: cert-manager

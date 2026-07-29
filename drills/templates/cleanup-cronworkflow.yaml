@@ -1,0 +1,55 @@
+# Every ns-restore drill run creates a freshly-named `canary-restored-<timestamp>`
+# namespace by design ("restoring in place proves nothing" -- BUILD-SPEC.md's own
+# reasoning) -- but nothing ever cleaned them up. They're created imperatively by
+# drills/lib/run-drill.sh, outside Argo CD's management, so prune/selfHeal never
+# touches them either; re-running the drill repeatedly (as this session did,
+# extensively, for network-policy verification) left a real, growing pile. TTL-based
+# cleanup here, same reasoning as apps/velero.yaml's backup ttl: keep recent runs
+# inspectable, don't accumulate forever. 3h to match that same lab-disk-budget
+# constraint, not a compliance value -- see docs/04-limitations.md.
+#
+# Reuses the argo-workflow ServiceAccount and its existing ClusterRole (rbac.yaml,
+# already grants get/list/watch/delete on namespaces for the drill's own fault-injection
+# step) rather than adding a new ServiceAccount/RBAC -- no permission expansion needed.
+apiVersion: argoproj.io/v1alpha1
+kind: CronWorkflow
+metadata:
+  name: cleanup-restored-namespaces
+  namespace: argo-workflows
+spec:
+  schedule: "*/30 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 300
+  workflowSpec:
+    serviceAccountName: argo-workflow
+    entrypoint: cleanup
+    templates:
+      - name: cleanup
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          seccompProfile:
+            type: RuntimeDefault
+        container:
+          image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
+          command: ["bash", "-ceu"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          args:
+            - |
+              CUTOFF=$(date -u -d '3 hours ago' +%s)
+              kubectl get namespaces -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.metadata.creationTimestamp}{"\n"}{end}' \
+                | while read -r NAME CREATED; do
+                    case "$NAME" in
+                      canary-restored-*)
+                        CREATED_EPOCH=$(date -u -d "$CREATED" +%s)
+                        if [ "$CREATED_EPOCH" -lt "$CUTOFF" ]; then
+                          echo "deleting stale restored namespace: $NAME (created $CREATED)"
+                          kubectl delete namespace "$NAME" --wait=false
+                        fi
+                        ;;
+                    esac
+                  done
+              echo "cleanup pass complete"

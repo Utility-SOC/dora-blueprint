@@ -1,12 +1,22 @@
 # Matches every pod belonging to any Workflow execution (drills and the cleanup
 # CronWorkflow both) by label *key* existence, not a specific workflow name --
 # `workflows.argoproj.io/workflow`'s value is per-execution and unpredictable, same
-# shape of problem as velero's ephemeral FSB hosting pods. All of this namespace's real
+# shape of problem as velero's ephemeral FSB hosting pods. Most of this namespace's real
 # workflow traffic (confirmed via Hubble, and by running the full ns-restore drill
 # under both audit-mode and genuine enforcement) is kubectl-against-the-API-server --
 # these pods do their actual work (namespace delete/create, Velero Backup/Restore CRs,
 # pod exec for hash-chain verification) entirely through the Kubernetes API, not direct
 # pod-to-pod network calls.
+#
+# Phase 9 (Detection) adds the one exception: the ns-restore workflow now polls
+# Grafana's Alerting API directly (real alert state for t_detect, not something the
+# Kubernetes API exposes) -- explicit namespace label on the destination selector,
+# matching the observability-namespace Grafana pod's own labels. Port 3000 is Grafana's
+# real container port, not the Service's port 80 (see
+# infrastructure/cilium/observability/grafana.yaml's own comment on the distinction) --
+# the cross-namespace-matchLabels mistake (omitting the namespace label here) has broken
+# traffic silently three separate times already this session; written explicitly here to
+# not make it a fourth.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -29,4 +39,12 @@ spec:
             - port: "53"
               protocol: UDP
             - port: "53"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": observability
+            app.kubernetes.io/name: grafana
+      toPorts:
+        - ports:
+            - port: "3000"
               protocol: TCP

@@ -1,0 +1,48 @@
+# Matches both loki-0 (single-binary storage/query engine) and loki-gateway (nginx
+# front door) via the shared `app.kubernetes.io/name: loki` label -- ingress from Alloy,
+# Grafana, and same-service (gateway-to-backend, and ring/memberlist coordination
+# between the two loki-labelled pods) traffic.
+#
+# egress to kube-apiserver was found missing on the first pass, not assumed correct from
+# a clean `kubectl apply`: audit-mode testing initially showed zero flagged drops (the
+# expected safety signal), but a subsequent check across all three nodes' Cilium agents
+# turned up real, *actually enforced* DROPPED verdicts for loki-0 -> kube-apiserver
+# despite the audit-mode annotation being correctly set on this policy -- meaning
+# audit-mode did not fully suppress enforcement for this rule shape on this Cilium
+# version. Loki stayed 2/2 Running with clean logs throughout (this connection isn't
+# load-bearing for its core function), but the rule was added anyway to match what Loki
+# actually tries to do, and this audit-mode reliability gap is now treated as a known
+# limitation for the higher-risk namespaces still to come, not assumed fixed.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: loki
+  namespace: observability
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: loki
+  ingress:
+    - fromEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: alloy
+        - matchLabels:
+            app.kubernetes.io/name: grafana
+        - matchLabels:
+            app.kubernetes.io/name: loki
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: loki
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

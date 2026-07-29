@@ -1,0 +1,43 @@
+# egress: loki-gateway (its provisioned datasource, confirmed reachable post-enforcement
+# via a direct in-pod check -- `wget http://loki-gateway.../ready` returning a real HTTP
+# 404, i.e. the TCP connection and HTTP round-trip both succeeded, not a connection
+# timeout) and CoreDNS. No ingress rule: Grafana is currently reached only via
+# `kubectl port-forward`, which bypasses Cilium's policy enforcement entirely (verified
+# empirically in the canary namespace's policy work), so there's nothing to allow yet --
+# this gets revisited once the bastion/jumphost work replaces port-forward with real
+# network-level ingress.
+#
+# Deliberately NOT allowed: an external call Grafana made on its own to
+# 34.120.177.193:443 (likely its own update-check/telemetry phone-home) showed up as a
+# real DROPPED verdict in Hubble after this policy went live. That's not a gap to fix --
+# Grafana's core function (querying Loki, serving dashboards) doesn't need internet
+# access, and blocking unsolicited external egress by default is the actual point of
+# this namespace's segmentation. Grafana's own /api/health stayed 200 throughout.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: grafana
+  namespace: observability
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: loki
+            app.kubernetes.io/component: gateway
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

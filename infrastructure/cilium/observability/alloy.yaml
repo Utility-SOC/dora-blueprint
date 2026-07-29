@@ -1,0 +1,55 @@
+# Verified against real traffic via Hubble (all three nodes' cilium agents, not just one --
+# `kubectl exec ds/cilium` only queries whichever pod that DaemonSet selector resolves to
+# first, missing flows on other nodes entirely; observability's pods are spread across
+# all three nodes, so this had to be checked per-agent to get a complete picture).
+#
+# ingress: allows kubelet's readiness-probe traffic (port 12345, /-/ready) from the
+# `remote-node` entity. Without this, a default-deny would make kubelet think Alloy is
+# unhealthy and restart-loop it -- Alloy's probe traffic showed up in Hubble as
+# host-networked (from a node IP, not a pod IP), which is exactly the `remote-node`/`host`
+# entity pattern Cilium docs call out for kubelet probes specifically.
+#
+# egress: kube-apiserver (Alloy's loki.source.kubernetes reads pod logs via the API
+# server's pods/log subresource -- confirmed via Hubble as a direct connection to the
+# control-plane node's host IP:6443, using Cilium's built-in `kube-apiserver` entity
+# rather than hardcoding that IP), CoreDNS, and loki-gateway on its actual container port
+# (8080 -- Hubble showed both :8080 and :80 for the same flow, the pre/post-Service-NAT
+# view of one connection; the Service itself listens on 80 but the pod's real port is
+# 8080).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: alloy
+  namespace: observability
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: alloy
+  ingress:
+    - fromEntities:
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "12345"
+              protocol: TCP
+  egress:
+    - toEntities:
+        - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app.kubernetes.io/name: loki
+            app.kubernetes.io/component: gateway
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

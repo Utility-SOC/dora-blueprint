@@ -58,8 +58,14 @@ jobs:
       - name: Install apko and crane
         # actions/setup-go puts $(go env GOPATH)/bin on PATH for subsequent steps -- without it,
         # `go install`'d binaries land on disk but aren't found by name in the next step.
+        #
+        # CAUGHT LIVE: `go install github.com/chainguard-dev/apko@latest` fails --
+        # apko's own go.mod declares its module path as `chainguard.dev/apko`, not the
+        # `github.com/chainguard-dev/apko` import path its GitHub URL would suggest
+        # ("module declares its path as: chainguard.dev/apko but was required as:
+        # github.com/chainguard-dev/apko"). Confirmed from a real failed run, not guessed.
         run: |
-          go install github.com/chainguard-dev/apko@latest
+          go install chainguard.dev/apko@latest
           go install github.com/google/go-containerregistry/cmd/crane@latest
 
       - name: Build and publish (apko)

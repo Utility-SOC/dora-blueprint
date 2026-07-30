@@ -1,0 +1,65 @@
+# Phase 13 (endpoint runtime security): Cilium's own eBPF-based runtime security/process-
+# visibility project — same vendor and underlying tech as Hubble (already running since Phase 1),
+# chosen over Elastic Defend for real reasons, not just preference: this host has tight free RAM
+# (confirmed live via `free -h`, ~13GB free while already running the three Talos node containers
+# plus an unrelated 10GB Elastic Fleet container from a different project sharing this host), and
+# Phase 9 already closed the Grafana-vs-Elastic SIEM/detection trial in Grafana's favor — standing
+# up Elastic Agent+Fleet here would both strain the host and reopen a decision already made.
+#
+# No custom TracingPolicy CRD needed for scenario 8 (credential-compromise → shell spawn):
+# Tetragon observes every real execve by default (stock process_exec events), and the chart's own
+# stdout export sidecar (export.mode: "stdout", already the chart default) streams them as JSON —
+# picked up by Alloy's existing DaemonSet the same way every other pod's stdout already is, no new
+# shipping config. Detection is a new Grafana Alerting rule (apps/grafana.yaml) watching Loki for
+# those events, matching Phase 9's own "watch Loki, don't build a parallel alerting mechanism"
+# pattern.
+#
+# Explicit resource requests/limits set below -- the chart's own defaults for the main DaemonSet
+# and the export sidecar are unbounded (`resources: {}`), and this repo always pins these given
+# the tight host RAM budget (same discipline as every other component here, e.g. apps/minio.yaml).
+#
+# `privileged: true` + `hostNetwork: true` are architecturally required for process visibility
+# (eBPF instrumentation needs host-level access) -- Kyverno PSS `restricted` and Cilium CNI policy
+# implications are handled once a real admission denial confirms they're actually needed, not
+# pre-added speculatively (see infrastructure/kyverno/policies/require-pod-security-restricted.yaml
+# and docs/exceptions/tetragon.md, added only after live verification).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tetragon
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: platform
+  source:
+    repoURL: https://helm.cilium.io/
+    chart: tetragon
+    targetRevision: 1.7.0
+    helm:
+      valuesObject:
+        tetragon:
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+        export:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tetragon
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

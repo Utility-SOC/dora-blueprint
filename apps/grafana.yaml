@@ -234,6 +234,58 @@ spec:
                       severity: detection
                     annotations:
                       summary: "Canary namespace deletion detected via the kube-apiserver audit log (job=kube-audit)"
+                  # Phase 13 (endpoint runtime security): watches Tetragon's own stdout-exported
+                  # process_exec events (real eBPF-observed execve, no synthetic signal) for a
+                  # shell binary spawned inside the canary namespace -- credential-compromise's
+                  # own fault injection (build-spec §6.3 scenario 8). Log lines come from
+                  # Tetragon's pods (namespace="tetragon", Alloy's own relabeling), NOT the
+                  # canary namespace -- the event's *subject* pod is embedded inside the JSON
+                  # body (process_exec.process.pod.namespace), filtered explicitly below. Same
+                  # `|= "process_exec"` line-filter-before-json-parse discipline as the rule
+                  # above, doubly important here since raw process-exec telemetry is far
+                  # higher-volume than the audit log.
+                  - uid: canary-shell-spawn-detect
+                    title: "Shell spawned inside canary namespace"
+                    condition: C
+                    data:
+                      - refId: A
+                        datasourceUid: loki
+                        relativeTimeRange:
+                          from: 180
+                          to: 0
+                        model:
+                          refId: A
+                          queryType: instant
+                          intervalMs: 1000
+                          maxDataPoints: 43200
+                          expr: 'count_over_time({namespace="tetragon"} |= "process_exec" | json binary="process_exec.process.binary", pod_ns="process_exec.process.pod.namespace" | pod_ns=`canary` | binary=~`.*/bin/(sh|bash)` [3m])'
+                      - refId: C
+                        datasourceUid: "-100"
+                        model:
+                          refId: C
+                          type: threshold
+                          expression: A
+                          datasource:
+                            type: __expr__
+                            uid: "-100"
+                          conditions:
+                            - evaluator:
+                                type: gt
+                                params: [0]
+                              operator:
+                                type: and
+                              query:
+                                params: ["C"]
+                              reducer:
+                                type: last
+                                params: []
+                    noDataState: OK
+                    execErrState: OK
+                    for: 0s
+                    labels:
+                      severity: detection
+                    annotations:
+                      summary: "A shell (/bin/sh or /bin/bash) was executed inside the canary namespace, observed via Tetragon's real eBPF process-exec instrumentation"
         # Phase 10 (scenario breadth): RTO/RPO trend dashboard, build-spec §6.1's own framing
         # ("charting measured RPO across many runs... is the most persuasive single artifact
         # this project can produce"). No new plumbing needed -- drill records already land in

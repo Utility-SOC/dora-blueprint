@@ -31,5 +31,13 @@
     "economic_impact_eur": 0,
     "reputational_impact": "low",
     "critical_service_affected": false
+  },
+  "credential-compromise": {
+    "_comment": "Like network-partition, nothing is actually broken by this drill (canary-writer stays healthy, no data lost) -- so clients_affected/economic_impact/geographical_spread stay at the same contained floor as the other scenarios. reputational_impact is bumped to 'medium', not 'low': credential compromise is a genuinely more concerning fault class in general even when, as here, a specific drill instance stays contained to one pod -- not tuned to force 'major' on its own (still needs a second criterion to trip), just a more honest synthetic input for this fault type than reusing the exact same 'low' every other scenario uses.",
+    "clients_affected_pct": 0,
+    "geographical_spread_member_states": 1,
+    "economic_impact_eur": 0,
+    "reputational_impact": "medium",
+    "critical_service_affected": false
   }
 }

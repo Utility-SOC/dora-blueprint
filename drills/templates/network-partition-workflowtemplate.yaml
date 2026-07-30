@@ -54,11 +54,16 @@ spec:
             GIT_SHA="{{workflow.parameters.git-sha}}"
             DENY_POLICY_NAME="network-partition-drill-deny"
 
+            # CAUGHT LIVE: curl's own -w '%{http_code}' already prints "000" when it can't get a
+            # response (a real failed drill run showed "000000" -- curl's own "000" plus this
+            # function's `|| echo "000"` fallback both firing, since curl still exits non-zero
+            # even after writing that placeholder). The deny itself worked correctly in that
+            # run; only this string comparison was broken. `|| true` now, not `|| echo`.
             probe_grafana() {
               curl -s -o /dev/null -w '%{http_code}' --max-time 5 --cacert /etc/platform-ca/ca-chain.crt \
                 -H "Authorization: Bearer ${GRAFANA_API_TOKEN}" \
                 https://grafana.observability.svc.cluster.local:80/api/alertmanager/grafana/api/v2/alerts \
-                2>/dev/null || echo "000"
+                2>/dev/null || true
             }
 
             echo "[$DRILL_ID] baseline: confirming Grafana is reachable before injecting anything"

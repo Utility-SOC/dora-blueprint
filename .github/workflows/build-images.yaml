@@ -92,10 +92,15 @@ jobs:
           echo "resolved digest: ${DIGEST}"
 
       - name: Smoke test (real container run, not assumed from a clean build)
+        # CAUGHT LIVE: images/canary-writer/apko.yaml sets entrypoint.command to
+        # /usr/bin/python3.13 directly -- `docker run <image> python3.13 -c ...` appends
+        # "python3.13" as python's own argv[1], which python then tries to open as a *script
+        # file* ("can't open file '//python3.13'"). The entrypoint already *is* python3.13, so
+        # only -c and its argument belong here.
         run: |
           set -euo pipefail
           docker run --rm "${{ steps.publish.outputs.digest }}" \
-            python3.13 -c "import hashlib, os, sqlite3, time, json, sys; print('stdlib deps ok')"
+            -c "import hashlib, os, sqlite3, time, json, sys; print('stdlib deps ok')"
 
       - name: Sign image (keyless)
         run: cosign sign --yes "${{ steps.publish.outputs.digest }}"

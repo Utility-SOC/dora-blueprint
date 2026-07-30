@@ -99,6 +99,27 @@ jobs:
           docker run --rm "${{ steps.publish.outputs.digest }}" \
             -c "import hashlib, os, sqlite3, time, json, sys; print('stdlib deps ok')"
 
+      # Two real, consequential questions this image's minimal package list
+      # (images/canary-writer/apko.yaml: wolfi-baselayout, ca-certificates-bundle, python-3.13
+      # only -- no busybox/bash) raises for existing consumers, checked here rather than assumed:
+      # (1) drills/templates/{node-kill,ns-restore,pvc-corruption-restore}-workflowtemplate.yaml
+      # already updated to `kubectl exec ... -- python3.13` (not the bare `python3` this minimal
+      # image may not symlink); (2) the credential-compromise scenario's entire fault injection
+      # is `kubectl exec ... -- /bin/sh -c "id; ..."` -- if this image has no shell at all, that
+      # drill breaks outright. Checked against the real published+signed digest, in the one place
+      # with correctly-scoped GHCR pull credentials (this job's own GITHUB_TOKEN) -- a personal
+      # PAT lacks the read:packages scope GHCR pulls need, confirmed live via a real `denied`
+      # trying to pull this same digest from appserv.
+      - name: Check for /bin/sh and a bare python3 (real consumers depend on both)
+        run: |
+          set -euo pipefail
+          echo "-- /bin/sh --"
+          docker run --rm --entrypoint /bin/sh "${{ steps.publish.outputs.digest }}" -c 'echo /bin/sh: present' \
+            || echo "/bin/sh: ABSENT -- drills/scenarios/credential-compromise.yaml's fault injection would break"
+          echo "-- bare python3 --"
+          docker run --rm --entrypoint /usr/bin/python3 "${{ steps.publish.outputs.digest }}" --version \
+            || echo "python3 (unversioned): ABSENT -- confirms python3.13 is required explicitly everywhere, as already fixed"
+
       - name: Sign image (keyless)
         run: cosign sign --yes "${{ steps.publish.outputs.digest }}"
 

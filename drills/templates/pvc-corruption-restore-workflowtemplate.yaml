@@ -53,7 +53,7 @@ spec:
 
             T_INJECT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "[$DRILL_ID] t_inject=$T_INJECT — corrupting the most recent row's hash in place (fault injection, pod stays running)"
-            kubectl -n canary exec "$CANARY_POD" -- python3 -c "
+            kubectl -n canary exec "$CANARY_POD" -- python3.13 -c "
             import sqlite3
             conn = sqlite3.connect('/data/canary.db')
             # A fixed, guaranteed-wrong 64-hex-char value (real sha256 output collides with
@@ -70,13 +70,13 @@ spec:
             # the container runs under `bash -ceu`, so capturing that expected non-zero exit
             # aborted the whole workflow before recovery ever ran. `|| true` tolerates it; the
             # stdout capture itself is unaffected since verify.py prints before it exits.
-            INTEGRITY_AFTER_CORRUPTION="$(kubectl -n canary exec "$CANARY_POD" -- python3 /scripts/verify.py --field integrity_check || true)"
+            INTEGRITY_AFTER_CORRUPTION="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 /scripts/verify.py --field integrity_check || true)"
             echo "[$DRILL_ID] integrity_check after corruption: $INTEGRITY_AFTER_CORRUPTION (expected: fail)"
 
             # Same reason as the || true above: verify.py's exit code reflects integrity_check
             # regardless of which --field was requested, and the DB is still (deliberately)
             # corrupted at this point.
-            MAX_BEFORE_RESTORE="$(kubectl -n canary exec "$CANARY_POD" -- python3 /scripts/verify.py --field max_counter || true)"
+            MAX_BEFORE_RESTORE="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 /scripts/verify.py --field max_counter || true)"
 
             echo "[$DRILL_ID] recovery: deleting the Deployment (cascades to its Pod) and the corrupted PVC"
             kubectl -n canary delete deployment canary-writer --wait=true --timeout=60s
@@ -121,8 +121,8 @@ spec:
             # would exit 1 -- and build-spec's own design intent is that a drill must always
             # emit a record (a genuine restore failure becomes VERDICT=fail below, not a crashed
             # workflow with no record at all).
-            INTEGRITY="$(kubectl -n canary exec "$RESTORED_POD" -- python3 /scripts/verify.py --field integrity_check || true)"
-            MAX_AFTER="$(kubectl -n canary exec "$RESTORED_POD" -- python3 /scripts/verify.py --field max_counter || true)"
+            INTEGRITY="$(kubectl -n canary exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field integrity_check || true)"
+            MAX_AFTER="$(kubectl -n canary exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field max_counter || true)"
             T_VERIFY="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
             RTO=$(( $(date -u -d "$T_RECOVER" +%s) - $(date -u -d "$T_INJECT" +%s) ))

@@ -1,0 +1,93 @@
+# Phase 12 (supply chain, BUILD-SPEC.md section 8): "Kyverno verifyImages requiring the
+# specific repository *and workflow identity*" + "Additional verifyImages rule on the SBOM
+# attestation" + "Registry allowlist; :latest banned; digests only."
+#
+# Scope note, stated deliberately (build-spec P8's own "say so, don't fake it" discipline):
+# this policy targets ghcr.io/utility-soc/canary-writer* specifically, not every image in the
+# cluster. This lab runs a couple dozen third-party images (Grafana, Keycloak, MinIO, Tetragon,
+# MariaDB, GLPI, ...) that this repo doesn't build and has no cosign-signature-with-this-exact-
+# workflow-identity to check against -- a blanket cluster-wide verifyImages rule would either
+# reject every one of them outright or have to be silently weakened to "allow anything unsigned",
+# defeating the point. Supply-chain control is scoped to what this repo actually controls the
+# build pipeline for, matching the same scoping discipline every Kyverno exception in this repo
+# already uses (name/namespace-scoped, never blanket). The identity below matches
+# .github/workflows/build-images.yaml's own real verification step exactly -- confirmed against
+# a real signed image, not copied from an untested template.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signatures
+spec:
+  background: false
+  rules:
+    - name: verify-canary-writer-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/utility-soc/canary-writer*"
+          required: true
+          mutateDigest: true
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    subject: "https://github.com/Utility-SOC/elastic-dora-blueprint/.github/workflows/build-images.yaml@refs/heads/master"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: https://rekor.sigstore.dev
+
+    - name: verify-canary-writer-sbom-attestation
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/utility-soc/canary-writer*"
+          required: true
+          attestations:
+            - type: cyclonedx
+              attestors:
+                - count: 1
+                  entries:
+                    - keyless:
+                        subject: "https://github.com/Utility-SOC/elastic-dora-blueprint/.github/workflows/build-images.yaml@refs/heads/master"
+                        issuer: "https://token.actions.githubusercontent.com"
+                        rekor:
+                          url: https://rekor.sigstore.dev
+
+    - name: restrict-canary-writer-tag
+      # verifyImages above already resolves/requires a real signed digest for any
+      # ghcr.io/utility-soc/canary-writer reference -- this rule additionally rejects an
+      # explicit ":latest" tag outright at the source, rather than relying on mutateDigest to
+      # quietly resolve a floating tag someone hand-wrote into a manifest. Every image
+      # reference already committed in this repo (canary/deployment.yaml,
+      # apps/tetragon.yaml, etc.) is pinned by tag-or-digest as a matter of practice; this
+      # makes that practice enforced, not just followed, for the one image this repo builds.
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      validate:
+        failureAction: Enforce
+        message: >-
+          canary-writer must be referenced by digest (ghcr.io/utility-soc/canary-writer@sha256:...),
+          never the floating :latest tag.
+        foreach:
+          - list: "request.object.spec.containers[]"
+            deny:
+              conditions:
+                all:
+                  - key: "{{ element.image }}"
+                    operator: AnyIn
+                    value:
+                      - "ghcr.io/utility-soc/canary-writer:latest"
+                  - key: "{{ contains(element.image, 'canary-writer') }}"
+                    operator: Equals
+                    value: true

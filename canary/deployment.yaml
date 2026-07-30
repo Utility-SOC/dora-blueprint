@@ -28,8 +28,17 @@ spec:
           type: RuntimeDefault
       containers:
         - name: writer
-          image: python:3.13-slim@sha256:6771159cd4fa5d9bba1258caf0b82e6b73458c694d178ad97c5e925c2d0e1a91
-          command: ["python3", "/scripts/writer.py"]
+          # Phase 12: real apko/Wolfi build (images/canary-writer/apko.yaml), signed keylessly
+          # and SBOM-attested by .github/workflows/build-images.yaml -- this exact digest was
+          # verified live (cosign verify + verify-attestation, both succeeded against the real
+          # workflow identity) before being pinned here. Kyverno's own verify-image-signatures.yaml
+          # re-checks the same signature/attestation at admission, independent of this pin.
+          image: ghcr.io/utility-soc/canary-writer@sha256:d74a88e3f188e719ca4f14e3b0a7f89106af505bf5fcf7b68e04c8405d98cabb
+          # images/canary-writer/apko.yaml's Wolfi python-3.13 package provides python3.13, not a
+          # generic `python3` symlink -- the image's own ENTRYPOINT already is python3.13 (real
+          # bug caught live in the build workflow's own smoke test), so this command references it
+          # explicitly rather than assuming a symlink this Wolfi package doesn't ship.
+          command: ["python3.13", "/scripts/writer.py"]
           env:
             - name: CANARY_DB_PATH
               value: /data/canary.db

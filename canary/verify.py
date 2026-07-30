@@ -3,7 +3,7 @@
 
 Recomputes every row's hash from (counter, ts, prev_hash) and confirms the chain is
 unbroken. Prints a one-line JSON summary and exits 0 on a clean chain, 1 otherwise —
-designed to be both human-readable (`kubectl exec ... -- python3 verify.py`) and
+designed to be both human-readable (`kubectl exec ... -- python3.13 verify.py`) and
 machine-readable (Phase 3's drill emitter reuses this for `integrity_check` and to
 compute measured_rpo_records_lost from the reported max counter).
 """

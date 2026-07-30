@@ -40,7 +40,7 @@ spec:
             echo "[$DRILL_ID] capturing baseline from the live canary"
             CANARY_POD="$(kubectl -n canary get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
             NODE_NAME="$(kubectl -n canary get pod "$CANARY_POD" -o jsonpath='{.spec.nodeName}')"
-            MAX_BEFORE="$(kubectl -n canary exec "$CANARY_POD" -- python3 /scripts/verify.py --field max_counter)"
+            MAX_BEFORE="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 /scripts/verify.py --field max_counter)"
             echo "[$DRILL_ID] canary-writer is on node $NODE_NAME"
 
             T_INJECT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -80,8 +80,8 @@ spec:
 
             RECOVERED_POD="$(kubectl -n canary get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
             RECOVERED_NODE="$(kubectl -n canary get pod "$RECOVERED_POD" -o jsonpath='{.spec.nodeName}')"
-            INTEGRITY="$(kubectl -n canary exec "$RECOVERED_POD" -- python3 /scripts/verify.py --field integrity_check)"
-            MAX_AFTER="$(kubectl -n canary exec "$RECOVERED_POD" -- python3 /scripts/verify.py --field max_counter)"
+            INTEGRITY="$(kubectl -n canary exec "$RECOVERED_POD" -- python3.13 /scripts/verify.py --field integrity_check)"
+            MAX_AFTER="$(kubectl -n canary exec "$RECOVERED_POD" -- python3.13 /scripts/verify.py --field max_counter)"
             T_VERIFY="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
             RTO=$(( $(date -u -d "$T_RECOVER" +%s) - $(date -u -d "$T_INJECT" +%s) ))

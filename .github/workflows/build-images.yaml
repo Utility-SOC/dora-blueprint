@@ -59,7 +59,7 @@ jobs:
         with:
           go-version: stable
 
-      - name: Install apko and crane
+      - name: Install apko
         # actions/setup-go puts $(go env GOPATH)/bin on PATH for subsequent steps -- without it,
         # `go install`'d binaries land on disk but aren't found by name in the next step.
         #
@@ -68,28 +68,25 @@ jobs:
         # `github.com/chainguard-dev/apko` import path its GitHub URL would suggest
         # ("module declares its path as: chainguard.dev/apko but was required as:
         # github.com/chainguard-dev/apko"). Confirmed from a real failed run, not guessed.
-        run: |
-          go install chainguard.dev/apko@latest
-          go install github.com/google/go-containerregistry/cmd/crane@latest
+        run: go install chainguard.dev/apko@latest
 
+      # CAUGHT LIVE: originally resolved the digest with a separate `crane digest` call after
+      # publish, on the theory that apko's own stdout format wasn't something to depend on. In
+      # practice `crane digest` immediately after a fresh push hit GHCR propagation lag -- it
+      # worked in one real run and 404'd ("MANIFEST_UNKNOWN") in the very next one, a real
+      # flakiness risk for a workflow meant to run unattended weekly. apko publish's own last
+      # stdout line turns out to already be the exact clean "ghcr.io/...@sha256:..." reference
+      # (confirmed from real run output) -- using that directly removes the extra network
+      # round-trip and the tool entirely.
       - name: Build and publish (apko)
-        run: |
-          set -euo pipefail
-          TAG="sha-$(git rev-parse --short HEAD)"
-          echo "TAG=${TAG}" >> "$GITHUB_ENV"
-          apko publish images/canary-writer/apko.yaml "${IMAGE}:${TAG}"
-
-      # apko's own stdout contract (progress logs vs. a clean final digest line) isn't something
-      # to depend on -- crane's `digest` subcommand has one job and prints exactly the digest,
-      # nothing else, so the reference this whole workflow signs/attests/verifies against is
-      # resolved independently of apko's own output formatting.
-      - name: Resolve published digest
         id: publish
         run: |
           set -euo pipefail
-          DIGEST="${IMAGE}@$(crane digest "${IMAGE}:${TAG}")"
+          TAG="sha-$(git rev-parse --short HEAD)"
+          OUTPUT="$(apko publish images/canary-writer/apko.yaml "${IMAGE}:${TAG}")"
+          echo "$OUTPUT"
+          DIGEST="$(echo "$OUTPUT" | tail -1)"
           echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "resolved digest: ${DIGEST}"
 
       - name: Smoke test (real container run, not assumed from a clean build)
         # CAUGHT LIVE: images/canary-writer/apko.yaml sets entrypoint.command to

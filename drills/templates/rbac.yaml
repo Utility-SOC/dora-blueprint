@@ -5,13 +5,19 @@
 # and Velero's Backup/Restore CRDs — none of which a workflow-execution SA gets
 # by default, deliberately, since most workflows shouldn't have this reach.
 #
-# Phase 10 (scenario breadth) adds three narrowly-scoped grants, one per new
-# scenario, rather than a blanket wildcard: `nodes` get/list/watch/patch
-# (node-kill's taint/untaint), `pods` delete (pvc-corruption's forced pod
-# recreation after restore), and `pods/eviction` create (not currently used by
-# any scenario's fault-injection path -- taint-based eviction bypasses the
-# Eviction API entirely, see node-kill's own template comment -- kept absent
-# rather than granted speculatively).
+# Phase 10 (scenario breadth) adds narrowly-scoped grants, one per new scenario, rather
+# than a blanket wildcard: `nodes` get/list/watch/patch (node-kill's taint/untaint),
+# `pods`/`persistentvolumeclaims`/`deployments` delete (pvc-corruption-restore's
+# corrupted-resource cleanup before Velero's own restore controller -- a separate
+# ServiceAccount -- recreates them), and `pods/eviction` create (not currently used by
+# any scenario's fault-injection path -- taint-based eviction bypasses the Eviction API
+# entirely, see node-kill's own template comment -- kept absent rather than granted
+# speculatively).
+#
+# CAUGHT LIVE: the first version of this ClusterRole granted `pods` delete but forgot
+# `persistentvolumeclaims` and `deployments` (apps) delete entirely -- a real drill run
+# failed with a genuine RBAC Forbidden error at exactly the recovery step that needed
+# them, not assumed from reading the workflow script alone.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -29,6 +35,12 @@ rules:
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: [""]
+    resources: ["persistentvolumeclaims"]
+    verbs: ["get", "list", "watch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "delete"]
   - apiGroups: ["velero.io"]
     resources: ["backups", "restores"]
     verbs: ["get", "list", "watch", "create"]

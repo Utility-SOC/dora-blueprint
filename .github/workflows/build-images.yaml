@@ -32,14 +32,18 @@ permissions:
   packages: write
   id-token: write # required for cosign keyless: Fulcio issues a short-lived cert bound to this run's OIDC token
 
-env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/canary-writer
-
 jobs:
   canary-writer:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # CAUGHT LIVE: OCI repository names must be all-lowercase ("repository can only contain
+      # the characters abcdefghijklmnopqrstuvwxyz0123456789_-./") -- github.repository_owner for
+      # this org is "Utility-SOC", mixed case, which apko rejected outright on the real push.
+      # Lowercased once here rather than depending on every later step to remember to do it.
+      - name: Compute lowercase image ref
+        run: echo "IMAGE=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/canary-writer" >> "$GITHUB_ENV"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3

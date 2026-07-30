@@ -1,0 +1,24 @@
+# ScenarioSpec — build-spec §6.3 scenario 3. Metadata only; drills/templates/ has the
+# executable WorkflowTemplate. See drills/scenarios/ns-restore.yaml for why this file
+# is kept separate from the workflow's own step logic.
+name: pvc-corruption-restore
+description: >
+  Corrupts canary-writer's SQLite file directly, in place, without touching the pod or
+  namespace -- the pod keeps running with silently wrong data, exactly the "restore
+  succeeded but the data is wrong" failure mode the hash chain exists to catch
+  (build-spec §6.1). No native CSI VolumeSnapshot support exists in this lab's storage
+  stack (no external-snapshotter, and neither local-path nor openebs-hostpath support
+  snapshots) -- restore uses Velero's own file-level backup/restore instead, the same
+  real mechanism ns-restore already relies on. Velero can't restore data onto an
+  already-bound PVC in place, so recovery deletes the corrupted PVC (after the pod that
+  holds it) and lets a namespace-scoped, resource-scoped Velero Restore recreate it from
+  the backup -- restoring the volume, not the whole namespace.
+target_rto_seconds: 300
+target_rpo_seconds: 3600
+controls:
+  - DORA-Art11
+  - DORA-Art12
+  - NIS2-21.2.c
+  - ISO-A.8.13
+  - ISO-A.5.29
+workflow_template: pvc-corruption-restore

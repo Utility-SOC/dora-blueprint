@@ -7,5 +7,29 @@
     "economic_impact_eur": 15000,
     "reputational_impact": "low",
     "critical_service_affected": false
+  },
+  "node-kill": {
+    "_comment": "A single worker node going unreachable: same contained, single-tenant shape as ns-restore -- one node, one workload, no cross-border spread.",
+    "clients_affected_pct": 3.5,
+    "geographical_spread_member_states": 1,
+    "economic_impact_eur": 15000,
+    "reputational_impact": "low",
+    "critical_service_affected": false
+  },
+  "pvc-corruption-restore": {
+    "_comment": "Silent data corruption caught by the hash chain: same contained, single-tenant shape -- the numbers stay identical to ns-restore/node-kill since none of the three scenarios differ in real business-impact scope, only in fault mechanism.",
+    "clients_affected_pct": 3.5,
+    "geographical_spread_member_states": 1,
+    "economic_impact_eur": 15000,
+    "reputational_impact": "low",
+    "critical_service_affected": false
+  },
+  "network-partition": {
+    "_comment": "A deliberate, bounded, self-healed Cilium deny -- no client-facing impact at all (this drill validates enforcement, it doesn't simulate a real outage), so every synthetic input stays at its floor rather than being padded to force a classification outcome.",
+    "clients_affected_pct": 0,
+    "geographical_spread_member_states": 1,
+    "economic_impact_eur": 0,
+    "reputational_impact": "low",
+    "critical_service_affected": false
   }
 }

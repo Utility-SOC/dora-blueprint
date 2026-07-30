@@ -1,0 +1,18 @@
+# ScenarioSpec — build-spec §6.3 scenario 5. Metadata only; drills/templates/ has the
+# executable WorkflowTemplate. See drills/scenarios/ns-restore.yaml for why this file
+# is kept separate from the workflow's own step logic.
+name: network-partition
+description: >
+  Applies a temporary, drill-owned CiliumNetworkPolicy that egressDenies this workflow
+  pod's traffic to observability (Grafana) for a bounded window -- a real, currently-live
+  path (the same one ns-restore's own t_detect polling uses), doubling as validation that
+  the platform's NetworkPolicies actually deny, per build-spec §6.3, not just declare.
+  Verdict is pass only if a real probe genuinely fails during the deny window AND a
+  follow-up probe genuinely succeeds once the deny is removed -- proving enforcement is
+  real in both directions, not assumed from the policy object's own existence.
+target_rto_seconds: 60
+target_rpo_seconds: 0
+controls:
+  - DORA-Art9
+  - ISO-A.8.20
+workflow_template: network-partition

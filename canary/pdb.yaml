@@ -1,0 +1,20 @@
+# Phase 10 (node-kill scenario): protects canary-writer from voluntary disruption.
+# maxUnavailable: 0 is deliberate for a single-replica, strategy: Recreate workload --
+# there's no second replica to fail over to, so any voluntary eviction (a real
+# `kubectl drain`, cluster-autoscaler node drain, etc.) would take it fully offline for
+# no operational reason. This is a standing control, not a drill artifact -- it exists
+# whether or not the node-kill drill ever runs, same as any real PDB would.
+#
+# Deliberately doesn't protect against the node-kill drill's own fault: taint-based
+# NoExecute eviction (what node-kill actually injects) does not consult PDBs at all --
+# that's accurate to how a genuinely unreachable node behaves in real Kubernetes, and is
+# exactly the distinction the drill's own runbook documents.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: canary-writer
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: canary-writer

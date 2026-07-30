@@ -234,6 +234,96 @@ spec:
                       severity: detection
                     annotations:
                       summary: "Canary namespace deletion detected via the kube-apiserver audit log (job=kube-audit)"
+        # Phase 10 (scenario breadth): RTO/RPO trend dashboard, build-spec §6.1's own framing
+        # ("charting measured RPO across many runs... is the most persuasive single artifact
+        # this project can produce"). No new plumbing needed -- drill records already land in
+        # Loki today via drills/lib/emit.py's stdout + Alloy's existing DaemonSet, the same
+        # pipeline the alerting rule above already reads from. `| unwrap` turns each drill
+        # record's own numeric field into a plotted time-series point at that record's log
+        # timestamp -- the same explicit-field-extraction discipline (`| json field=`field``)
+        # already used above to avoid Loki's series-cardinality limit, just for metrics instead
+        # of a count. Same file-provisioning convention as datasources/alerting -- no UI clicks.
+        dashboardProviders:
+          dashboardproviders.yaml:
+            apiVersion: 1
+            providers:
+              - name: default
+                orgId: 1
+                folder: ""
+                type: file
+                disableDeletion: false
+                editable: true
+                options:
+                  path: /var/lib/grafana/dashboards/default
+        dashboards:
+          default:
+            drill-trends:
+              json: |
+                {
+                  "title": "Drill RTO/RPO trends",
+                  "uid": "drill-trends",
+                  "editable": true,
+                  "timezone": "utc",
+                  "time": { "from": "now-7d", "to": "now" },
+                  "refresh": "",
+                  "schemaVersion": 39,
+                  "panels": [
+                    {
+                      "id": 1,
+                      "type": "timeseries",
+                      "title": "Measured RTO by scenario",
+                      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": {
+                        "defaults": { "unit": "s", "custom": { "drawStyle": "points", "pointSize": 6 } },
+                        "overrides": []
+                      },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"argo-workflows\"} |= \"drill_id\" | json scenario=\"scenario\", rto=\"measured_rto_seconds\" | unwrap rto",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 2,
+                      "type": "timeseries",
+                      "title": "Measured RPO (records lost) by scenario",
+                      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": {
+                        "defaults": { "unit": "short", "custom": { "drawStyle": "points", "pointSize": 6 } },
+                        "overrides": []
+                      },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"argo-workflows\"} |= \"drill_id\" | json scenario=\"scenario\", rpo=\"measured_rpo_records_lost\" | unwrap rpo",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 3,
+                      "type": "table",
+                      "title": "Recent drill verdicts",
+                      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 9 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "options": { "showHeader": true, "sortBy": [{ "displayName": "Time", "desc": true }] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"argo-workflows\"} |= \"drill_id\" | json drill_id=\"drill_id\", scenario=\"scenario\", verdict=\"verdict\", rto=\"measured_rto_seconds\", integrity=\"integrity_check\"",
+                          "queryType": "range"
+                        }
+                      ]
+                    }
+                  ]
+                }
   destination:
     server: https://kubernetes.default.svc
     namespace: observability

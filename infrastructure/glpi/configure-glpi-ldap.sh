@@ -22,6 +22,17 @@
 # bypasses the app layer entirely, the same technique already used there to read back the
 # drill-automation token GLPI's API itself never returns.
 #
+# CAUGHT LIVE: the first version of this script sent the bind password as
+# "rootdn_password" in the AuthLDAP payload -- GLPI's actual internal field is
+# "rootdn_passwd" (no "or"), confirmed by reading src/AuthLDAP.php's own
+# tryToConnectToServer(), which reads $ldap_method['rootdn_passwd']. The wrong field
+# name meant the real password was silently discarded (the API doesn't reject unknown
+# input keys) and GLPI attempted an unauthenticated bind instead, failing with a generic
+# "Unable to connect to the LDAP directory" that gave no hint the field name was wrong --
+# only visible in the container's own error backtrace (kubectl logs deploy/glpi), not the
+# API's response body. Confirmed the fix live: a real LDAP bind via raw PHP (same
+# credentials) succeeded throughout, isolating the bug to this one field name.
+#
 # Step [4] (profile-assignment rules) is deliberately NOT automated. GLPI's rules engine
 # (RuleRight: criteria + actions, used to map an LDAP group to a GLPI profile) has
 # internal field/action codes that are easy to get subtly wrong without live iteration
@@ -69,7 +80,7 @@ cat > "$AUTHLDAP_TMP" <<EOF
   "port":389,
   "basedn":"ou=people,dc=platform,dc=local",
   "rootdn":"cn=admin,dc=platform,dc=local",
-  "rootdn_password":"$LDAP_BIND_PW",
+  "rootdn_passwd":"$LDAP_BIND_PW",
   "login_field":"uid",
   "use_tls":0
 }}

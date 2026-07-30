@@ -1,0 +1,132 @@
+# Executes drills/scenarios/pvc-corruption-restore.yaml (build-spec §6.3 scenario 3). Same
+# single-bash-step shape as ns-restore-workflowtemplate.yaml. bitnami/kubectl only.
+#
+# Real, load-bearing design note: Velero's restic/kopia PodVolumeBackup restore mechanism only
+# repopulates volume data in the context of a POD being restored (it injects a data-restore init
+# container into restored pods that carry the right annotation) -- restoring a bare PVC object
+# alone does not repopulate its data. Deleting only the PVC and restoring only the PVC (the
+# naive reading of "restore the volume, not the namespace") would silently do nothing. This
+# drill deletes the Deployment (cleanly removing its ReplicaSet/Pod via cascade, avoiding a
+# restored pod being immediately garbage-collected by a still-live ReplicaSet with replicas=0
+# fighting for control of the same label selector) and the PVC, then restores
+# Deployment+Pod+PVC together via Velero into the SAME canary namespace (no namespaceMapping,
+# unlike ns-restore -- the namespace object itself is never touched here, only the workload and
+# its volume) so the pod-restore machinery actually runs.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: pvc-corruption-restore
+  namespace: argo-workflows
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: run
+  templates:
+    - name: run
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      container:
+        image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
+        command: ["bash", "-ceu"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        args:
+          - |
+            DRILL_ID="pvc-corruption-restore-$(date -u +%Y%m%d%H%M%S)"
+            GIT_SHA="{{workflow.parameters.git-sha}}"
+
+            echo "[$DRILL_ID] finding most recent completed backup of canary"
+            BACKUP_NAME="$(kubectl -n velero get backups.velero.io \
+              -o jsonpath='{range .items[?(@.status.phase=="Completed")]}{.metadata.creationTimestamp}{" "}{.metadata.name}{"\n"}{end}' \
+              | sort | tail -1 | awk '{print $2}')"
+            if [ -z "$BACKUP_NAME" ]; then
+              echo "no completed backup found for canary — the hourly Schedule hasn't fired yet" >&2
+              exit 1
+            fi
+            echo "[$DRILL_ID] using backup: $BACKUP_NAME"
+
+            CANARY_POD="$(kubectl -n canary get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
+
+            T_INJECT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "[$DRILL_ID] t_inject=$T_INJECT — corrupting the most recent row's hash in place (fault injection, pod stays running)"
+            kubectl -n canary exec "$CANARY_POD" -- python3 -c "
+            import sqlite3
+            conn = sqlite3.connect('/data/canary.db')
+            # A fixed, guaranteed-wrong 64-hex-char value (real sha256 output collides with
+            # all-zeros at negligible-to-zero real-world probability) -- deterministic, unlike
+            # a partial-character flip that could coincidentally reproduce the real hash.
+            conn.execute(\"UPDATE canary SET hash=? WHERE counter = (SELECT MAX(counter) FROM canary)\", ('0' * 64,))
+            conn.commit()
+            "
+
+            echo "[$DRILL_ID] detection: the drill's own explicit integrity check (no independent alert exists for this fault type yet — see runbook)"
+            INTEGRITY_AFTER_CORRUPTION="$(kubectl -n canary exec "$CANARY_POD" -- python3 /scripts/verify.py --field integrity_check)"
+            echo "[$DRILL_ID] integrity_check after corruption: $INTEGRITY_AFTER_CORRUPTION (expected: fail)"
+
+            MAX_BEFORE_RESTORE="$(kubectl -n canary exec "$CANARY_POD" -- python3 /scripts/verify.py --field max_counter)"
+
+            echo "[$DRILL_ID] recovery: deleting the Deployment (cascades to its Pod) and the corrupted PVC"
+            kubectl -n canary delete deployment canary-writer --wait=true --timeout=60s
+            kubectl -n canary delete pvc canary-data --wait=true --timeout=60s
+
+            RESTORE_NAME="${DRILL_ID}-restore"
+            cat <<EOF | kubectl apply -f -
+            apiVersion: velero.io/v1
+            kind: Restore
+            metadata:
+              name: ${RESTORE_NAME}
+              namespace: velero
+            spec:
+              backupName: ${BACKUP_NAME}
+              includedNamespaces:
+                - canary
+              includedResources:
+                - deployments
+                - pods
+                - persistentvolumeclaims
+            EOF
+
+            echo "[$DRILL_ID] waiting for the restore to complete"
+            while true; do
+              PHASE="$(kubectl -n velero get restore "$RESTORE_NAME" -o jsonpath='{.status.phase}' 2>/dev/null || true)"
+              case "$PHASE" in
+                Completed) break ;;
+                PartiallyFailed|Failed)
+                  echo "restore $RESTORE_NAME ended in $PHASE" >&2
+                  exit 1
+                  ;;
+              esac
+              sleep 5
+            done
+
+            echo "[$DRILL_ID] waiting for canary-writer to report Ready with its restored volume"
+            kubectl -n canary wait --for=condition=Ready pod -l app=canary-writer --timeout=180s
+            T_RECOVER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            RESTORED_POD="$(kubectl -n canary get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
+            INTEGRITY="$(kubectl -n canary exec "$RESTORED_POD" -- python3 /scripts/verify.py --field integrity_check)"
+            MAX_AFTER="$(kubectl -n canary exec "$RESTORED_POD" -- python3 /scripts/verify.py --field max_counter)"
+            T_VERIFY="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            RTO=$(( $(date -u -d "$T_RECOVER" +%s) - $(date -u -d "$T_INJECT" +%s) ))
+            RPO_RECORDS=$(( MAX_BEFORE_RESTORE - MAX_AFTER ))
+            if [ "$INTEGRITY" = "pass" ] && [ "$INTEGRITY_AFTER_CORRUPTION" = "fail" ]; then VERDICT="pass"; else VERDICT="fail"; fi
+
+            echo "[$DRILL_ID] emitting drill record"
+            RECORD="$(cat <<EOF
+            {"drill_id":"${DRILL_ID}","scenario":"pvc-corruption-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","integrity_check after corruption (pre-restore): ${INTEGRITY_AFTER_CORRUPTION}"]}
+            EOF
+            )"
+            echo "$RECORD" | jq -c .
+
+            echo "RESULT_RTO_SECONDS=${RTO}"
+            echo "RESULT_RPO_RECORDS_LOST=${RPO_RECORDS}"
+            echo "RESULT_VERDICT=${VERDICT}"
+  arguments:
+    parameters:
+      - name: git-sha
+        value: "unknown"

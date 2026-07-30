@@ -18,6 +18,11 @@ authenticates the actual Ticket creation call. Token comes from the GLPI_API_TOK
 variable, set by run-drill.sh after decrypting infrastructure/glpi/secrets/glpi-api-token.enc.yaml
 -- never passed on the command line (would leak into shell history / process listings).
 
+Phase 10 (scenario breadth): the runbook link used to be hardcoded to
+docs/runbooks/ns-restore-incident.md -- a real bug that would have silently mis-linked every
+new scenario's ticket to the wrong runbook. Fixed to interpolate record['scenario'], matching
+the one-runbook-per-scenario convention every scenario since ns-restore follows.
+
 CAUGHT LIVE: a first attempt used GLPI's in-cluster Service DNS name
 (glpi.glpi.svc.cluster.local), copying Phase 9's Grafana-detection-poll pattern -- but that poll
 runs *inside* the workflow pod (drills/templates/ns-restore-workflowtemplate.yaml's own bash
@@ -96,7 +101,7 @@ not measurements of a real business. See docs/04-limitations.md.
 {artifacts_section}
 
 == Runbook ==
-docs/runbooks/ns-restore-incident.md
+docs/runbooks/{record.get('scenario')}-incident.md
 
 == Post-incident review (DORA Art. 13, ISO A.5.27) ==
 Manual runbook steps required: {record.get('manual_runbook_steps_required', 'unknown')}

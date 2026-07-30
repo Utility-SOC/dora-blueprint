@@ -4,6 +4,14 @@
 # exec (to run canary/verify.py inside whichever pod currently has the data),
 # and Velero's Backup/Restore CRDs — none of which a workflow-execution SA gets
 # by default, deliberately, since most workflows shouldn't have this reach.
+#
+# Phase 10 (scenario breadth) adds three narrowly-scoped grants, one per new
+# scenario, rather than a blanket wildcard: `nodes` get/list/watch/patch
+# (node-kill's taint/untaint), `pods` delete (pvc-corruption's forced pod
+# recreation after restore), and `pods/eviction` create (not currently used by
+# any scenario's fault-injection path -- taint-based eviction bypasses the
+# Eviction API entirely, see node-kill's own template comment -- kept absent
+# rather than granted speculatively).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -14,10 +22,13 @@ rules:
     verbs: ["get", "list", "watch", "create", "delete", "patch"]
   - apiGroups: [""]
     resources: ["pods"]
-    verbs: ["get", "list", "watch"]
+    verbs: ["get", "list", "watch", "delete"]
   - apiGroups: [""]
     resources: ["pods/exec"]
     verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch"]
   - apiGroups: ["velero.io"]
     resources: ["backups", "restores"]
     verbs: ["get", "list", "watch", "create"]
@@ -30,6 +41,33 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: argo-workflow-drill-runner
+subjects:
+  - kind: ServiceAccount
+    name: argo-workflow
+    namespace: argo-workflows
+---
+# network-partition needs to create/delete a CiliumNetworkPolicy in its own namespace
+# only -- a namespaced Role, not a ClusterRole addition above, since no other scenario
+# needs this and there's no reason to grant it cluster-wide.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: argo-workflow-cilium-policy-editor
+  namespace: argo-workflows
+rules:
+  - apiGroups: ["cilium.io"]
+    resources: ["ciliumnetworkpolicies"]
+    verbs: ["get", "list", "watch", "create", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: argo-workflow-cilium-policy-editor
+  namespace: argo-workflows
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: argo-workflow-cilium-policy-editor
 subjects:
   - kind: ServiceAccount
     name: argo-workflow

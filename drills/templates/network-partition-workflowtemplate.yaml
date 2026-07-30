@@ -1,0 +1,140 @@
+# Executes drills/scenarios/network-partition.yaml (build-spec §6.3 scenario 5). Same
+# single-bash-step shape as ns-restore-workflowtemplate.yaml. bitnami/kubectl only.
+#
+# The deny CiliumNetworkPolicy targets THIS pod specifically (endpointSelector matching this
+# workflow's own {{workflow.name}} label, injected by Argo on every pod it creates) so the test
+# is self-contained -- it doesn't affect any other concurrently-running argo-workflows pod, and
+# Cilium's own deny-overrides-allow semantics (docs/04-limitations.md, infrastructure/cilium/*'s
+# repeated documentation of this) mean this narrow deny correctly wins over the broader existing
+# allow from infrastructure/cilium/argo-workflows/workflow-pods.yaml without editing that file.
+#
+# integrity_check is set to "pass" unconditionally -- no data is at stake in this scenario shape,
+# and the schema requires the field; this is the honest way to satisfy it rather than contriving
+# a fake check. t_detect is omitted for the same reason node-kill/pvc-corruption-restore omit
+# it: no independent alert exists in this lab for Cilium enforcement events.
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: network-partition
+  namespace: argo-workflows
+spec:
+  serviceAccountName: argo-workflow
+  entrypoint: run
+  templates:
+    - name: run
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      volumes:
+        - name: platform-ca
+          configMap:
+            name: platform-ca
+      container:
+        image: bitnami/kubectl@sha256:95de17e6eb92da83a58c90a9df0c4cede634f898d2e6b92ea04f4a6ee6ace08d
+        command: ["bash", "-ceu"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        env:
+          - name: GRAFANA_API_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: grafana-api-token
+                key: token
+        volumeMounts:
+          - name: platform-ca
+            mountPath: /etc/platform-ca
+            readOnly: true
+        args:
+          - |
+            DRILL_ID="network-partition-$(date -u +%Y%m%d%H%M%S)"
+            GIT_SHA="{{workflow.parameters.git-sha}}"
+            DENY_POLICY_NAME="network-partition-drill-deny"
+
+            probe_grafana() {
+              curl -s -o /dev/null -w '%{http_code}' --max-time 5 --cacert /etc/platform-ca/ca-chain.crt \
+                -H "Authorization: Bearer ${GRAFANA_API_TOKEN}" \
+                https://grafana.observability.svc.cluster.local:80/api/alertmanager/grafana/api/v2/alerts \
+                2>/dev/null || echo "000"
+            }
+
+            echo "[$DRILL_ID] baseline: confirming Grafana is reachable before injecting anything"
+            BASELINE_CODE="$(probe_grafana)"
+            echo "[$DRILL_ID] baseline probe: HTTP $BASELINE_CODE"
+            if [ "$BASELINE_CODE" != "200" ]; then
+              echo "Grafana wasn't reachable even before the drill — not a real partition test, aborting" >&2
+              exit 1
+            fi
+
+            T_INJECT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "[$DRILL_ID] t_inject=$T_INJECT — applying a drill-owned egressDeny to observability (fault injection)"
+            cat <<EOF | kubectl apply -f -
+            apiVersion: cilium.io/v2
+            kind: CiliumNetworkPolicy
+            metadata:
+              name: ${DENY_POLICY_NAME}
+              namespace: argo-workflows
+            spec:
+              endpointSelector:
+                matchLabels:
+                  workflows.argoproj.io/workflow: {{workflow.name}}
+              egressDeny:
+                - toEndpoints:
+                    - matchLabels:
+                        "k8s:io.kubernetes.pod.namespace": observability
+            EOF
+
+            echo "[$DRILL_ID] probing during the deny window (expecting failure — proves enforcement is real)"
+            DENY_CONFIRMED="false"
+            for i in $(seq 1 10); do
+              CODE="$(probe_grafana)"
+              echo "[$DRILL_ID] probe during deny: HTTP $CODE"
+              if [ "$CODE" = "000" ]; then
+                DENY_CONFIRMED="true"
+                break
+              fi
+              sleep 2
+            done
+
+            echo "[$DRILL_ID] recovery: removing the deny policy"
+            kubectl -n argo-workflows delete ciliumnetworkpolicy "$DENY_POLICY_NAME"
+
+            echo "[$DRILL_ID] probing after removal (expecting success — proves recovery is real)"
+            RECOVERY_CONFIRMED="false"
+            T_RECOVER=""
+            for i in $(seq 1 10); do
+              CODE="$(probe_grafana)"
+              echo "[$DRILL_ID] probe after removal: HTTP $CODE"
+              if [ "$CODE" = "200" ]; then
+                RECOVERY_CONFIRMED="true"
+                T_RECOVER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                break
+              fi
+              sleep 2
+            done
+            if [ -z "$T_RECOVER" ]; then
+              T_RECOVER="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            fi
+            T_VERIFY="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            RTO=$(( $(date -u -d "$T_RECOVER" +%s) - $(date -u -d "$T_INJECT" +%s) ))
+            if [ "$DENY_CONFIRMED" = "true" ] && [ "$RECOVERY_CONFIRMED" = "true" ]; then VERDICT="pass"; else VERDICT="fail"; fi
+
+            echo "[$DRILL_ID] deny observed: $DENY_CONFIRMED, recovery observed: $RECOVERY_CONFIRMED"
+
+            echo "[$DRILL_ID] emitting drill record"
+            RECORD="$(cat <<EOF
+            {"drill_id":"${DRILL_ID}","scenario":"network-partition","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art9","ISO-A.8.20"],"target_rto_seconds":60,"target_rpo_seconds":0,"measured_rto_seconds":${RTO},"integrity_check":"pass","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["deny policy (deleted after window): ${DENY_POLICY_NAME}","deny confirmed: ${DENY_CONFIRMED}","recovery confirmed: ${RECOVERY_CONFIRMED}"]}
+            EOF
+            )"
+            echo "$RECORD" | jq -c .
+
+            echo "RESULT_RTO_SECONDS=${RTO}"
+            echo "RESULT_VERDICT=${VERDICT}"
+  arguments:
+    parameters:
+      - name: git-sha
+        value: "unknown"

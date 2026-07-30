@@ -1,0 +1,21 @@
+# ScenarioSpec — build-spec §6.3 scenario 1. Metadata only; drills/templates/ has the
+# executable WorkflowTemplate. See drills/scenarios/ns-restore.yaml for why this file
+# is kept separate from the workflow's own step logic.
+name: node-kill
+description: >
+  Taints the worker node currently running canary-writer with
+  node.kubernetes.io/unreachable=:NoExecute -- the exact taint Kubernetes' own
+  node-lifecycle-controller applies automatically on a genuine unreachable node, so this
+  exercises the real eviction/reschedule control loop rather than a synthetic stand-in.
+  A PodDisruptionBudget (maxUnavailable: 0) protects canary-writer from voluntary
+  disruption; taint-based eviction does not consult PDBs (accurate to real
+  unreachable-node behavior), so the PDB's effect is itself part of what this drill
+  observes. canary's PV is node-local (openebs-hostpath, non-replicated) -- whether the
+  pod reschedules or waits for the node's return is measured, not assumed in advance.
+target_rto_seconds: 300
+target_rpo_seconds: 0
+controls:
+  - DORA-Art11
+  - NIS2-21.2.c
+  - ISO-A.8.13
+workflow_template: node-kill

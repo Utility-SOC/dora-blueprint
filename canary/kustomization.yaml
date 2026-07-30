@@ -2,6 +2,7 @@ resources:
   - namespace.yaml
   - pvc.yaml
   - deployment.yaml
+  - pdb.yaml
 
 configMapGenerator:
   - name: canary-scripts

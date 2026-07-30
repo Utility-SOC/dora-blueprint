@@ -33,7 +33,7 @@ spec:
           # verified live (cosign verify + verify-attestation, both succeeded against the real
           # workflow identity) before being pinned here. Kyverno's own verify-image-signatures.yaml
           # re-checks the same signature/attestation at admission, independent of this pin.
-          image: ghcr.io/utility-soc/canary-writer@sha256:d74a88e3f188e719ca4f14e3b0a7f89106af505bf5fcf7b68e04c8405d98cabb
+          image: ghcr.io/utility-soc/canary-writer@sha256:a59f3ccf24fe39c272ae9708be117afd39320661709fe4f4b32a0735ab2bc9da
           # images/canary-writer/apko.yaml's Wolfi python-3.13 package provides python3.13, not a
           # generic `python3` symlink -- the image's own ENTRYPOINT already is python3.13 (real
           # bug caught live in the build workflow's own smoke test), so this command references it

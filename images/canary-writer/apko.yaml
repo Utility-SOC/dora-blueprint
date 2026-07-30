@@ -15,6 +15,14 @@ contents:
     - wolfi-baselayout
     - ca-certificates-bundle
     - python-3.13
+    # CAUGHT LIVE: this minimal image had no /bin/sh at all until this was added (confirmed via
+    # a real `docker run --entrypoint /bin/sh ...` failure: "stat /bin/sh: no such file or
+    # directory") -- drills/scenarios/credential-compromise.yaml's entire fault injection execs
+    # `/bin/sh -c "id; ..."` into this exact container as the "anomalous process for a container
+    # that normally only runs python3 writer.py" Tetragon is meant to catch. busybox is Wolfi's
+    # standard minimal POSIX shell provider (ash via /bin/sh) -- not bash, which would pull in a
+    # meaningfully larger dependency footprint for a shell this image otherwise never runs.
+    - busybox
 
 entrypoint:
   command: /usr/bin/python3.13

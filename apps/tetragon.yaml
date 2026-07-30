@@ -54,6 +54,16 @@ spec:
             limits:
               cpu: 50m
               memory: 64Mi
+        # CAUGHT LIVE: the operator (a normal, non-privileged Deployment, unlike the main
+        # DaemonSet) was denied by Kyverno's own require-pod-security-restricted policy for one
+        # specific, real, fixable gap -- no seccompProfile set at all. This has a real config
+        # surface (unlike the DaemonSet's privileged+hostNetwork, which doesn't), so it's fixed
+        # here rather than folded into the exception -- an exception should cover only what
+        # genuinely can't be configured away, not everything that happens to be denied.
+        tetragonOperator:
+          podSecurityContext:
+            seccompProfile:
+              type: RuntimeDefault
   destination:
     server: https://kubernetes.default.svc
     namespace: tetragon

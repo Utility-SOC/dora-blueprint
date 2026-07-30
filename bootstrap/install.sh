@@ -26,7 +26,7 @@ for bin in talosctl kubectl helm sops; do
   command -v "$bin" >/dev/null || { echo "missing required binary: $bin" >&2; exit 1; }
 done
 
-echo "==> [1/13] Talos cluster (docker provisioner, pinned $TALOS_VERSION / k8s $KUBERNETES_VERSION)"
+echo "==> [1/14] Talos cluster (docker provisioner, pinned $TALOS_VERSION / k8s $KUBERNETES_VERSION)"
 # `talosctl cluster show` exits 0 even for a nonexistent cluster (empty NODES table), so
 # existence is checked against the actual docker container the provisioner creates.
 if docker ps -a --format '{{.Names}}' | grep -q "^${CLUSTER_NAME}-controlplane-1$"; then
@@ -51,7 +51,7 @@ else
     --config-patch-controlplanes @"$REPO_ROOT/platform/talos/patches/control-plane.yaml"
 fi
 
-echo "==> [2/13] Merging kubeconfig and waiting for the API server"
+echo "==> [2/14] Merging kubeconfig and waiting for the API server"
 # Re-run on both branches: `cluster create` only auto-merges kubeconfig on the create path,
 # and the "already exists" branch needs a fresh context set up too. `talosctl kubeconfig`
 # needs an explicit node target against a fresh single-context talosconfig (it has no
@@ -62,7 +62,7 @@ talosctl kubeconfig --talosconfig "$TALOSCONFIG" --nodes "$CP_IP" --force >/dev/
 kubectl config use-context "admin@${CLUSTER_NAME}" >/dev/null
 until kubectl get --raw=/readyz >/dev/null 2>&1; do sleep 2; done
 
-echo "==> [3/13] Installing Cilium $CILIUM_CHART_VERSION (CNI is not an Argo CD sync-wave — see platform/talos/README.md)"
+echo "==> [3/14] Installing Cilium $CILIUM_CHART_VERSION (CNI is not an Argo CD sync-wave — see platform/talos/README.md)"
 helm repo add cilium https://helm.cilium.io/ >/dev/null 2>&1 || true
 helm repo update cilium >/dev/null
 # Talos-specific settings per docs.siderolabs.com/kubernetes-guides/cni/deploying-cilium:
@@ -88,10 +88,10 @@ helm upgrade --install cilium cilium/cilium \
   --set hubble.ui.enabled=true \
   --wait --timeout 10m
 
-echo "==> [4/13] Waiting for nodes Ready"
+echo "==> [4/14] Waiting for nodes Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout=180s
 
-echo "==> [5/13] Installing Argo CD $ARGOCD_VERSION"
+echo "==> [5/14] Installing Argo CD $ARGOCD_VERSION"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 # --server-side: same class of issue build-spec §2 flags for cert-manager CRDs.
 # applicationsets.argoproj.io's schema exceeds client-side apply's 262144-byte
@@ -102,7 +102,7 @@ kubectl apply -n argocd --server-side --force-conflicts \
 kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
 kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 
-echo "==> [6/13] Repo credential, AppProject (never 'default'), and app-of-apps"
+echo "==> [6/14] Repo credential, AppProject (never 'default'), and app-of-apps"
 SSH_KEY_TMP="$(mktemp)"
 trap 'shred -u "$SSH_KEY_TMP" 2>/dev/null || rm -f "$SSH_KEY_TMP"' EXIT
 sops --decrypt "$REPO_ROOT/bootstrap/secrets/argocd-repo-key.enc.yaml" \
@@ -119,7 +119,7 @@ kubectl -n argocd create secret generic elastic-dora-blueprint-repo \
 kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/appproject-platform.yaml"
 kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/root-app.yaml"
 
-echo "==> [7/13] cert-manager Intermediate CA secret"
+echo "==> [7/14] cert-manager Intermediate CA secret"
 # cert-manager's ca-type ClusterIssuer (infrastructure/cert-manager/cluster-issuer.yaml)
 # reads this secret directly — it needs to exist before that Application syncs
 # successfully, same "manual step creates the Secret, GitOps references it via
@@ -143,7 +143,7 @@ kubectl -n cert-manager create secret tls intermediate-ca \
   --dry-run=client -o yaml | kubectl apply -f -
 rm -f "$CERT_CA_TMP" "$CERT_CA_CRT_TMP" "$CERT_CA_KEY_TMP"
 
-echo "==> [8/13] IAM secrets (OpenLDAP bind password, Keycloak admin, OIDC client secrets)"
+echo "==> [8/14] IAM secrets (OpenLDAP bind password, Keycloak admin, OIDC client secrets)"
 # Same "manual step creates the Secret(s), GitOps references them" pattern as every
 # other credential in this repo. One encrypted source
 # (infrastructure/keycloak/secrets/iam-secrets.enc.yaml), several K8s Secrets across
@@ -215,7 +215,7 @@ else
 fi
 rm -f "$IAM_TMP"
 
-echo "==> [9/13] Argo CD OIDC + RBAC config"
+echo "==> [9/14] Argo CD OIDC + RBAC config"
 # argocd-cm/argocd-rbac-cm are part of the raw upstream Argo CD manifest applied in step
 # 5/10 above (not Helm-managed, so no valuesObject to add this to) -- patched here as an
 # additive merge, same "manual step, survives a re-run" discipline as every other
@@ -242,7 +242,7 @@ PATCH
 kubectl -n argocd rollout restart deploy/argocd-server
 kubectl -n argocd rollout status deploy/argocd-server --timeout=120s
 
-echo "==> [10/13] MinIO/Velero credentials"
+echo "==> [10/14] MinIO/Velero credentials"
 # Namespace created here, not left to Argo CD's CreateNamespace=true on the minio/velero
 # Applications — those sync asynchronously, and this step needs the namespace to exist
 # right now, not eventually.
@@ -271,7 +271,18 @@ kubectl -n velero create secret generic cloud-credentials \
   --from-literal=cloud="$(printf '[default]\naws_access_key_id=%s\naws_secret_access_key=%s\n' "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD")" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-echo "==> [11/13] Grafana Alerting API token (Phase 9 detection)"
+echo "==> [11/14] Tetragon namespace (Phase 13 endpoint runtime security)"
+# Same PSS-labeling pattern as velero's node-agent above: Tetragon's DaemonSet needs
+# privileged+hostNetwork+hostPath for eBPF process visibility, which the cluster's own
+# built-in PSS baseline controller rejects outright — confirmed live via a real admission
+# denial before this label was added (see docs/exceptions/tetragon.md). The matching
+# Kyverno exclude (require-pod-security-restricted.yaml) is the *second*, independent
+# mechanism this needs — Kyverno re-implements the PSS check itself rather than deferring
+# to this namespace label, so both are required, neither alone is sufficient.
+kubectl create namespace tetragon --dry-run=client -o yaml | kubectl apply -f -
+kubectl label namespace tetragon pod-security.kubernetes.io/enforce=privileged --overwrite
+
+echo "==> [12/14] Grafana Alerting API token (Phase 9 detection)"
 # infrastructure/observability/configure-grafana-alerting.sh creates this token, once,
 # against a live Grafana instance -- can't be file-provisioned like the datasource/alert
 # rule, since it's server-side secret material. Applied here into argo-workflows, the
@@ -290,7 +301,7 @@ kubectl -n argo-workflows create secret generic grafana-api-token \
   --dry-run=client -o yaml | kubectl apply -f -
 rm -f "$GRAFANA_TOKEN_TMP"
 
-echo "==> [12/13] GLPI/MariaDB credentials (Phase 11 incident response)"
+echo "==> [13/14] GLPI/MariaDB credentials (Phase 11 incident response)"
 # Same "manual step creates the Secret(s), GitOps references them" pattern as every other
 # credential in this repo. glpi-db lives in the glpi namespace itself (both MariaDB and GLPI
 # read it directly, no cross-namespace duplication needed here since both consumers are
@@ -309,7 +320,7 @@ kubectl -n glpi create secret generic glpi-db \
   --dry-run=client -o yaml | kubectl apply -f -
 rm -f "$GLPI_SECRETS_TMP"
 
-echo "==> [13/13] GLPI drill-automation API token (Phase 11 incident response)"
+echo "==> [14/14] GLPI drill-automation API token (Phase 11 incident response)"
 # infrastructure/glpi/configure-glpi.sh creates this token, once, against a live GLPI
 # instance -- can't be file-provisioned like the Deployment env vars, since it's server-side
 # secret material GLPI only ever shows via a direct DB read (never through its own API).

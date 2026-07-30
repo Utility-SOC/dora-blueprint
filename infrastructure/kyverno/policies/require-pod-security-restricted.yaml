@@ -82,6 +82,16 @@ spec:
                 - glpi
               names:
                 - "glpi-*"
+          # Tetragon (Phase 13, endpoint runtime security): the main DaemonSet only, not the
+          # operator (which runs fully restricted-compliant once its own real seccompProfile
+          # gap was fixed via chart config). privileged+hostNetwork+hostPath are architecturally
+          # required for eBPF process visibility -- confirmed via a real admission denial before
+          # this exclude was added, not pre-added speculatively. See docs/exceptions/tetragon.md.
+          - resources:
+              namespaces:
+                - tetragon
+              names:
+                - "tetragon-*"
       validate:
         failureAction: Enforce
         podSecurity:

@@ -271,6 +271,52 @@ with correct name, urgency, classification, both deadlines, all three artifact l
 reference, and the post-incident-review section. Evidence:
 [`incident-response-20260729210627.txt`](docs/evidence/samples/incident-response-20260729210627.txt).
 
+## Phase 13 — Endpoint runtime security (Tetragon, `credential-compromise` scenario)
+
+Picked ahead of Phase 12 (supply chain) by explicit choice. Tetragon — Cilium's own eBPF-based
+runtime security project — chosen over Elastic Defend for a real resource reason, not just
+preference: this host's confirmed-tight free RAM budget already shares with an unrelated
+Elastic Fleet container from a different project, and standing up a second Elastic Agent+Fleet
+stack here would both strain the host and reopen the Grafana-vs-Elastic trial Phase 9 already
+settled. No custom `TracingPolicy` was needed for the "detect a shell spawn" use case — Tetragon
+observes every real `execve` by default, and its stdout-export sidecar (the chart's own default)
+feeds this repo's existing Alloy → Loki pipeline with zero new shipping config.
+
+Real, live-confirmed admission denial before any exception was added (not pre-added
+speculatively): the cluster's own built-in PSS `baseline` controller rejected the DaemonSet for
+`hostNetwork`/`privileged`/hostPath, architecturally required for eBPF process visibility with
+no config-surface workaround. Fixed with the same dual mechanism `velero`'s node-agent exception
+already established: a native PSS namespace label (`bootstrap/install.sh`) plus a Kyverno
+exclude scoped to `tetragon-*` pods
+(`infrastructure/kyverno/policies/require-pod-security-restricted.yaml`,
+`docs/exceptions/tetragon.md`). The `tetragon-operator` Deployment hit a second, separate denial
+— Kyverno's own policy, for a missing `seccompProfile` — fixed via chart config
+(`tetragonOperator.podSecurityContext` in `apps/tetragon.yaml`) rather than folded into the
+exception, since it had a real fix and the DaemonSet doesn't.
+
+A new Grafana Alerting rule (`canary-shell-spawn-detect`) watches Loki for a shell binary
+executed inside the canary namespace, matching Phase 9's own explicit-field-extraction
+discipline (not a bare `| json`, given process-exec telemetry's higher volume than the audit
+log). Verified in order, each against real state rather than assumed: the DaemonSet and operator
+reached `Running` under the new exception; a real `kubectl exec`-produced `process_exec` event
+was queried straight back out of Loki; the new Alerting rule reached a genuine `firing` state
+against that real event, checked via its own live rules API. The `credential-compromise`
+scenario (`drills/templates/credential-compromise-workflowtemplate.yaml`) execs into
+`canary-writer`, reads its own mounted ServiceAccount token, then spawns `/bin/sh` — a real,
+anomalous process for a container that normally only runs `python3 writer.py`. Shaped like
+`network-partition` (nothing is actually broken; `measured_rto_seconds` doubles as detection
+latency) rather than a break/recover scenario.
+
+A real end-to-end run: detection latency 11s, classification `non-major` (criterion
+`reputational_impact` — the one synthetic input bumped to `medium` for this scenario, tripping
+on its own but not enough alone to force `major`), both regulatory deadlines computed, and a
+real GLPI ticket (#7) fetched directly from GLPI's own API with the correct
+`credential-compromise-incident.md` runbook reference. Regression-checked by re-running
+`ns-restore` for real against the same shared `apps/grafana.yaml` `rules.yaml` block the new
+rule was added to — confirmed the existing `canary-ns-delete-detect` rule and detection pipeline
+were unaffected. Evidence:
+[`credential-compromise-20260730044858.txt`](docs/evidence/samples/credential-compromise-20260730044858.txt).
+
 ## Follow-ups spawned, not yet resolved
 
 - **`task_a45b9f18`** — `measured_rpo_records_lost` comes back negative in real drill runs, a

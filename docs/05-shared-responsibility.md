@@ -19,11 +19,12 @@ with nothing built yet is listed as such, not skipped — see §0.8/§0.9 below.
 | Admission control | Cluster-wide Pod Security Standards `restricted` enforcement, documented exception process | Compliant pod specs; a reviewed `PolicyException` for anything that can't comply | [`kyverno-admission-20260728202845.txt`](evidence/samples/kyverno-admission-20260728202845.txt) |
 | Backup & recovery | Backup mechanism, Schedule infrastructure, proven restore path | Its own retention/RPO sizing, and which namespaces need a Schedule target | [`ns-restore-20260728204154.json`](evidence/samples/ns-restore-20260728204154.json) |
 | Change management (GitOps) | Git-as-source-of-truth, automated drift correction, a destination allowlist bounding blast radius | Its own review/branch-protection discipline (organizational, not platform-enforced) | not yet generated — no CI evidence pipeline exists |
-| Evidence & drill framework | Record schema, emitter, four real scenarios (ns-restore, node-kill, pvc-corruption-restore, network-partition) | Additional scenarios specific to its own risk profile | [`scenario-breadth-20260730021814.txt`](evidence/samples/scenario-breadth-20260730021814.txt) |
+| Evidence & drill framework | Record schema, emitter, five real scenarios (ns-restore, node-kill, pvc-corruption-restore, network-partition, credential-compromise) | Additional scenarios specific to its own risk profile | [`scenario-breadth-20260730021814.txt`](evidence/samples/scenario-breadth-20260730021814.txt) |
 | Cryptography (PKI) | Offline Root/Intermediate CA hierarchy, `ca`-type `ClusterIssuer` issuing real leaf certs | Request its own `Certificate` from `platform-ca` for any distinct hostname it needs | [`pki-chain-verification-20260729025500.txt`](evidence/samples/pki-chain-verification-20260729025500.txt) |
-| Identity (IAM) | Nothing yet — not built | Not applicable until Phase 8 lands | not yet generated — Phase 8 |
-| Detection (SIEM) | Nothing yet — not built | Not applicable until Phase 9 lands | not yet generated — Phase 9 |
+| Identity (IAM) | Keycloak + OpenLDAP OIDC SSO, real group-based RBAC for Argo CD and Grafana | Its own group membership decisions for who gets admin vs. read-only | [`keycloak-ldap-oidc-verification-20260729043900.txt`](evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt) |
+| Detection (SIEM) | A real Grafana Alerting rule on the kube-apiserver audit log, real `t_detect` from Grafana's own live API | Its own detection rules for tenant-specific signals | [`detection-latency-20260729135024.txt`](evidence/samples/detection-latency-20260729135024.txt) |
 | Incident response | Classification-as-code, both regulatory clocks, automated ticket creation in a self-hosted ITSM tool | Its own human review of every classification decision, and the real regulatory notification this repo cannot and does not send | [`incident-response-20260729210627.txt`](evidence/samples/incident-response-20260729210627.txt) |
+| Endpoint runtime security | eBPF-based process visibility (Tetragon), a real detection surface independent of the audit log | Its own `TracingPolicy` rules for tenant-specific process-behavior signals | [`credential-compromise-20260730044858.txt`](evidence/samples/credential-compromise-20260730044858.txt) |
 
 ## Network segmentation (Cilium)
 
@@ -219,3 +220,36 @@ exists, deliberately, since this is a lab.
 business-impact assessment — see `docs/04-limitations.md`. GLPI's own asset-management module
 is a real future source for a DORA Art. 28 Register of Information, not built as part of this
 phase.
+
+## Endpoint runtime security — built
+
+**Platform guarantees:** eBPF-based process visibility (build-spec Phase 13) via Tetragon —
+Cilium's own runtime security project, chosen over Elastic Defend for real resource reasons
+(this host's tight free RAM budget, already shared with an unrelated Elastic Fleet container),
+not just preference. Tetragon observes every real `execve` by default — no custom
+`TracingPolicy` was needed for the `credential-compromise` scenario's "detect a shell spawn"
+use case. Its stdout-export sidecar feeds this repo's existing Alloy → Loki pipeline with zero
+new shipping config, the same "reuse the existing pipe" discipline the detection layer above
+already established. A new Grafana Alerting rule (`canary-shell-spawn-detect`) watches Loki for
+a shell binary executed inside the canary namespace — a real, independent detection surface
+(endpoint/process-level, not just the kube-apiserver audit log the Detection section above
+covers). `privileged: true` + `hostNetwork: true` are architecturally required for eBPF
+instrumentation — no config-surface workaround exists, the same bar every other exception in
+this repo is held to — so a scoped Kyverno exclude plus a native PSS namespace label admit only
+the `tetragon-*` DaemonSet pods specifically; see `docs/exceptions/tetragon.md`. See
+[`credential-compromise-20260730044858.txt`](evidence/samples/credential-compromise-20260730044858.txt)
+for a real shell spawn genuinely observed and alerted on in 11 seconds, carried through the same
+classification/clocks/GLPI pipeline the Incident response section above describes.
+
+**Tenant must bring:** its own `TracingPolicy` rules for tenant-specific process-behavior signals
+beyond "a shell was spawned" — the platform provides the eBPF visibility layer and one worked
+detection pattern, not an exhaustive endpoint detection rule set. If enforcement (not just
+observation) is ever wanted — Tetragon supports `sigkill`/`override` actions on a
+`TracingPolicy` — that is a tenant decision with real blast-radius implications this platform
+does not make on the tenant's behalf.
+
+**Explicitly still missing:** no Cilium CNI policy applies to Tetragon's own pods — a
+`hostNetwork: true` pod shares the node's own network identity, with no per-pod
+CiliumNetworkPolicy endpoint to attach to, stated plainly rather than silently absent. No
+enforcement action (`sigkill`/`override`) is deployed — this is a read-only telemetry
+integration, so a Tetragon misconfiguration cannot itself kill or block a real workload.

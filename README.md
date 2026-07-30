@@ -39,6 +39,14 @@ check — denies and un-denies a live path, proving it both directions). All fou
 classification/clocks/GLPI pipeline and the RTO/RPO trend dashboard in Grafana. Sample:
 [`docs/evidence/samples/scenario-breadth-20260730021814.txt`](docs/evidence/samples/scenario-breadth-20260730021814.txt).
 
+A fifth scenario exists as of Phase 13: `SCENARIO=credential-compromise` (harvests the canary's
+own ServiceAccount token, then spawns a shell — a real `execve` observed by Tetragon's eBPF
+instrumentation and caught by a Grafana Alerting rule watching Loki, the same detection pattern
+Phase 9 established). Nothing is actually broken by this one — it validates the runtime-detection
+path end to end, the way `network-partition` validates the enforcement path. Sample:
+[`docs/evidence/samples/credential-compromise-20260730044858.txt`](docs/evidence/samples/credential-compromise-20260730044858.txt)
+(detection latency 11s, GLPI ticket #7).
+
 ## What's running
 
 | Component | Role |
@@ -51,6 +59,7 @@ classification/clocks/GLPI pipeline and the RTO/RPO trend dashboard in Grafana. 
 | Velero + MinIO | Backup/restore — what the `ns-restore` drill actually measures |
 | Argo Workflows | Runs drill scenarios as real Workflows, not shell scripts on a laptop |
 | GLPI + MariaDB | Self-hosted ITSM — drills open real tickets with computed regulatory deadlines |
+| Tetragon | eBPF-based endpoint runtime security — real process-exec visibility feeding the `credential-compromise` drill's detection path |
 
 See [`docs/06-operations.md`](docs/06-operations.md) for day-to-day usage and change procedures.
 
@@ -60,8 +69,8 @@ Built phase-by-phase per [`BUILD-SPEC.md`](BUILD-SPEC.md) §12, breadth-last. Ph
 milestone the build spec names as the point the project's thesis is proven — everything after
 is expansion, not proof of concept.
 
-**Phases 10 and 11 are both done. Next phase not yet chosen — Phase 12 (supply chain) and
-Phase 13 (endpoint runtime security) are both unstarted and ready to pick up.**
+**Phases 10, 11, and 13 are all done. Phase 12 (supply chain) was deliberately skipped ahead of
+— still unstarted, ready to pick up whenever.**
 
 | Phase | Deliverable | Status |
 |---|---|---|
@@ -78,7 +87,7 @@ Phase 13 (endpoint runtime security) are both unstarted and ready to pick up.**
 | 10 | Scenario breadth (1, 3, 5) + RTO/RPO trend dashboard (scenario 4 deferred — see below) | done |
 | 11 | Incident response — classification, regulatory clocks, GLPI ticket automation | done |
 | 12 | Supply chain — apko/cosign image signing, `verifyImages`, generated Register of Information | not started |
-| 13 | Endpoint runtime security | not started |
+| 13 | Endpoint runtime security — Tetragon + `credential-compromise` scenario | done |
 | 14 | Remaining scenarios, kube-bench, evidence report generator | not started |
 | 15 | README polish, asciinema, screenshots | not started |
 
@@ -96,8 +105,6 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   `verifyImages` admission enforcement, and a generated Register of Information / SBOMs for
   DORA Art. 28–30. Not started; the likely target is repackaging `canary/writer.py` as a signed
   apko-built image.
-- **Phase 13 — Endpoint runtime security.** Elastic Defend or Tetragon (open question), plus
-  scenario 8 (credential compromise → shell spawn → runtime detection). Not started.
 - **Phase 14 — Remaining scenarios, kube-bench, evidence report generator.** `make evidence` is
   currently a stub; today, `docs/03-control-matrix.md` is the hand-maintained index into
   `docs/evidence/samples/` — see [`docs/06-operations.md`](docs/06-operations.md) §4.

@@ -239,10 +239,17 @@ spec:
         # this project can produce"). No new plumbing needed -- drill records already land in
         # Loki today via drills/lib/emit.py's stdout + Alloy's existing DaemonSet, the same
         # pipeline the alerting rule above already reads from. `| unwrap` turns each drill
-        # record's own numeric field into a plotted time-series point at that record's log
-        # timestamp -- the same explicit-field-extraction discipline (`| json field=`field``)
-        # already used above to avoid Loki's series-cardinality limit, just for metrics instead
-        # of a count. Same file-provisioning convention as datasources/alerting -- no UI clicks.
+        # record's own numeric field into a plotted time-series point -- the same explicit-
+        # field-extraction discipline (`| json field=`field``) already used above to avoid
+        # Loki's series-cardinality limit, just for metrics instead of a count. Same
+        # file-provisioning convention as datasources/alerting -- no UI clicks.
+        #
+        # CAUGHT LIVE: a first attempt used a bare `{...} | json ... | unwrap rto` as the whole
+        # query -- Loki rejected it outright ("syntax error: unexpected unwrap"). Unwrapped
+        # values are only valid inside a range-vector aggregation
+        # (`max_over_time(<selector> | unwrap <field> [<range>]) by (<label>)`), confirmed live
+        # against the real Loki instance (a real multi-scenario matrix result, one series per
+        # scenario) before being written down here, not assumed from LogQL docs alone.
         dashboardProviders:
           dashboardproviders.yaml:
             apiVersion: 1
@@ -282,7 +289,7 @@ spec:
                         {
                           "refId": "A",
                           "datasource": { "type": "loki", "uid": "loki" },
-                          "expr": "{namespace=\"argo-workflows\"} |= \"drill_id\" | json scenario=\"scenario\", rto=\"measured_rto_seconds\" | unwrap rto",
+                          "expr": "max_over_time({namespace=\"argo-workflows\"} |= \"drill_id\" | json scenario=\"scenario\", rto=\"measured_rto_seconds\" | unwrap rto [$__interval]) by (scenario)",
                           "queryType": "range"
                         }
                       ]
@@ -301,7 +308,7 @@ spec:
                         {
                           "refId": "A",
                           "datasource": { "type": "loki", "uid": "loki" },
-                          "expr": "{namespace=\"argo-workflows\"} |= \"drill_id\" | json scenario=\"scenario\", rpo=\"measured_rpo_records_lost\" | unwrap rpo",
+                          "expr": "max_over_time({namespace=\"argo-workflows\"} |= \"drill_id\" | json scenario=\"scenario\", rpo=\"measured_rpo_records_lost\" | unwrap rpo [$__interval]) by (scenario)",
                           "queryType": "range"
                         }
                       ]

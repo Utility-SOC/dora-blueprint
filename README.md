@@ -32,6 +32,13 @@ freshly-named namespace, and prints a *measured* RTO and RPO — not asserted nu
 [`docs/evidence/samples/ns-restore-20260728152755.json`](docs/evidence/samples/ns-restore-20260728152755.json)
 (RTO 110s, RPO 71 records, hash-chain `integrity_check: pass`).
 
+Three more scenarios exist as of Phase 10: `SCENARIO=node-kill` (taints and force-deletes the
+canary's own node), `SCENARIO=pvc-corruption-restore` (corrupts the canary's data in place, then
+restores from backup), and `SCENARIO=network-partition` (a real, repeatable Cilium enforcement
+check — denies and un-denies a live path, proving it both directions). All four feed the same
+classification/clocks/GLPI pipeline and the RTO/RPO trend dashboard in Grafana. Sample:
+[`docs/evidence/samples/scenario-breadth-20260730021814.txt`](docs/evidence/samples/scenario-breadth-20260730021814.txt).
+
 ## What's running
 
 | Component | Role |
@@ -53,8 +60,8 @@ Built phase-by-phase per [`BUILD-SPEC.md`](BUILD-SPEC.md) §12, breadth-last. Ph
 milestone the build spec names as the point the project's thesis is proven — everything after
 is expansion, not proof of concept.
 
-**Phase 11 (Incident response) is done. Next phase not yet chosen — Phase 10 (scenario breadth)
-and Phase 12 (supply chain) are both unstarted and ready to pick up.**
+**Phases 10 and 11 are both done. Next phase not yet chosen — Phase 12 (supply chain) and
+Phase 13 (endpoint runtime security) are both unstarted and ready to pick up.**
 
 | Phase | Deliverable | Status |
 |---|---|---|
@@ -68,7 +75,7 @@ and Phase 12 (supply chain) are both unstarted and ready to pick up.**
 | 7 | PKI foundation — offline Root/Intermediate CA, real leaf certs | done |
 | 8 | IAM — Keycloak + OpenLDAP, OIDC SSO, real RBAC | done |
 | 9 | Detection — real Grafana Alerting rule, real `t_detect` | done |
-| 10 | Scenario breadth (1, 3, 4, 5) + RTO/RPO trend dashboard | not started |
+| 10 | Scenario breadth (1, 3, 5) + RTO/RPO trend dashboard (scenario 4 deferred — see below) | done |
 | 11 | Incident response — classification, regulatory clocks, GLPI ticket automation | done |
 | 12 | Supply chain — apko/cosign image signing, `verifyImages`, generated Register of Information | not started |
 | 13 | Endpoint runtime security | not started |
@@ -80,10 +87,11 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Roadmap: what's still ahead
 
-- **Phase 10 — Scenario breadth.** Only `ns-restore` (namespace delete → restore) exists today.
-  Scenarios 1 (node kill), 3 (PVC corruption → snapshot restore), 4 (control-plane/etcd loss),
-  and 5 (network partition) are designed in `BUILD-SPEC.md` §6.3 but not built, plus an RTO/RPO
-  trend chart across multiple runs.
+- **Scenario 4 — control-plane/etcd loss (deferred, no target phase yet).** This lab has exactly
+  one Talos control-plane node — no etcd quorum to lose gracefully, so this fault takes down the
+  *entire* platform (Argo CD, Grafana, GLPI, Keycloak, every namespace), not just the canary
+  tenant, until fully rebuilt. Deliberately not folded into Phase 10 alongside the other,
+  much lower-blast-radius scenarios; will get its own dedicated pass.
 - **Phase 12 — Supply chain.** Build-time image signing (apko + cosign keyless signing),
   `verifyImages` admission enforcement, and a generated Register of Information / SBOMs for
   DORA Art. 28–30. Not started; the likely target is repackaging `canary/writer.py` as a signed

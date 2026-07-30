@@ -65,6 +65,25 @@ gaps to be closed, the claim doesn't get made.
   a real sync attempt showed the `platform` AppProject's own `destinations` allowlist already
   excludes `kube-system`, and that boundary was kept rather than widened. Full reasoning in
   `infrastructure/cilium/kube-system/README.md`.
+- **This lab has exactly one Talos control-plane node — no etcd quorum to lose gracefully.**
+  Confirmed via `kubectl get nodes` (1 control-plane, 2 workers). A real control-plane/etcd-loss
+  drill (build-spec §6.3 scenario 4) would take down the *entire* platform — Argo CD, Grafana,
+  GLPI, Keycloak, every namespace — not just the canary tenant, until fully rebuilt. This is why
+  that scenario is explicitly deferred to its own future phase (Phase 10's scenario-breadth pass
+  covered scenarios 1/3/5 only) rather than folded in alongside the other, much lower-blast-radius
+  scenarios.
+- **A tainted node's replacement pod can land right back on the same tainted node.**
+  Discovered running the `node-kill` drill for real, not assumed in advance: Kubernetes' own
+  `DefaultTolerationSeconds` admission plugin gives every pod a default 300-second toleration
+  against `node.kubernetes.io/unreachable:NoExecute` — a freshly-scheduled replacement pod
+  tolerates the taint for up to five minutes, the same grace period a genuinely unreachable node
+  gets in production. Combined with `canary`'s PV being node-local (`openebs-hostpath`,
+  non-replicated), the replacement pod had nowhere else it *could* schedule anyway, so it landed
+  on the same node within 15 seconds while the taint was still active. Tainting a node alone,
+  without also removing pods' default tolerations or forcing anti-affinity, does not by itself
+  prevent a new pod from returning to the tainted node — a real, load-bearing fact about default
+  Kubernetes scheduling behavior, not a drill bug. See
+  `docs/evidence/samples/scenario-breadth-20260730021814.txt`.
 - **Backup retention (`apps/velero.yaml`'s `ttl: 3h0m0s`) is sized for this lab's disk budget,
   not a compliance-appropriate recovery/record-keeping policy.** One physical host, one MinIO
   PVC — a real retention window (weeks of daily backups plus longer-tiered archival, per DORA's

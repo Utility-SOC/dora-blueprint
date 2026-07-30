@@ -172,6 +172,50 @@ workflow's counter-capture logic, spawned as its own follow-up task
 Evidence: [`detection-latency-20260729135024.txt`](docs/evidence/samples/detection-latency-20260729135024.txt),
 [`ns-restore-20260729135024.json`](docs/evidence/samples/ns-restore-20260729135024.json).
 
+## Phase 10 — Scenario breadth (node-kill, pvc-corruption-restore, network-partition) + trend dashboard
+
+Three new drill scenarios, build-spec §6.3 scenarios 1/3/5. Scenario 4 (control-plane/etcd loss)
+was deliberately deferred to its own future phase after discussion: this lab has exactly one
+Talos control-plane node, so that fault takes down the entire platform, not just the canary
+tenant — a categorically different risk than the other three, which stay scoped to the canary
+namespace or a bounded, self-healed network policy.
+
+`node-kill` taints the canary's own worker node with the exact
+`node.kubernetes.io/unreachable:NoExecute` taint the real node-lifecycle-controller applies,
+protected by a new standing PodDisruptionBudget that taint-based eviction deliberately doesn't
+consult (accurate to real unreachable-node behavior). `pvc-corruption-restore` corrupts the
+canary's data in place without touching the pod — the "restore succeeded but the data is wrong"
+failure mode the hash chain exists to catch — then restores via Velero's file-level backup/restore
+(no CSI VolumeSnapshot support exists in this lab's storage stack). `network-partition` applies a
+temporary, drill-owned Cilium deny to a real live path, then removes it, proving enforcement
+works in both directions rather than just declaring it. All three feed the same
+classification/clocks/GLPI pipeline `ns-restore` already uses, plus a new RTO/RPO trend dashboard
+in Grafana querying the same Loki pipeline the Phase 9 alerting rule already reads from.
+
+Five real bugs found running these live, not assumed from a clean apply: `open-incident.py`'s
+runbook link was hardcoded to `ns-restore-incident.md` regardless of which scenario actually ran
+(would have silently mis-linked every new scenario's ticket); `pvc-corruption-restore`'s own
+detection step aborted the whole workflow, since `verify.py --field` intentionally exits 1
+whenever `integrity_check` is "fail" and the container runs under `bash -ceu` — but this scenario
+*expects* fail at that point (fixed with `|| true` on the calls that can legitimately see it); a
+real RBAC Forbidden error during that same scenario's recovery, since the ClusterRole never
+granted `persistentvolumeclaims`/`deployments` delete at all; `network-partition`'s own probe
+function double-counted curl's "no response" placeholder (`-w '%{http_code}'` already prints
+"000" on failure, and the function's own `|| echo "000"` fallback fired too, producing "000000"
+that never matched the comparison — a real, working deny got reported as `verdict: fail`); and
+the trend dashboard's LogQL used a bare `| unwrap` with no range-vector aggregation, which Loki
+rejects outright (fixed to `max_over_time(... | unwrap <field> [<range>]) by (scenario)`,
+verified against real matrix results from the live instance).
+
+A genuine, unplanned finding surfaced running `node-kill` for real: a freshly-scheduled
+replacement pod landed right back on the *same* tainted node within 15 seconds, because
+Kubernetes' `DefaultTolerationSeconds` admission plugin gives every pod a default 300-second
+toleration against exactly this taint — tainting a node alone doesn't prevent a new pod from
+returning to it. Recorded honestly (`docs/04-limitations.md`, the runbook itself) rather than
+silently corrected to match the plan's original guess.
+
+Evidence: [`scenario-breadth-20260730021814.txt`](docs/evidence/samples/scenario-breadth-20260730021814.txt).
+
 ## Phase 11 — Incident response (classification, clocks, self-hosted GLPI ticket automation)
 
 Closes out `drills/lib/classify.py` and `drills/lib/clocks.py`, both named in build-spec since

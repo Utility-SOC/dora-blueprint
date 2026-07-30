@@ -39,10 +39,17 @@ so this exercises the real eviction/reschedule control loop, not a synthetic sta
 
 The taint, the pod deletion, and the recovery are all real actions against the live cluster.
 Whether the canary actually reschedules onto a different node while tainted, or sits unschedulable
-until the taint is removed, is measured and recorded honestly — not asserted in advance. See
-`docs/04-limitations.md` for why: `canary`'s PV (`openebs-hostpath`) is node-local and
-non-replicated, so a pod that can't reach its own data on a different node is a real limitation
-of this storage class, not a drill bug.
+until the taint is removed, is measured and recorded honestly — not asserted in advance.
+
+**Observed live (drill_id `node-kill-20260730020314`):** the replacement pod reached `Running` on
+the *same* tainted node within 15 seconds. This is real, correct Kubernetes behavior, not a drill
+bug: pods get a default 300-second toleration against exactly this taint (the
+`DefaultTolerationSeconds` admission plugin), and `canary`'s PV (`openebs-hostpath`) is node-local
+and non-replicated, so the replacement pod had nowhere else it *could* schedule anyway. Tainting a
+node alone, without also removing pods' default tolerations, does not by itself prevent a new pod
+from returning to the tainted node — see `docs/04-limitations.md`. A future run could still
+observe the "stuck Pending" outcome (e.g. if the default toleration window is exhausted before
+recovery), so this section describes what happened, not a guarantee of what always will.
 
 ## Why this drill has no `t_detect`
 

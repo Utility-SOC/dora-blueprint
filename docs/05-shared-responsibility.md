@@ -19,7 +19,7 @@ with nothing built yet is listed as such, not skipped — see §0.8/§0.9 below.
 | Admission control | Cluster-wide Pod Security Standards `restricted` enforcement, documented exception process | Compliant pod specs; a reviewed `PolicyException` for anything that can't comply | [`kyverno-admission-20260728202845.txt`](evidence/samples/kyverno-admission-20260728202845.txt) |
 | Backup & recovery | Backup mechanism, Schedule infrastructure, proven restore path | Its own retention/RPO sizing, and which namespaces need a Schedule target | [`ns-restore-20260728204154.json`](evidence/samples/ns-restore-20260728204154.json) |
 | Change management (GitOps) | Git-as-source-of-truth, automated drift correction, a destination allowlist bounding blast radius | Its own review/branch-protection discipline (organizational, not platform-enforced) | not yet generated — no CI evidence pipeline exists |
-| Evidence & drill framework | Record schema, emitter, the ns-restore scenario | Additional scenarios specific to its own risk profile, once scenario breadth (Phase 10) lands | [`ns-restore-20260728152755.json`](evidence/samples/ns-restore-20260728152755.json) |
+| Evidence & drill framework | Record schema, emitter, four real scenarios (ns-restore, node-kill, pvc-corruption-restore, network-partition) | Additional scenarios specific to its own risk profile | [`scenario-breadth-20260730021814.txt`](evidence/samples/scenario-breadth-20260730021814.txt) |
 | Cryptography (PKI) | Offline Root/Intermediate CA hierarchy, `ca`-type `ClusterIssuer` issuing real leaf certs | Request its own `Certificate` from `platform-ca` for any distinct hostname it needs | [`pki-chain-verification-20260729025500.txt`](evidence/samples/pki-chain-verification-20260729025500.txt) |
 | Identity (IAM) | Nothing yet — not built | Not applicable until Phase 8 lands | not yet generated — Phase 8 |
 | Detection (SIEM) | Nothing yet — not built | Not applicable until Phase 9 lands | not yet generated — Phase 9 |
@@ -95,13 +95,18 @@ and can't demonstrate segregation of duties regardless of what Argo CD's automat
 
 ## Evidence & drill framework
 
-**Platform guarantees:** the drill record schema, the emitter, and the `ns-restore` scenario —
-a real fault is injected, a real restore is measured, and the result is written as structured
-evidence, not narrated after the fact.
+**Platform guarantees:** the drill record schema, the emitter, and four real scenarios as of
+Phase 10 — `ns-restore` (namespace deletion → restore), `node-kill` (real node taint →
+eviction/reschedule), `pvc-corruption-restore` (silent data corruption → hash-chain detection →
+restore), and `network-partition` (real Cilium enforcement, denied and un-denied). A real fault
+is injected, a real recovery is measured, and the result is written as structured evidence, not
+narrated after the fact — see
+[`scenario-breadth-20260730021814.txt`](evidence/samples/scenario-breadth-20260730021814.txt).
 
-**Tenant must bring:** additional drill scenarios specific to its own risk profile, once
-scenario breadth work (build-spec Phase 10) lands. The platform demonstrates the pattern with
-one scenario; it isn't a claim that one scenario is sufficient coverage for every tenant's risk
+**Tenant must bring:** additional drill scenarios specific to its own risk profile — build-spec
+§6.3 names five more (control-plane/etcd loss, DNS/registry failure, certificate expiry,
+credential compromise, clock skew), none built yet. Four real scenarios demonstrate the pattern
+generalizes; it isn't a claim that four scenarios are sufficient coverage for every tenant's risk
 register.
 
 ## Cryptography (PKI) — built

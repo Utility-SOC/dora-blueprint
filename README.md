@@ -90,6 +90,7 @@ is expansion, not proof of concept.
 | 13 | Endpoint runtime security — Tetragon + `credential-compromise` scenario | done |
 | 14 | Remaining scenarios, kube-bench, evidence report generator | not started |
 | 15 | README polish, asciinema, screenshots | not started |
+| 16 | Security operations — vulnerability scanning/tracking, continuous monitoring, endpoint/config baseline compliance, living asset inventory | not started |
 
 Full phase-by-phase build notes — real bugs found and fixed by actually running each phase, not
 assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
@@ -108,6 +109,16 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
 - **Phase 14 — Remaining scenarios, kube-bench, evidence report generator.** `make evidence` is
   currently a stub; today, `docs/03-control-matrix.md` is the hand-maintained index into
   `docs/evidence/samples/` — see [`docs/06-operations.md`](docs/06-operations.md) §4.
+- **Phase 16 — Security operations.** Everything up through Phase 13 proves one narrow thing per
+  drill or admission check; nothing yet stands watch continuously, independent of a drill
+  happening to run. Phase 16 closes that gap: real vulnerability scanning and tracking (severity,
+  first-detected date, age against a stated SLA window — Trivy Operator is the leading candidate;
+  `infrastructure/trivy-operator/` is currently an empty placeholder, not a running scanner),
+  standing security-monitoring alerts independent of drill triggers, `kube-bench` tracked over
+  time rather than one-off, and a living asset inventory connecting Phase 12's generated Register
+  of Information to GLPI's own asset module. Organized with the breadth of a mature security
+  control catalog without naming or branding it after any specific external framework — see
+  `BUILD-SPEC.md` §12 for the full scope breakdown. Not started.
 - **Not yet scheduled to a phase:** a jumphost/bastion replacing today's ad-hoc
   `kubectl port-forward` access pattern with a real network-level Ingress; evidence
   write-once/tamper-evidence guarantees (build-spec P7); a real standing webhook receiver for

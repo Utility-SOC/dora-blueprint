@@ -395,6 +395,7 @@ Do not build breadth-first. Get one drill measuring one number end to end before
 | 13 | Endpoint runtime security; scenario 8 (credential compromise → shell spawn → runtime detection) | Alert reaches the correct runbook within the drill's own measured N seconds |
 | 14 | Scenarios 6, 7, 9; kube-bench; evidence report generator | `make evidence` produces the report |
 | 15 | README polish, asciinema, screenshots, `bare-metal/` Ansible alternative | A stranger can run it |
+| 16 | Security operations: real vulnerability scanning + tracking, continuous endpoint/config monitoring, standing security-posture dashboard | A dashboard shows real, live CVE counts by severity and days-open per image, sourced from an actual scanner run, not asserted |
 
 **Phase 3 is the milestone that matters.** Once one drill produces one honestly measured RTO and RPO, the project's thesis is proven and everything after is expansion.
 
@@ -421,6 +422,34 @@ build-order discipline ("do not build breadth-first"), this renumbering happened
 network segmentation was actually complete and verified against the real cluster — not
 speculatively, the way the first revision's numbers were also revised once more before anything
 in that range was built.
+
+**Phase 16, added after Phase 15 was already on the roadmap:** every earlier security-plane
+phase (9, 10, 12, 13) proves one specific, narrow thing — a detection rule fires, a drill
+recovers, an image is signed, a shell spawn is caught. None of them add up to a standing security
+operations posture: something continuously watching for risk independent of whether a drill
+happens to be running. Phase 16 closes that gap, organized the same way a mature security
+program's control catalog would be (a real-world audit checklist maps cleanly onto it), without
+naming or citing any specific external catalog in this repo's own docs — this project already has
+its explicit regulatory anchors (DORA/NIS2/ISO 27001) and doesn't need a second, unrelated
+framework layered on top just for vocabulary. Scope:
+
+- **Vulnerability management.** A real scanner (Trivy Operator is the leading candidate — its
+  `VulnerabilityReport` CRDs are the natural source) producing real CVE findings per image, not
+  assumed absent the way `infrastructure/trivy-operator/`'s empty placeholder directory currently
+  implies it exists. A dashboard (Grafana, reusing this repo's existing pattern) showing severity,
+  first-detected date, and age-against-an-SLA-window per finding — the SLA windows themselves are
+  a policy choice this repo will state as a synthetic/example policy (same "say so, don't fake it"
+  discipline as `drills/lib/classification-profiles.json`), not claimed as a real enterprise SLA.
+- **Continuous security monitoring.** Standing Grafana Alerting rules that fire independent of any
+  drill run — failed Keycloak authentications, privilege/role changes, unexpected process
+  execution outside the canary namespace (Tetragon's own coverage is canary-scoped today) — versus
+  today's detection layer, which only proves itself when a drill deliberately triggers it.
+- **Endpoint/configuration baseline compliance.** `kube-bench` (CIS Kubernetes Benchmark), tracked
+  over time rather than a one-off report — ties into, and likely absorbs, Phase 14's own
+  `kube-bench` line item.
+- **Living asset inventory.** Connects Phase 12's generated Register of Information and GLPI's
+  asset-management module (flagged as a future payoff since Phase 11) into something queryable on
+  an ongoing basis, not a static generated snapshot.
 
 ---
 

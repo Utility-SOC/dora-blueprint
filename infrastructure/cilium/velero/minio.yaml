@@ -12,6 +12,18 @@
 # later -- found failing for real while working on kube-system's segmentation, see
 # kopia-maintain-jobs.yaml for the full story. A genuine gap in this file's original
 # pass, not something that later work broke.
+#
+# CAUGHT LIVE: a fourth gap, found chasing a real "invalid login" on the MinIO console --
+# the official minio chart's own PostSync hook Job (minio-post-job, labels
+# `app: minio-job, release: minio`), which creates/updates the actual console user and
+# its bucket policy, had no matching ingress entry here at all. Its own connection
+# attempts timed out ("dial tcp <minio ClusterIP>:9000: i/o timeout" in the job's real
+# logs) -- a dropped-packet signature, not "service down": the job's outbound DNS/egress
+# was unrestricted (no CiliumNetworkPolicy selects `app: minio-job`), so the timeout was
+# MinIO's own ingress policy silently rejecting the connection on arrival. The job had
+# been failing (backoffLimit reached) for long enough that whatever console credentials
+# were last successfully provisioned were stale or never matched what was actually being
+# typed in. Confirmed fixed by re-triggering the hook after this entry was added.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -36,6 +48,8 @@ spec:
         - matchExpressions:
             - key: velero.io/repo-name
               operator: Exists
+        - matchLabels:
+            app: minio-job
   egress:
     - toEndpoints:
         - matchLabels:

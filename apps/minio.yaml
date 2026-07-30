@@ -48,6 +48,28 @@ spec:
           type: ClusterIP
         service:
           type: ClusterIP
+        # OIDC SSO via Keycloak (real AssumeRoleWithWebIdentity federation, not a proxy) --
+        # infrastructure/keycloak/configure-minio-oidc.sh creates the "minio" client and
+        # its groups claim mapper; minio-oidc-secret is applied by bootstrap/install.sh
+        # step 8 from the same secret that script prints. claimName is "groups", not a
+        # MinIO-specific "policy" claim -- group -> policy binding happens locally via
+        # `mc admin policy attach ... --group=`, same "IdP asserts membership, the app
+        # maps it" pattern already used for Argo CD's policy.csv and Grafana's roles.
+        # configUrl/redirectUri use the external LAN address (192.168.1.106:9083), not
+        # in-cluster Service DNS, for the same issuer-matching reason documented in
+        # infrastructure/cilium/argocd/argocd-server.yaml -- Keycloak's issuer is derived
+        # from the request's Host header, and the browser's authorization-code flow hits
+        # the LAN address, so MinIO's own server-to-server calls must match it exactly.
+        oidc:
+          enabled: true
+          configUrl: "http://192.168.1.106:9083/auth/realms/platform/.well-known/openid-configuration"
+          clientId: minio
+          existingClientSecretName: minio-oidc-secret
+          existingClientSecretKey: clientSecret
+          claimName: groups
+          scopes: "openid,profile,email"
+          redirectUri: "http://192.168.1.106:9084/oauth_callback"
+          displayName: "Keycloak"
   destination:
     server: https://kubernetes.default.svc
     namespace: velero

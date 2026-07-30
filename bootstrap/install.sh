@@ -163,8 +163,24 @@ LDAP_BIND_PW="$(awk '/^ldap_bind_password:/ {print $2}' "$IAM_TMP")"
 ARGOCD_OIDC_SECRET="$(awk '/^argocd_oidc_client_secret:/ {print $2}' "$IAM_TMP")"
 GRAFANA_OIDC_SECRET="$(awk '/^grafana_oidc_client_secret:/ {print $2}' "$IAM_TMP")"
 KEYCLOAK_ADMIN_PW="$(awk '/^keycloak_admin_password:/ {print $2}' "$IAM_TMP")"
+# minio_oidc_client_secret doesn't exist until infrastructure/keycloak/configure-minio-oidc.sh
+# has been run once against a live Keycloak (same bootstrapping order as the GLPI API token
+# below) -- awk prints nothing rather than erring if the key is absent yet, so a first run
+# before that script exists is a no-op here, not a hard failure.
+MINIO_OIDC_SECRET="$(awk '/^minio_oidc_client_secret:/ {print $2}' "$IAM_TMP")"
 
 kubectl -n openldap create secret generic openldap-admin \
+  --from-literal=password="$LDAP_BIND_PW" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Duplicated into glpi's own namespace too, same "Secrets don't cross namespace
+# boundaries" reason as every other cross-namespace credential here --
+# infrastructure/glpi/configure-glpi-ldap.sh needs it to bind as cn=admin (the same
+# LDAP admin DN Keycloak's own federation already uses, not a separate scoped bind
+# user -- a real deployment should use a dedicated read-only bind account; this lab
+# reuses the one admin DN it already has, stated plainly rather than silently done).
+kubectl create namespace glpi --dry-run=client -o yaml | kubectl apply -f -
+kubectl -n glpi create secret generic openldap-bind \
   --from-literal=password="$LDAP_BIND_PW" \
   --dry-run=client -o yaml | kubectl apply -f -
 
@@ -186,6 +202,17 @@ kubectl create namespace observability --dry-run=client -o yaml | kubectl apply 
 kubectl -n observability create secret generic grafana-oidc-secret \
   --from-literal=clientSecret="$GRAFANA_OIDC_SECRET" \
   --dry-run=client -o yaml | kubectl apply -f -
+
+if [ -n "$MINIO_OIDC_SECRET" ]; then
+  kubectl create namespace velero --dry-run=client -o yaml | kubectl apply -f -
+  kubectl -n velero create secret generic minio-oidc-secret \
+    --from-literal=clientSecret="$MINIO_OIDC_SECRET" \
+    --dry-run=client -o yaml | kubectl apply -f -
+else
+  echo "    minio_oidc_client_secret not yet in iam-secrets.enc.yaml — skipping minio-oidc-secret"
+  echo "    (run infrastructure/keycloak/configure-minio-oidc.sh once MinIO/Keycloak are up, add"
+  echo "    the printed secret to iam-secrets.enc.yaml, then re-run this script)"
+fi
 rm -f "$IAM_TMP"
 
 echo "==> [9/13] Argo CD OIDC + RBAC config"

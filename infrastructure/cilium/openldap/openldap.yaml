@@ -24,6 +24,12 @@ spec:
         - matchLabels:
             "k8s:io.kubernetes.pod.namespace": keycloak
             app.kubernetes.io/name: keycloakx
+        # GLPI's native LDAP auth (infrastructure/glpi/configure-glpi-ldap.sh) -- a second
+        # real consumer of this directory, same explicit-namespace-label discipline this
+        # file's own header comment already flags as learned the hard way.
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": glpi
+            app: glpi
       toPorts:
         - ports:
             - port: "389"

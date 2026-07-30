@@ -57,6 +57,18 @@ spec:
               protocol: UDP
             - port: "53"
               protocol: TCP
+    # Native LDAP auth (infrastructure/glpi/configure-glpi-ldap.sh) -- in-cluster Service
+    # DNS is fine here, unlike the Keycloak-OIDC egress rules elsewhere in this repo: LDAP
+    # has no issuer/Host-header matching concern, so there's no reason to route it through
+    # the external LAN address the way OIDC traffic has to.
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": openldap
+            app: openldap
+      toPorts:
+        - ports:
+            - port: "389"
+              protocol: TCP
 ---
 # MariaDB: reachable only from GLPI within this namespace -- no egress needed, a pure
 # responder, same reasoning already established for OpenLDAP's own egressDeny.

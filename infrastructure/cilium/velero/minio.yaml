@@ -47,3 +47,14 @@ spec:
               protocol: UDP
             - port: "53"
               protocol: TCP
+    # OIDC (infrastructure/keycloak/configure-minio-oidc.sh): MinIO's own server-to-server
+    # calls (discovery doc, JWKS, code exchange) go to the external LAN address, not
+    # in-cluster Service DNS -- toEntities: world + a port-scoped allow, same pattern as
+    # infrastructure/cilium/argocd/argocd-server.yaml's own egress to Keycloak, for the
+    # same issuer-matching reason documented there.
+    - toEntities:
+        - world
+      toPorts:
+        - ports:
+            - port: "9083"
+              protocol: TCP

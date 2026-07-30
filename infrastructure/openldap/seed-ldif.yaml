@@ -15,6 +15,14 @@
 # directory (2026-07-29) and mirrored here afterward for reproducibility -- if the PVC is
 # ever wiped, this file is what a fresh seed would restore, so it needs to match live
 # reality, not the other way around.
+#
+# minio-admins/minio-viewers/glpi-admins/glpi-users (below) were seeded here directly
+# (not live-then-mirrored like utility) since they were added before this file's next
+# real deploy, via infrastructure/openldap/configure-service-groups.sh for an
+# already-running directory that predates this change -- both paths converge on the same
+# state. Deliberately separate from platform-admins/platform-viewers (which stay Argo
+# CD/Grafana's own, already-evidenced groups) rather than a uniform rename, so
+# per-service access stays genuinely separable.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -63,4 +71,26 @@ data:
     dn: cn=platform-viewers,ou=groups,dc=platform,dc=local
     objectClass: groupOfNames
     cn: platform-viewers
+    member: cn=bob,ou=people,dc=platform,dc=local
+
+    dn: cn=minio-admins,ou=groups,dc=platform,dc=local
+    objectClass: groupOfNames
+    cn: minio-admins
+    member: cn=alice,ou=people,dc=platform,dc=local
+    member: cn=utility,ou=people,dc=platform,dc=local
+
+    dn: cn=minio-viewers,ou=groups,dc=platform,dc=local
+    objectClass: groupOfNames
+    cn: minio-viewers
+    member: cn=bob,ou=people,dc=platform,dc=local
+
+    dn: cn=glpi-admins,ou=groups,dc=platform,dc=local
+    objectClass: groupOfNames
+    cn: glpi-admins
+    member: cn=alice,ou=people,dc=platform,dc=local
+    member: cn=utility,ou=people,dc=platform,dc=local
+
+    dn: cn=glpi-users,ou=groups,dc=platform,dc=local
+    objectClass: groupOfNames
+    cn: glpi-users
     member: cn=bob,ou=people,dc=platform,dc=local

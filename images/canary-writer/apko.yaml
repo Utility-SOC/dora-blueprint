@@ -1,0 +1,38 @@
+# Phase 12 (supply chain): replaces the canary's own `python:3.13-slim` Docker Hub base
+# (canary/deployment.yaml) with a declarative Wolfi build -- apko + melange's whole pitch is
+# near-zero CVE count and a native SBOM at build time, versus trusting an upstream Debian-based
+# base image's own patch cadence. writer.py/verify.py import only hashlib, os, sqlite3, time,
+# json, sys, datetime -- all stdlib, so no pip layer is needed at all; python-3.13 alone is
+# sufficient once its sqlite3 extension is confirmed present (checked by a real `import sqlite3`
+# smoke test in .github/workflows/build-images.yaml before this image is ever signed -- not
+# assumed from Wolfi's package listing).
+contents:
+  keyring:
+    - https://packages.wolfi.dev/os/wolfi-signing.rsa.pub
+  repositories:
+    - https://packages.wolfi.dev/os
+  packages:
+    - wolfi-baselayout
+    - ca-certificates-bundle
+    - python-3.13
+
+entrypoint:
+  command: /usr/bin/python3.13
+
+# Matches canary/deployment.yaml's existing securityContext (runAsUser/runAsGroup 1000,
+# runAsNonRoot, readOnlyRootFilesystem) -- the image itself ships no root-owned writable
+# paths for the container to fall back on if that pod-level securityContext were ever
+# accidentally dropped.
+accounts:
+  groups:
+    - groupname: canary
+      gid: 1000
+  users:
+    - username: canary
+      uid: 1000
+      gid: 1000
+  run-as: 1000
+
+archs:
+  - x86_64
+  - aarch64

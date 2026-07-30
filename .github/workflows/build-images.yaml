@@ -1,0 +1,130 @@
+# Phase 12 (supply chain): build canary-writer from images/canary-writer/apko.yaml, sign it
+# keylessly (GitHub OIDC -> Fulcio -> Rekor, per BUILD-SPEC.md section 8 and a direct choice
+# made with the repo owner about the public-transparency-log tradeoff for a private repo),
+# generate and attest a CycloneDX SBOM, and push everything to GHCR under a digest -- never a
+# floating tag, matching the ":latest banned; digests only" registry-allowlist policy this same
+# phase adds to Kyverno (infrastructure/kyverno/policies/verify-image-signatures.yaml).
+#
+# SBOM generation intentionally does NOT use apko's own bundled SBOM output -- `syft`
+# (anchore/sbom-action, a widely used, independently-maintained tool) scans the real pushed
+# digest instead, so the SBOM attestation is an independent cross-check of what actually landed
+# in the registry, not a build-time artifact apko could get wrong silently.
+#
+# Weekly rebuild (the `schedule` trigger) runs against current Wolfi packages regardless of
+# whether anything in this repo changed -- the whole point (ISO A.8.8, patch management): a
+# Wolfi/Chainguard CVE fix lands in the base image without anyone having to notice and open a PR.
+name: Build, sign, and attest images
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "images/**"
+      - "canary/writer.py"
+      - "canary/verify.py"
+      - ".github/workflows/build-images.yaml"
+  schedule:
+    - cron: "0 6 * * 1" # weekly, Monday 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write # required for cosign keyless: Fulcio issues a short-lived cert bound to this run's OIDC token
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/canary-writer
+
+jobs:
+  canary-writer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Install apko and crane
+        # actions/setup-go puts $(go env GOPATH)/bin on PATH for subsequent steps -- without it,
+        # `go install`'d binaries land on disk but aren't found by name in the next step.
+        run: |
+          go install github.com/chainguard-dev/apko@latest
+          go install github.com/google/go-containerregistry/cmd/crane@latest
+
+      - name: Build and publish (apko)
+        run: |
+          set -euo pipefail
+          TAG="sha-$(git rev-parse --short HEAD)"
+          echo "TAG=${TAG}" >> "$GITHUB_ENV"
+          apko publish images/canary-writer/apko.yaml "${IMAGE}:${TAG}"
+
+      # apko's own stdout contract (progress logs vs. a clean final digest line) isn't something
+      # to depend on -- crane's `digest` subcommand has one job and prints exactly the digest,
+      # nothing else, so the reference this whole workflow signs/attests/verifies against is
+      # resolved independently of apko's own output formatting.
+      - name: Resolve published digest
+        id: publish
+        run: |
+          set -euo pipefail
+          DIGEST="${IMAGE}@$(crane digest "${IMAGE}:${TAG}")"
+          echo "digest=${DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "resolved digest: ${DIGEST}"
+
+      - name: Smoke test (real container run, not assumed from a clean build)
+        run: |
+          set -euo pipefail
+          docker run --rm "${{ steps.publish.outputs.digest }}" \
+            python3.13 -c "import hashlib, os, sqlite3, time, json, sys; print('stdlib deps ok')"
+
+      - name: Sign image (keyless)
+        run: cosign sign --yes "${{ steps.publish.outputs.digest }}"
+
+      - name: Generate SBOM (syft, CycloneDX)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.publish.outputs.digest }}
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+
+      - name: Attest SBOM
+        run: |
+          cosign attest --yes \
+            --predicate sbom.cdx.json \
+            --type cyclonedx \
+            "${{ steps.publish.outputs.digest }}"
+
+      - name: Verify signature and attestation (real verification, not assumed from a 0 exit code above)
+        # Exact --certificate-identity, not a regexp -- matches BUILD-SPEC.md section 8's own
+        # requirement ("the specific repository *and workflow identity*"), and is the same
+        # identity infrastructure/kyverno/policies/verify-image-signatures.yaml requires at
+        # admission. schedule/workflow_dispatch runs (the weekly rebuild) still execute against
+        # the default branch, so the ref is always refs/heads/master here, never a PR ref.
+        run: |
+          set -euo pipefail
+          IDENTITY="https://github.com/${{ github.repository }}/.github/workflows/build-images.yaml@refs/heads/master"
+          cosign verify \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${{ steps.publish.outputs.digest }}"
+          cosign verify-attestation \
+            --type cyclonedx \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            "${{ steps.publish.outputs.digest }}"
+
+      - name: Summary
+        run: |
+          echo "### canary-writer built, signed, and attested" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Digest: \`${{ steps.publish.outputs.digest }}\`" >> "$GITHUB_STEP_SUMMARY"

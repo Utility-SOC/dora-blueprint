@@ -12,13 +12,25 @@
 # certainly to populate the namespace list the UI's namespace picker uses) -- a real SYN
 # to 10.5.0.2:6443 showed up DENIED in Hubble a couple minutes after enforcement, once
 # the UI had been sitting open long enough to make that call. Added below.
+#
+# CAUGHT LIVE (round two): this policy had no CoreDNS egress rule at all. hubble-ui's
+# backend resolves the bare service name "hubble-relay" itself (not just a cached IP) to
+# open its own outbound flow-stream connection -- with no DNS rule, that lookup was
+# silently dropped and the backend logged a real `lookup hubble-relay: i/o timeout`
+# (a timeout, not NXDOMAIN -- the signature of a dropped packet, not a missing record),
+# breaking the service map for every namespace in the real UI. Confirmed this had been
+# happening despite `policy.cilium.io/audit-mode: "true"` above -- the same "audit-mode
+# isn't reliably non-enforcing on this Cilium version" caveat already documented for the
+# whole kube-system pass (see this directory's own README) recurring for real, not just
+# a theoretical risk. Given it demonstrably *is* enforcing, the annotation is dropped
+# below rather than left as a misleading label; fixed with the same CoreDNS egress rule
+# every other policy in this repo already uses (e.g.
+# infrastructure/cilium/argocd/application-controller.yaml).
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
   name: hubble-ui
   namespace: kube-system
-  annotations:
-    policy.cilium.io/audit-mode: "true"
 spec:
   endpointSelector:
     matchLabels:
@@ -40,3 +52,13 @@ spec:
               protocol: TCP
     - toEntities:
         - kube-apiserver
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

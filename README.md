@@ -86,7 +86,7 @@ is expansion, not proof of concept.
 | 9 | Detection — real Grafana Alerting rule, real `t_detect` | done |
 | 10 | Scenario breadth (1, 3, 5) + RTO/RPO trend dashboard (scenario 4 deferred — see below) | done |
 | 11 | Incident response — classification, regulatory clocks, GLPI ticket automation | done |
-| 12 | Supply chain — apko/cosign image signing, `verifyImages`, generated Register of Information | not started |
+| 12 | Supply chain — apko/cosign image signing, `verifyImages`, generated Register of Information | done |
 | 13 | Endpoint runtime security — Tetragon + `credential-compromise` scenario | done |
 | 14 | Remaining scenarios, kube-bench, evidence report generator | not started |
 | 15 | README polish, asciinema, screenshots | not started |

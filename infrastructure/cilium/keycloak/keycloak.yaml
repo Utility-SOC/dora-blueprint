@@ -7,10 +7,11 @@
 # enforcement entirely on the destination side too.
 #
 # Egress: openldap:389 (LDAP user/group federation -- real traffic captured triggering a
-# live sync, not assumed), CoreDNS. No kube-apiserver egress -- Keycloak isn't
-# Kubernetes-aware in this deployment (dev-mem database, no K8s-based clustering
-# configured), confirmed by its absence across every capture window in this namespace's
-# verification.
+# live sync, not assumed), CoreDNS, and (Phase 8 follow-up) keycloak-postgres:5432 --
+# same-namespace, so no cross-namespace label scoping needed the way openldap's rule
+# above does. No kube-apiserver egress -- Keycloak isn't Kubernetes-aware in this
+# deployment (no K8s-based clustering configured), confirmed by its absence across every
+# capture window in this namespace's verification.
 #
 # CAUGHT LIVE, AGAIN: the first version of this rule used a bare `app: openldap`
 # matchLabels with no namespace scope -- the exact same mistake already documented and
@@ -55,4 +56,11 @@ spec:
             - port: "53"
               protocol: UDP
             - port: "53"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            app: keycloak-postgres
+      toPorts:
+        - ports:
+            - port: "5432"
               protocol: TCP

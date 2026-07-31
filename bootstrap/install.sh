@@ -163,6 +163,7 @@ LDAP_BIND_PW="$(awk '/^ldap_bind_password:/ {print $2}' "$IAM_TMP")"
 ARGOCD_OIDC_SECRET="$(awk '/^argocd_oidc_client_secret:/ {print $2}' "$IAM_TMP")"
 GRAFANA_OIDC_SECRET="$(awk '/^grafana_oidc_client_secret:/ {print $2}' "$IAM_TMP")"
 KEYCLOAK_ADMIN_PW="$(awk '/^keycloak_admin_password:/ {print $2}' "$IAM_TMP")"
+KEYCLOAK_POSTGRES_PW="$(awk '/^keycloak_postgres_password:/ {print $2}' "$IAM_TMP")"
 # minio_oidc_client_secret doesn't exist until infrastructure/keycloak/configure-minio-oidc.sh
 # has been run once against a live Keycloak (same bootstrapping order as the GLPI API token
 # below) -- awk prints nothing rather than erring if the key is absent yet, so a first run
@@ -186,6 +187,14 @@ kubectl -n glpi create secret generic openldap-bind \
 
 kubectl -n keycloak create secret generic keycloak-admin \
   --from-literal=password="$KEYCLOAK_ADMIN_PW" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Phase 8 follow-up: infrastructure/keycloak/postgres.yaml's own DB password -- key name
+# "password" matches apps/keycloak.yaml's existingSecretKey: password, which the
+# keycloakx chart reads directly (KC_DB_PASSWORD), and infrastructure/keycloak/postgres.yaml's
+# own POSTGRES_PASSWORD env var reads the same secret/key.
+kubectl -n keycloak create secret generic keycloak-db \
+  --from-literal=password="$KEYCLOAK_POSTGRES_PW" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 kubectl -n keycloak create secret generic iam-secrets \

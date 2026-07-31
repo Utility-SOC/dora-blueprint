@@ -1,0 +1,91 @@
+# Phase 8 follow-up: real persistent database backing Keycloak, replacing dev-mem
+# (in-memory H2 -- every realm/user/credential lived only in the pod's JVM heap, wiped
+# on any restart). Official `postgres` Docker Hub image (Docker Official Images
+# program), not a community/Bitnami image -- same instability class already avoided for
+# mariadb (infrastructure/glpi/mariadb.yaml) and openldap. Bare Deployment/Service/PVC,
+# mirroring mariadb.yaml's own established shape exactly rather than inventing a new
+# pattern for the second bare database in this repo.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: keycloak-postgres-data
+  namespace: keycloak
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keycloak-postgres
+  namespace: keycloak
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keycloak-postgres
+  template:
+    metadata:
+      labels:
+        app: keycloak-postgres
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: POSTGRES_DB
+              value: keycloak
+            - name: POSTGRES_USER
+              value: keycloak
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-db
+                  key: password
+            # postgres's own entrypoint insists on an empty mountpoint or a
+            # PGDATA subdirectory when the volume root has lost+found (typical of a
+            # freshly-provisioned ext4/xfs PV) -- same reason mariadb.yaml doesn't need
+            # this (mysql's entrypoint doesn't have this restriction).
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - name: postgres
+              containerPort: 5432
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "keycloak"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: keycloak-postgres-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-postgres
+  namespace: keycloak
+spec:
+  selector:
+    app: keycloak-postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

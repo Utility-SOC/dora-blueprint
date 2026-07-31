@@ -1,0 +1,35 @@
+# Phase 8 follow-up: syncs infrastructure/keycloak/postgres.yaml (bare manifests, same
+# reason GLPI's MariaDB isn't a chart -- see that file's own header). Deliberately a
+# separate Application from apps/keycloak.yaml (the Helm-chart-sourced keycloakx
+# Application) rather than folding the two sources together -- Argo CD Applications are
+# one-source-per-Application; a bare-manifest DB and a Helm chart can't share one anyway.
+# sync-wave "-1" (before keycloak's own "0"): the database needs to exist and be
+# reachable before Keycloak's own startup probe gets a chance to fail against it.
+#
+# path is infrastructure/keycloak, non-recursive (no `directory: recurse: true`) -- same
+# protective reason apps/glpi.yaml's own path is non-recursive: this directory also holds
+# infrastructure/keycloak/secrets/ (SOPS-encrypted, not a K8s manifest) and several .sh
+# scripts, which a non-recursive top-level scan naturally never descends into or tries to
+# parse as a resource.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: keycloak-postgres
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: infrastructure/keycloak
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: keycloak
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

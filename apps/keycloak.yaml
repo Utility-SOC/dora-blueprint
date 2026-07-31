@@ -4,15 +4,14 @@
 # for the IdP itself. keycloakx is an actively maintained, Quarkus-based (modern
 # Keycloak.X) community chart.
 #
-# database.vendor: dev-mem, not a real Postgres -- deliberate lab choice, same "featured,
-# not fully functional, documented" pattern as Velero's TTL and the PKI throwaway
-# container. Realm/client/LDAP-federation config is scripted via kcadm.sh against the
-# live admin API (see infrastructure/keycloak/configure-realm.sh), not a hand-written
-# realm-export JSON -- more reliable than guessing at the modern component-based LDAP
-# federation schema, and every step is independently verifiable against the real running
-# instance. Since realm config isn't baked into a mounted file, an in-memory DB losing
-# state on restart would also lose the realm -- acceptable for now (re-run the configure
-# script), revisit once this is proven working end-to-end.
+# database.vendor: postgres (infrastructure/keycloak/postgres.yaml, synced by the
+# separate apps/keycloak-postgres.yaml Application) -- was dev-mem (in-memory H2)
+# through Phase 8, revisited once IAM was proven working end-to-end and a pod restart
+# demonstrated the real cost: every realm/user/credential lived only in the JVM heap,
+# gone on any restart. Realm/client/LDAP-federation config is still scripted via
+# kcadm.sh against the live admin API (see infrastructure/keycloak/configure-realm.sh),
+# not a hand-written realm-export JSON -- that choice was never about the database, and
+# doesn't change here.
 #
 # Admin bootstrap credentials via KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD (the current
 # Keycloak 26.x convention -- KEYCLOAK_ADMIN/KEYCLOAK_ADMIN_PASSWORD were deprecated).
@@ -56,7 +55,13 @@ spec:
           seccompProfile:
             type: RuntimeDefault
         database:
-          vendor: dev-mem
+          vendor: postgres
+          hostname: keycloak-postgres
+          port: 5432
+          database: keycloak
+          username: keycloak
+          existingSecret: keycloak-db
+          existingSecretKey: password
         extraEnv: |
           - name: KC_BOOTSTRAP_ADMIN_USERNAME
             value: admin

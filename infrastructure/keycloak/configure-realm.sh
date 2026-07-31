@@ -12,8 +12,10 @@
 # rather than silently doing nothing -- acceptable for this repo's single-run bootstrap
 # pattern (matching bootstrap/install.sh's own "already exists, skipping" checks
 # elsewhere), not retried automatically here. Re-running against an already-configured
-# realm needs the realm deleted first (`kcadm.sh delete realms/platform`), since
-# database.vendor: dev-mem means the realm doesn't survive a pod restart anyway.
+# realm needs the realm deleted first (`kcadm.sh delete realms/platform`). Since Phase 8
+# follow-up (infrastructure/keycloak/postgres.yaml), the realm now survives a pod
+# restart on its own -- this script only needs re-running after a genuinely fresh
+# database (a new PVC, or `database.vendor` reverted to dev-mem), not routinely.
 set -euo pipefail
 
 KC_POD="${KC_POD:-keycloak-keycloakx-0}"
@@ -70,7 +72,13 @@ $KCADM create components -r platform \
   -s 'config."user.roles.retrieve.strategy"=["LOAD_GROUPS_BY_MEMBER_ATTRIBUTE"]' \
   -s 'config."drop.non.existing.groups.during.sync"=["false"]'
 
-GROUP_MAPPER_ID="$($KCADM get "components?parent=platform&type=org.keycloak.storage.ldap.mappers.LDAPStorageMapper" -r platform -q name=ldap-groups --fields id --format csv --noquotes)"
+# CAUGHT LIVE (re-provisioning after the Phase 8 follow-up Postgres migration): this
+# query used `parent=platform` -- the realm name -- when the `parent` filter actually
+# means the *parent component's own id* (the LDAP provider component created in step 3),
+# not the realm. The create above still succeeded (real object, real id printed), but
+# this query silently matched nothing, so $GROUP_MAPPER_ID came back empty and the next
+# line's URL had a literal double slash ("mappers//sync") -- a real 404, not assumed.
+GROUP_MAPPER_ID="$($KCADM get "components?parent=$LDAP_COMPONENT_ID&type=org.keycloak.storage.ldap.mappers.LDAPStorageMapper" -r platform -q name=ldap-groups --fields id --format csv --noquotes)"
 $KCADM create "user-storage/$LDAP_COMPONENT_ID/mappers/$GROUP_MAPPER_ID/sync?direction=fedToKeycloak" -r platform
 
 echo "==> [5/6] OIDC clients for Argo CD and Grafana, with a groups claim mapper each"

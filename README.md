@@ -91,6 +91,10 @@ is expansion, not proof of concept.
 | 14 | Remaining scenarios, kube-bench, evidence report generator | not started |
 | 15 | README polish, asciinema, screenshots | not started |
 | 16 | Security operations — vulnerability scanning/tracking, continuous monitoring, endpoint/config baseline compliance, living asset inventory | not started |
+| 17 | Metrics & infrastructure observability — Prometheus/kube-state-metrics/node-exporter, real resource dashboards | not started |
+| 18 | Secrets lifecycle & certificate management — expiry monitoring for the CA chain and leaf certs, secret-age tracking | not started |
+| 19 | Chaos engineering breadth + DR tier — scenario 4 (control-plane/etcd loss), cross-cluster restore, Litmus decision | not started |
+| 20 | Evidence integrity — write-once/tamper-evident storage for drill records and evidence samples | not started |
 
 Full phase-by-phase build notes — real bugs found and fixed by actually running each phase, not
 assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
@@ -119,10 +123,16 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   of Information to GLPI's own asset module. Organized with the breadth of a mature security
   control catalog without naming or branding it after any specific external framework — see
   `BUILD-SPEC.md` §12 for the full scope breakdown. Not started.
+- **Phases 17–20 — deeper security & observability**, added at the repo owner's direct request.
+  Real gaps this repo's own build surfaced, not generic filler: **17** (metrics/infra
+  observability — every dashboard here today is log-based, there's no real CPU/memory/restart
+  metrics story at all); **18** (secrets/certificate lifecycle — Phase 7's real CA chain has no
+  expiry monitoring); **19** (chaos breadth + the never-built `dr` tier + a real Litmus decision);
+  **20** (evidence integrity — closes the write-once/tamper-evidence gap `docs/04-limitations.md`
+  already flags). See `BUILD-SPEC.md` §12 for the full scope breakdown on each. Not started.
 - **Not yet scheduled to a phase:** a jumphost/bastion replacing today's ad-hoc
-  `kubectl port-forward` access pattern with a real network-level Ingress; evidence
-  write-once/tamper-evidence guarantees (build-spec P7); a real standing webhook receiver for
-  alerts independent of drill runs.
+  `kubectl port-forward` access pattern with a real network-level Ingress; a real standing
+  webhook receiver for alerts independent of drill runs.
 
 ## Docs
 

@@ -317,6 +317,71 @@ rule was added to — confirmed the existing `canary-ns-delete-detect` rule and 
 were unaffected. Evidence:
 [`credential-compromise-20260730044858.txt`](docs/evidence/samples/credential-compromise-20260730044858.txt).
 
+## Phase 12 — Supply chain (apko, cosign keyless signing, `verifyImages`, generated RoI)
+
+`canary-writer` rebuilt from a declarative Wolfi/apko spec (`images/canary-writer/apko.yaml`) —
+writer.py/verify.py use only stdlib, so no pip layer at all. A new GitHub Actions workflow
+(`.github/workflows/build-images.yaml`) builds, smoke-tests, signs keylessly (GitHub OIDC →
+Fulcio → Rekor — a deliberate choice, confirmed with the repo owner, to accept a public
+transparency-log entry disclosing the repo path for a private repo, in exchange for real
+third-party-verifiable signatures), generates and attests an independent CycloneDX SBOM (via
+syft, not apko's own bundled SBOM output), and verifies both before declaring success.
+
+Six real bugs found and fixed via actual failed runs, not guessed: apko's Go module path is
+`chainguard.dev/apko`, not the GitHub-URL-shaped import path; GHCR repository names must be
+lowercase (`github.repository_owner` for this org is mixed-case); the built image's own
+entrypoint is `python3.13` directly, so the smoke test's own args duplicated it; `crane digest`
+immediately after a fresh push hit real GHCR propagation lag (worked once, 404'd the next run) —
+fixed by parsing the digest from apko's own clean final stdout line instead, dropping crane
+entirely; the minimal image had no `/bin/sh` at all until `busybox` was added — a real gap for
+`credential-compromise`'s entire fault-injection design; and the GHCR package defaulted private,
+blocking the cluster's own pull, resolved by making it public after confirming — both via a
+targeted repo secret-pattern scan and by construction (apko.yaml has no file-copy mechanism at
+all) — that the image contains nothing sensitive.
+
+New `infrastructure/kyverno/policies/verify-image-signatures.yaml`: requires the real signature
+and SBOM attestation (exact workflow identity) for any `ghcr.io/utility-soc/canary-writer*` pod,
+plus digest-only/no-`:latest`, scoped to this repo's own built image rather than cluster-wide (a
+few dozen third-party images here have no comparable signature to check). `images/generate-roi.py`
+generates a DORA Art. 28-30-style Register of Information from the real chart/image inventory in
+`apps/`/`infrastructure/` — a real Windows stdout-encoding bug (print() following the console
+codepage, not UTF-8) found by actually running it and reading the file back, not assumed from a
+clean exit code. Evidence:
+[`docs/evidence/samples/credential-compromise-20260730044858.txt`](docs/evidence/samples/credential-compromise-20260730044858.txt)
+also documents the real Tetragon fixes bundled into this same pass (see Phase 13 above).
+
+## Follow-ups: Keycloak persistence, dashboard suite (post-Phase-16)
+
+**Real infrastructure audit, requested directly**: checked every stateful component's actual
+persistence config rather than assuming. Grafana, Loki, MinIO, GLPI, MariaDB, and OpenLDAP all
+already had real PVC-backed persistence. Keycloak's `dev-mem` (in-memory H2 — every realm/user/
+credential lived only in the pod's JVM heap) was the one real gap.
+
+Fixed with a real Postgres instance (`infrastructure/keycloak/postgres.yaml`, bare manifests
+mirroring GLPI's own MariaDB pattern). Re-provisioning the realm on the fresh database caught a
+real bug in `configure-realm.sh`: a components lookup used `parent=platform` (the realm name)
+when `parent` actually means the parent *component's own id* — the create itself succeeded, but
+the lookup silently matched nothing, producing a literal `mappers//sync` 404 on the next line.
+**Verified with the only test that matters: restarted the Keycloak pod for real and confirmed
+the platform realm and the bootstrap admin's password both survived** — the actual failure mode
+`dev-mem` had.
+
+Operator credentials (bootstrap admin, master-realm `utility`, platform-realm/LDAP `utility`)
+made deterministic and re-runnable via a new `infrastructure/keycloak/persist-operator-credentials.sh`,
+sourced from `infrastructure/keycloak/secrets/iam-secrets.enc.yaml` (same SOPS file every other
+credential here lives in — a plaintext `.env` was considered and deliberately rejected). Caught
+live while building it: an intermediate `sops --encrypt` on an extensionless temp file skipped
+YAML auto-detection and silently wrapped the whole secret under a bogus `data:` key — caught by
+decrypting and inspecting the result before trusting it, fixed with explicit
+`--input-type`/`--output-type` flags before anything was committed.
+
+Also added a basic Grafana dashboard suite (`platform-overview`, `security-detection`) alongside
+the existing drill-trends one — reusing established LogQL queries and conventions, no new query
+patterns invented. Caught live: Argo CD reported the app `Synced` while serving a stale rendered
+ConfigMap (the live Application spec had the new dashboards; the actual `grafana-dashboards-default`
+ConfigMap didn't) — worked around by deleting the ConfigMap and letting `selfHeal` recreate it
+fresh, confirmed via the real Grafana API afterward.
+
 ## Follow-ups spawned, not yet resolved
 
 - **`task_a45b9f18`** — `measured_rpo_records_lost` comes back negative in real drill runs, a

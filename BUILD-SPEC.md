@@ -396,6 +396,10 @@ Do not build breadth-first. Get one drill measuring one number end to end before
 | 14 | Scenarios 6, 7, 9; kube-bench; evidence report generator | `make evidence` produces the report |
 | 15 | README polish, asciinema, screenshots, `bare-metal/` Ansible alternative | A stranger can run it |
 | 16 | Security operations: real vulnerability scanning + tracking, continuous endpoint/config monitoring, standing security-posture dashboard | A dashboard shows real, live CVE counts by severity and days-open per image, sourced from an actual scanner run, not asserted |
+| 17 | Metrics & infrastructure observability: Prometheus/kube-state-metrics/node-exporter, real resource dashboards | A dashboard shows real CPU/memory/restart-count trends per pod, not just log volume |
+| 18 | Secrets lifecycle & certificate management: expiry monitoring for the offline CA chain and every leaf cert, secret-age tracking | A dashboard shows real days-until-expiry per certificate, sourced from the actual served cert, not the issuance record |
+| 19 | Chaos engineering breadth + DR tier: scenario 4 (control-plane/etcd loss), the deferred `dr` cross-cluster restore tier, Litmus decision (build it or formally retire the placeholder) | A real cross-cluster restore drill produces a measured RTO, the same rigor as every in-cluster scenario |
+| 20 | Evidence integrity: write-once/tamper-evident storage for drill records and evidence samples, closing the gap `docs/04-limitations.md` already flags (plain git-tracked files today) | A real evidence file's tamper-evidence property (object lock, or a hash chain over the evidence itself) is independently verifiable, not asserted |
 
 **Phase 3 is the milestone that matters.** Once one drill produces one honestly measured RTO and RPO, the project's thesis is proven and everything after is expansion.
 
@@ -450,6 +454,36 @@ framework layered on top just for vocabulary. Scope:
 - **Living asset inventory.** Connects Phase 12's generated Register of Information and GLPI's
   asset-management module (flagged as a future payoff since Phase 11) into something queryable on
   an ongoing basis, not a static generated snapshot.
+
+**Phases 17–20, added at the user's request** ("we're going to need phases 15–20 to deal with
+the security and observability needs that go deeper than what we have already"), scoped to real
+gaps this repo's own build surfaced rather than generic filler:
+
+- **Phase 17 — Metrics & infrastructure observability.** Every dashboard and alert in this repo
+  today is log-based (Loki is the only datasource `apps/grafana.yaml` provisions) — there is no
+  real metrics story at all: no CPU/memory trends, no pod-restart-count history, nothing that
+  would catch a slow resource leak before it becomes a real incident. Prometheus +
+  kube-state-metrics + node-exporter, and dashboards built with the same care Phase 16's
+  vulnerability dashboard already commits to.
+- **Phase 18 — Secrets lifecycle & certificate management.** Phase 7 built a real offline
+  Root/Intermediate CA and issues real leaf certs; nothing tracks when any of them actually
+  expire. A single missed renewal on the Root or Intermediate CA would be a much bigger outage
+  than any single leaf cert — this phase adds real expiry monitoring (queried from the actual
+  served certificate, not the issuance record, which can drift) plus secret-age tracking for the
+  SOPS-encrypted credentials this repo already has many of.
+- **Phase 19 — Chaos engineering breadth + DR tier.** Two items already sitting in this file
+  unresolved: scenario 4 (control-plane/etcd loss, deliberately deferred since Phase 10 — this
+  lab's single control-plane node means it takes down the *entire* platform, not just the canary
+  tenant) and the `dr` deployment tier named in `README.md`'s own tier table but never built.
+  Also the moment to make a real decision on Litmus (`infrastructure/litmus/` has been an empty
+  placeholder since Phase 0) — either build it for real or formally retire the placeholder rather
+  than let it keep implying capability that doesn't exist.
+- **Phase 20 — Evidence integrity.** `docs/04-limitations.md` already states plainly that
+  today's evidence samples are ordinary git-tracked files, so git history is their only
+  tamper-evidence property — a real gap for a project whose whole thesis is measured, trustworthy
+  evidence. Real write-once storage (MinIO object lock is already in this stack) or a hash chain
+  over the evidence files themselves, the same mechanism the canary's own writer already uses to
+  prove *its* data hasn't been silently altered.
 
 ---
 

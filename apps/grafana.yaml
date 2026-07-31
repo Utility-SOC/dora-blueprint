@@ -383,6 +383,197 @@ spec:
                     }
                   ]
                 }
+            # Basic dashboard suite, added on request: "someone could know what they are
+            # looking at" without already knowing every LogQL query in this file by heart.
+            # Both reuse queries and conventions already established/verified above rather
+            # than inventing new ones -- the alerting-rule expressions are copied verbatim
+            # from the `detection` group, and the explicit-field-extraction discipline is
+            # the same one that avoided Loki's series-cardinality limit there.
+            platform-overview:
+              json: |
+                {
+                  "title": "Platform overview",
+                  "uid": "platform-overview",
+                  "editable": true,
+                  "timezone": "utc",
+                  "time": { "from": "now-1h", "to": "now" },
+                  "refresh": "30s",
+                  "schemaVersion": 39,
+                  "panels": [
+                    {
+                      "id": 1,
+                      "type": "timeseries",
+                      "title": "Log volume by namespace (what's active right now)",
+                      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+                      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "sum by (namespace) (count_over_time({namespace=~\".+\"}[$__interval]))",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 2,
+                      "type": "alertlist",
+                      "title": "Detection rules -- current state",
+                      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 8 },
+                      "options": {
+                        "alertName": "",
+                        "dashboardAlerts": false,
+                        "groupMode": "default",
+                        "maxItems": 10,
+                        "sortOrder": 1,
+                        "stateFilter": { "firing": true, "pending": true, "noData": false, "normal": true, "error": true },
+                        "viewMode": "list"
+                      }
+                    },
+                    {
+                      "id": 3,
+                      "type": "table",
+                      "title": "Recent drill verdicts",
+                      "gridPos": { "h": 6, "w": 16, "x": 8, "y": 8 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "options": { "showHeader": true, "sortBy": [{ "displayName": "Time", "desc": true }] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"argo-workflows\"} |= \"drill_id\" | json drill_id=\"drill_id\", scenario=\"scenario\", verdict=\"verdict\"",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 4,
+                      "type": "logs",
+                      "title": "Recent Kyverno admission denials",
+                      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"kyverno\"} |= \"denied\"",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 5,
+                      "type": "logs",
+                      "title": "Canary writer -- most recent activity (heartbeat)",
+                      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"canary\"}",
+                          "queryType": "range"
+                        }
+                      ]
+                    }
+                  ]
+                }
+            security-detection:
+              json: |
+                {
+                  "title": "Security detection",
+                  "uid": "security-detection",
+                  "editable": true,
+                  "timezone": "utc",
+                  "time": { "from": "now-6h", "to": "now" },
+                  "refresh": "30s",
+                  "schemaVersion": 39,
+                  "panels": [
+                    {
+                      "id": 1,
+                      "type": "alertlist",
+                      "title": "Detection rules -- current state",
+                      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 0 },
+                      "options": {
+                        "alertName": "",
+                        "dashboardAlerts": false,
+                        "groupMode": "default",
+                        "maxItems": 10,
+                        "sortOrder": 1,
+                        "stateFilter": { "firing": true, "pending": true, "noData": false, "normal": true, "error": true },
+                        "viewMode": "list"
+                      }
+                    },
+                    {
+                      "id": 2,
+                      "type": "timeseries",
+                      "title": "Canary namespace-delete detections (audit log)",
+                      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "count_over_time({job=\"kube-audit\"} | json verb=`verb`, res=`objectRef.resource`, objname=`objectRef.name` | verb=`delete` | res=`namespaces` | objname=`canary` [$__interval])",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 3,
+                      "type": "timeseries",
+                      "title": "Shell spawns in canary namespace (Tetragon eBPF)",
+                      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "count_over_time({namespace=\"tetragon\"} |= \"process_exec\" | json binary=\"process_exec.process.binary\", pod_ns=\"process_exec.process.pod.namespace\" | pod_ns=`canary` | binary=~`.*/bin/(sh|bash)` [$__interval])",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 4,
+                      "type": "timeseries",
+                      "title": "Kyverno admission denials (cluster-wide)",
+                      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "sum(count_over_time({namespace=\"kyverno\"} |= \"denied\" [$__interval]))",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 5,
+                      "type": "logs",
+                      "title": "Raw Tetragon process-exec stream (canary namespace)",
+                      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"tetragon\"} |= \"process_exec\" |= \"canary\"",
+                          "queryType": "range"
+                        }
+                      ]
+                    }
+                  ]
+                }
   destination:
     server: https://kubernetes.default.svc
     namespace: observability

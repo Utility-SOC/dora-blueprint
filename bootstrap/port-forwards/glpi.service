@@ -1,0 +1,15 @@
+[Unit]
+Description=kubectl port-forward: glpi (glpi) -> LAN:9085
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=svc_bob
+ExecStart=/usr/local/bin/kubectl -n glpi port-forward --address 192.168.1.106 svc/glpi 9085:80
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=kubectl port-forward: grafana (observability) -> LAN:9082
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=svc_bob
+ExecStart=/usr/local/bin/kubectl -n observability port-forward --address 192.168.1.106 svc/grafana 9082:80
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

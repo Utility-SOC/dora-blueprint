@@ -1,0 +1,15 @@
+[Unit]
+Description=kubectl port-forward: hubble-ui (kube-system) -> LAN:9081
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=svc_bob
+ExecStart=/usr/local/bin/kubectl -n kube-system port-forward --address 192.168.1.106 svc/hubble-ui 9081:80
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

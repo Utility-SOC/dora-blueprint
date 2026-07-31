@@ -1,0 +1,15 @@
+[Unit]
+Description=kubectl port-forward: keycloak-keycloakx-http (keycloak) -> LAN:9083
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=svc_bob
+ExecStart=/usr/local/bin/kubectl -n keycloak port-forward --address 192.168.1.106 svc/keycloak-keycloakx-http 9083:80
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

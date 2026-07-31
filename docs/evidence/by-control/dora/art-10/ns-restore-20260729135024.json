@@ -1,0 +1,31 @@
+{
+  "drill_id": "ns-restore-20260729135024",
+  "scenario": "ns-restore",
+  "git_sha": "5b5397a",
+  "cluster_profile": "core",
+  "controls": [
+    "DORA-Art11",
+    "DORA-Art12",
+    "NIS2-21.2.c",
+    "ISO-A.8.13",
+    "ISO-A.5.29",
+    "ISO-A.8.16",
+    "DORA-Art10"
+  ],
+  "target_rto_seconds": 300,
+  "target_rpo_seconds": 3600,
+  "measured_rto_seconds": 155,
+  "measured_rpo_records_lost": -34657,
+  "integrity_check": "pass",
+  "verdict": "pass",
+  "manual_runbook_steps_required": 0,
+  "t_inject": "2026-07-29T13:50:24Z",
+  "t_recover": "2026-07-29T13:52:59Z",
+  "t_verify": "2026-07-29T13:53:02Z",
+  "artifacts": [
+    "velero backup: velero-canary-hourly-20260729130058",
+    "velero restore: ns-restore-20260729135024-restore",
+    "restored namespace: canary-restored-20260729135134"
+  ],
+  "t_detect": "2026-07-29T13:50:30.000Z"
+}

@@ -1,0 +1,81 @@
+Incident response (classification, both regulatory clocks, GLPI ticket automation) --
+captured live against the running cluster and a real self-hosted GLPI instance,
+2026-07-29T21:06:27Z - 21:08:24Z. This is the concrete evidence for BUILD-SPEC.md Phase 11's
+own "done when": "A drill run produces a real classification and both real notification
+deadlines, and opens a real ticket in the platform's own ITSM tool."
+
+=== two real bugs found via this run, not assumed from a clean pipeline ===
+
+1. `run-drill.sh` extracts the raw drill record from the workflow pod's logs by grepping for
+   a line starting with `{"drill_id"`. The workflow template's own script reassigns that
+   record through `jq` whenever `t_detect` is captured -- which is the normal, successful-
+   detection case -- and plain `jq` pretty-prints, putting the opening brace alone on its own
+   line. Every detected drill was silently handing `enrich.py` an empty string. Confirmed via
+   a real run producing zero grep matches (`kubectl logs ... | grep -c '^{"drill_id"'` = 0).
+   Fixed with `jq -c` (drills/templates/ns-restore-workflowtemplate.yaml).
+
+2. `open-incident.py` (like `enrich.py`) runs host-side, invoked by `run-drill.sh` on appserv
+   *after* the workflow pod has already exited -- unlike Phase 9's Grafana-detection-poll,
+   which runs *inside* the pod. It first tried GLPI's in-cluster Service DNS name
+   (glpi.glpi.svc.cluster.local), which appserv has no route to. Confirmed via a real
+   `socket.gaierror: Temporary failure in name resolution` from a live drill run. Fixed by
+   using the same LAN port-forward address (192.168.1.106:9085) a human operator already
+   relies on for every other service in this repo.
+
+Both fixes: commits 97cc98a, 9edd02a.
+
+=== the real, fixed run (drill_id ns-restore-20260729210627) ===
+
+$ SCENARIO=ns-restore bash drills/lib/run-drill.sh
+
+[ns-restore-20260729210627] t_inject=2026-07-29T21:06:27Z
+[ns-restore-20260729210627] t_detect=2026-07-29T21:06:40.000Z (Grafana alert fired)
+measured_rto_seconds: 98, measured_rpo_records_lost: 40, integrity_check: pass, verdict: pass
+
+=== classification (drills/lib/classify.py, DORA Art. 18 RTS simplified) ===
+
+classification: non-major
+classification_criteria_tripped: ["data_losses"]
+
+Correctly non-major for a fast (98s), successfully-recovered restore with real data loss
+(40 records) but no other synthetic severity criterion (drills/lib/classification-profiles.json)
+tripped for this scenario -- not rigged toward "major."
+
+=== both regulatory clocks (drills/lib/clocks.py, docs/00-scope.md section 0.4), hand-checked
+    against the run's own real timestamps ===
+
+t_classify        = 2026-07-29T21:08:24Z
+t_notify_due_dora = t_classify + 4h, capped at t_detect + 24h
+                  = 2026-07-29T21:08:24Z + 4h = 2026-07-30T01:08:24Z
+                  cap = 2026-07-29T21:06:40Z + 24h = 2026-07-30T21:06:40Z
+                  min(01:08:24, 21:06:40) = 2026-07-30T01:08:24Z  -- matches emitted value
+t_notify_due_nis2 = t_detect + 24h
+                  = 2026-07-29T21:06:40Z + 24h = 2026-07-30T21:06:40Z  -- matches emitted value
+
+=== the real GLPI ticket, fetched directly from GLPI's own REST API (not assumed from the
+    ticket-creation call's 2xx response) ===
+
+$ curl -H "Session-Token: $SESSION" \
+    'http://192.168.1.106:9085/apirest.php/Ticket/2?get_content=true'
+
+{
+  "id": 2,
+  "name": "[non-major] ns-restore drill ns-restore-20260729210627",
+  "type": 1,          <- GLPI ITIL type: Incident
+  "urgency": 3,       <- matches URGENCY_BY_CLASSIFICATION["non-major"]
+  "content": "== Drill record ==\nDrill ID: ns-restore-20260729210627\n...
+    == Classification (DORA Art. 18 RTS, simplified) ==\nClassification: non-major\n
+    Criteria tripped: data_losses\n...
+    == Notification clocks ==\nDORA Art. 19 ...: 2026-07-30T01:08:24Z\n
+    NIS2 Art. 23 ...: 2026-07-30T21:06:40Z\n...
+    == Artifacts ==\n- velero backup: canary-fresh-verify3-1785359126\n
+    - velero restore: ns-restore-20260729210627-restore\n
+    - restored namespace: canary-restored-20260729210736\n...
+    == Runbook ==\ndocs/runbooks/ns-restore-incident.md\n...
+    == Post-incident review (DORA Art. 13, ISO A.5.27) ==\n
+    Manual runbook steps required: 0\n..."
+}
+
+Ticket name, urgency, classification, both deadlines, all three artifact links, the runbook
+reference, and the post-incident-review section all rendered correctly -- inspected directly
+in GLPI's own data, not inferred from the automation script's own success message.

@@ -232,8 +232,11 @@ spec:
                     for: 0s
                     labels:
                       severity: detection
+                      attack_technique: T1485
+                      attack_tactic: TA0040
                     annotations:
                       summary: "Canary namespace deletion detected via the kube-apiserver audit log (job=kube-audit)"
+                      attack_technique: "T1485 -- Data Destruction (see docs/07-attack-mapping.md)"
                   # Phase 13 (endpoint runtime security): watches Tetragon's own stdout-exported
                   # process_exec events (real eBPF-observed execve, no synthetic signal) for a
                   # shell binary spawned inside the canary namespace -- credential-compromise's
@@ -284,8 +287,11 @@ spec:
                     for: 0s
                     labels:
                       severity: detection
+                      attack_technique: T1059.004
+                      attack_tactic: TA0002
                     annotations:
                       summary: "A shell (/bin/sh or /bin/bash) was executed inside the canary namespace, observed via Tetragon's real eBPF process-exec instrumentation"
+                      attack_technique: "T1059.004 -- Command and Scripting Interpreter: Unix Shell (see docs/07-attack-mapping.md)"
         # Phase 10 (scenario breadth): RTO/RPO trend dashboard, build-spec §6.1's own framing
         # ("charting measured RPO across many runs... is the most persuasive single artifact
         # this project can produce"). No new plumbing needed -- drill records already land in

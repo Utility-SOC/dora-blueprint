@@ -1,6 +1,11 @@
-# generated evidence (sample artifacts are committed explicitly under docs/evidence/samples/)
+# generated evidence (sample artifacts are committed explicitly under docs/evidence/samples/;
+# manifest.yaml/collect.py are source, by-control/ is derived output but committed too so it's
+# browsable on GitHub without cloning and running the script)
 docs/evidence/*
 !docs/evidence/samples/
+!docs/evidence/manifest.yaml
+!docs/evidence/collect.py
+!docs/evidence/by-control/
 
 # secrets material — never committed in plaintext; SOPS-encrypted (*.enc.yaml) files are the exception
 *.key

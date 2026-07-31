@@ -1,0 +1,99 @@
+Phase 10 (scenario breadth) -- three new drill scenarios, each run for real against the live
+cluster, 2026-07-30T02:03Z - 02:18Z. This is the concrete evidence for BUILD-SPEC.md Phase 10's
+own "done when": scenarios 1/3/5 each produce a real, schema-valid drill record and a real GLPI
+ticket, and the RTO/RPO trend dashboard renders real data across all of them.
+
+=== four real bugs found running these live, not assumed from a clean apply ===
+
+1. node-kill's own recovery step ("kubectl taint ... unreachable:NoExecute-") returned
+   `error: taint "node.kubernetes.io/unreachable:NoExecute" not found` during a real run -- the
+   taint had already been reconciled away by the time recovery ran (a real, live-observed
+   Kubernetes behavior, not a script bug -- the `|| true` guard already in place handled it
+   gracefully and the drill still completed correctly).
+
+2. pvc-corruption-restore's own detection step aborted the whole workflow on its first real run:
+   `verify.py --field` intentionally exits 1 whenever integrity_check is "fail" (so callers like
+   ns-restore can treat a post-restore failure as a real error), but this scenario deliberately
+   corrupts data first and *expects* fail at that point -- and the container runs under
+   `bash -ceu`, so capturing that expected non-zero exit aborted the script before recovery ever
+   ran. Fixed with `|| true` on all four verify.py calls that can legitimately see
+   integrity_check=fail. Commit d3c46e2.
+
+3. The same drill's recovery step then hit a real RBAC Forbidden error deleting the Deployment:
+   the ClusterRole granted `pods` delete but never granted `persistentvolumeclaims` or
+   `deployments` (apps) delete at all. Commit 5ef3627.
+
+4. network-partition's own probe function double-counted curl's "no response" placeholder: curl's
+   own `-w '%{http_code}'` already prints "000" on connection failure, but the function's
+   `|| echo "000"` fallback fired too (curl still exits non-zero after printing its own "000"),
+   producing "000000" -- which never matched the `"000"` comparison, so a real, working deny was
+   reported as verdict=fail. Commit fb00683.
+
+A fifth issue (not a workflow bug) surfaced building the trend dashboard: a bare
+`{...} | json ... | unwrap rto` is invalid LogQL -- unwrapped values are only valid inside a
+range-vector aggregation (`max_over_time(<selector> | unwrap <field> [<range>]) by (<label>)`).
+Fixed and verified directly against the live Loki instance. Commit d4070e2.
+
+=== node-kill (drill_id node-kill-20260730020314) ===
+
+t_inject=2026-07-30T02:03:24Z -- tainted resilience-lab-worker-1 (the node canary-writer was
+actually running on) with node.kubernetes.io/unreachable:NoExecute, then force-deleted the pod.
+
+Real finding, different from what the plan speculated in advance: a replacement pod reached
+Running on the *same* node within the 60s observation window, while the node was still tainted.
+This is real, correct Kubernetes behavior, not a drill bug: pods get a default 300s
+tolerationSeconds against exactly this taint (the DefaultTolerationSeconds admission plugin), so
+a freshly-scheduled pod tolerates the "unreachable" taint for up to 5 minutes -- combined with
+canary's PV being node-local (openebs-hostpath), the replacement pod had nowhere else it *could*
+schedule anyway. The taint alone, without also removing the pod's default toleration, does not
+by itself prevent a new pod from landing right back on the tainted node. Recorded honestly as
+observed, not as the more dramatic "stuck Pending" outcome originally guessed at in the plan.
+
+measured_rto_seconds: 15, integrity_check: pass, verdict: pass.
+GLPI ticket: http://192.168.1.106:9085/front/ticket.form.php?id=3 (runbook link confirmed correct:
+docs/runbooks/node-kill-incident.md).
+
+=== pvc-corruption-restore (drill_id pvc-corruption-restore-20260730021229) ===
+
+t_inject=2026-07-30T02:12:29Z -- corrupted the most recent row's hash in canary-writer's live
+SQLite file directly (no pod/namespace disruption). integrity_check immediately after: "fail"
+(confirmed via a real hash-chain recompute against the live, still-running pod) --
+"integrity_check after corruption (pre-restore): fail" is recorded in the ticket's own artifacts
+list as direct proof the corruption was real and caught, not simulated. Recovery deleted the
+Deployment and PVC, then a Velero Restore scoped to
+[deployments, pods, persistentvolumeclaims] recreated them in the same namespace (no
+namespaceMapping -- unlike ns-restore, the namespace object itself was never touched).
+
+measured_rto_seconds: 64, measured_rpo_records_lost: 13370, integrity_check: pass (after restore),
+verdict: pass.
+GLPI ticket: http://192.168.1.106:9085/front/ticket.form.php?id=4 (runbook link confirmed correct:
+docs/runbooks/pvc-corruption-restore-incident.md).
+
+=== network-partition (drill_id network-partition-20260730021814) ===
+
+t_inject=2026-07-30T02:18:14Z -- applied a drill-owned CiliumNetworkPolicy egressDenying this
+workflow pod's own traffic to observability (Grafana). Real probe during the deny window returned
+HTTP 000 (connection genuinely failed) on the very first attempt; after removing the deny policy,
+a follow-up probe returned real HTTP 200. Both deny_confirmed and recovery_confirmed are true --
+Cilium's enforcement was proven in both directions against real traffic, not assumed from the
+policy object's own existence (the same discipline this repo already applies given
+docs/04-limitations.md's note that the `audit-mode` annotation isn't fully reliable on this
+Cilium version).
+
+measured_rto_seconds: 6, integrity_check: pass (not meaningful for this scenario shape, set
+unconditionally, documented as such), verdict: pass.
+GLPI ticket: http://192.168.1.106:9085/front/ticket.form.php?id=6 (runbook link confirmed correct:
+docs/runbooks/network-partition-incident.md).
+
+=== RTO/RPO trend dashboard (apps/grafana.yaml, uid drill-trends) ===
+
+Confirmed registered via Grafana's own API (GET /api/search?query=drill) after Argo CD sync --
+id 2, uid "drill-trends", title "Drill RTO/RPO trends". Confirmed all three panels present via
+GET /api/dashboards/uid/drill-trends: "Measured RTO by scenario", "Measured RPO (records lost) by
+scenario", "Recent drill verdicts". Confirmed each panel's underlying LogQL independently against
+the live Loki instance -- real matrix results, one series per scenario, using this run's own
+data (RTO 72/15/64 across the three scenarios' first successful runs, RPO 13370 for
+pvc-corruption-restore, the only scenario that reports it). Browser-based visual confirmation of
+the rendered panels wasn't available in this environment (no LAN route from the sandboxed
+browser, same limitation noted in docs/00-scope.md for Phase 8's own verification) -- confirmed
+via the dashboard's own registered structure and the real data its queries return instead.

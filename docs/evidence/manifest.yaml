@@ -1,0 +1,64 @@
+# Evidence tagging manifest -- the source of truth for which control frameworks each real
+# evidence artifact satisfies. `collect.py` reads this file and generates
+# docs/evidence/by-control/<tag>/ as real file copies, one per tag an artifact carries -- an
+# artifact evidencing four controls across three frameworks shows up in four folders, not
+# duplicated by hand four times.
+#
+# Tag namespaces:
+#   dora:<article>        -- DORA article, matches docs/03-control-matrix.md
+#   nis2:<article>         -- NIS2 article, matches docs/03-control-matrix.md
+#   iso27001:<annex-a-id>  -- ISO 27001 Annex A control, matches docs/03-control-matrix.md
+#   nist80053:<control-id> -- NIST SP 800-53 Rev 5 control, see docs/06-nist-800-53-crosswalk.md
+#   attack:<technique-id>  -- MITRE ATT&CK technique, see docs/07-attack-mapping.md
+#
+# Every tag here must trace back to a real row in one of those docs -- this file does not
+# introduce new claims, it just re-indexes ones already made and evidenced elsewhere.
+
+artifacts:
+  - path: samples/kyverno-admission-20260728202845.txt
+    description: Real admission denial of a privileged pod (Kyverno PSS restricted enforcement)
+    tags: [dora:art-9, nist80053:cm-7]
+
+  - path: samples/cilium-network-segmentation-20260729015300.txt
+    description: Default-deny blocking unwanted egress while explicit allows and cross-namespace DNS keep working, across all 8 segmented namespaces
+    tags: [dora:art-9, iso27001:a-8-20, nist80053:sc-7]
+
+  - path: samples/scenario-breadth-20260730021814.txt
+    description: Real, repeatable drill runs across three distinct fault types, including a live Cilium deny/recovery cycle
+    tags: [dora:art-9, dora:art-24-27, iso27001:a-8-20, nist80053:sc-7, nist80053:cp-4]
+
+  - path: samples/detection-latency-20260729135024.txt
+    description: Real Grafana Alerting rule independently observing a namespace-delete fault via the kube-audit log
+    tags: [dora:art-10, iso27001:a-8-16, nist80053:si-4, nist80053:au-6, attack:t1485]
+
+  - path: samples/ns-restore-20260729135024.json
+    description: Real non-null t_detect captured from Grafana's live Alerting API for the same namespace-delete detection
+    tags: [dora:art-10, nist80053:si-4, attack:t1485]
+
+  - path: samples/credential-compromise-20260730044858.txt
+    description: Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification
+    tags: [dora:art-10, dora:art-24-27, dora:art-28-30, iso27001:a-8-16, nist80053:si-4, nist80053:ir-4, nist80053:sa-11, nist80053:sr-3, nist80053:sr-4, attack:t1059.004]
+
+  - path: samples/ns-restore-20260728152755.json
+    description: Measured RTO 110s, measured RPO 71 records lost
+    tags: [dora:art-11, dora:art-12, nis2:21-2-c, iso27001:a-8-13, nist80053:cp-9, nist80053:cp-10]
+
+  - path: samples/ns-restore-20260728204154.json
+    description: Additional ns-restore drill run, same category as the cited RTO/RPO evidence (not individually cited in the control matrix)
+    tags: [dora:art-11, dora:art-12, nist80053:cp-9, nist80053:cp-10]
+
+  - path: samples/incident-response-20260729210627.txt
+    description: Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section
+    tags: [dora:art-13, dora:art-18, dora:art-19, nis2:art-23, iso27001:a-5-25, iso27001:a-5-26, iso27001:a-5-27, nist80053:ir-4, nist80053:ir-6]
+
+  - path: samples/pki-chain-verification-20260729025500.txt
+    description: Argo CD and Grafana's actually-served certificates checked live, both chaining to the platform's own offline Root CA
+    tags: [iso27001:a-8-24, nist80053:sc-12, nist80053:sc-17]
+
+  - path: samples/keycloak-ldap-oidc-verification-20260729043900.txt
+    description: Real LDAP-federated login, real groups claim in the issued token
+    tags: [iso27001:a-5-15-18, iso27001:a-8-2, nist80053:ac-2, nist80053:ia-2]
+
+  - path: samples/argocd-rbac-verification-20260729045300.txt
+    description: Real API authorization decision distinguishing an admin role from a read-only one
+    tags: [iso27001:a-5-15-18, iso27001:a-8-2, nist80053:ac-3]

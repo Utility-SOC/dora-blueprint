@@ -1,0 +1,126 @@
+Cilium network segmentation evidence — captured live against the running cluster,
+2026-07-29T01:53:00Z. Confirms all 8 namespaces in the segmentation order (canary ->
+observability -> velero -> argo-workflows -> openebs/local-path-storage -> kyverno ->
+argocd -> kube-system) are enforcing, that default-deny coexists correctly with
+explicit allows for both intra-cluster and (where legitimate) external traffic, and
+that dependent capabilities (DNS, the Kyverno admission webhook, Argo CD sync) all
+survive segmentation intact.
+
+=== every CiliumNetworkPolicy in the cluster is enforcing (Valid: True) ===
+$ kubectl get cnp -A -o wide
+
+NAMESPACE                        NAME                              AGE    VALID
+argo-workflows                   argo-server                       83m    True
+argo-workflows                   workflow-controller               83m    True
+argo-workflows                   workflow-pods                     83m    True
+argocd                           application-controller            35m    True
+argocd                           applicationset-controller         35m    True
+argocd                           argocd-server                     35m    True
+argocd                           dex-server                        35m    True
+argocd                           notifications-controller          35m    True
+argocd                           redis                             35m    True
+argocd                           repo-server                       35m    True
+canary-restored-20260729002402   default-deny-all                  87m    True
+canary-restored-20260729003028   default-deny-all                  81m    True
+canary-restored-20260729003428   default-deny-all                  77m    True
+canary                           default-deny-all                  63m    True
+kube-system                      coredns                           23m    True
+kube-system                      hubble-relay                      28m    True
+kube-system                      hubble-ui                         28m    True
+kyverno                          admission-controller              42m    True
+kyverno                          background-controller             42m    True
+kyverno                          cleanup-controller                42m    True
+kyverno                          reports-controller                42m    True
+local-path-storage               local-path-provisioner            51m    True
+local-path-storage               namespace-ingress-deny            51m    True
+observability                    alloy                             123m   True
+observability                    grafana                           123m   True
+observability                    loki                               123m  True
+openebs                          namespace-ingress-deny            51m    True
+openebs                          openebs-localpv-provisioner       51m    True
+velero                           kopia-maintain-jobs               18m    True
+velero                           minio                             95m    True
+velero                           node-agent                        95m    True
+velero                           pod-volume-hosting-pods           95m    True
+velero                           pod-volume-restore-hosting-pods   95m    True
+velero                           velero-server                     95m    True
+
+Note the three canary-restored-* namespaces: Velero-restored namespaces created by the
+ns-restore drill carry the same default-deny-all policy as the original canary
+namespace (it's a genuine copy, not a hole punched for DR), confirming segmentation
+survives a real restore, not just steady-state operation.
+
+=== default-deny blocks unwanted egress while an explicit allow permits real traffic,
+    same endpoint, same enforcement mechanism (openebs-localpv-provisioner) ===
+Captured during this policy's audit-mode verification pass, same session
+(2026-07-29T01:00:xxZ) -- the provisioner makes real calls to Google IPs
+(telemetry/analytics) deliberately NOT allowed by the policy, alongside real
+kube-apiserver calls that the policy does allow:
+
+Jul 29 01:00:20.591: openebs/openebs-localpv-localpv-provisioner-...-28pbv:51434 (ID:14777) -> 10.5.0.2:6443 (kube-apiserver) to-stack FORWARDED (TCP Flags: ACK)
+Jul 29 01:00:24.590: openebs/openebs-localpv-localpv-provisioner-...-28pbv:51434 (ID:14777) <- 10.5.0.2:443 (kube-apiserver) to-endpoint FORWARDED (TCP Flags: ACK)
+Jul 29 01:00:26.418: openebs/openebs-localpv-localpv-provisioner-...-28pbv:53924 (ID:14777) <> 142.250.99.139:443 (world) policy-verdict:none TRAFFIC_DIRECTION_UNKNOWN DENIED (TCP Flags: ACK)
+Jul 29 01:00:26.418: openebs/openebs-localpv-localpv-provisioner-...-28pbv:53924 (ID:14777) <> 142.250.99.139:443 (world) Policy denied DROPPED (TCP Flags: ACK)
+Jul 29 01:00:28.452: openebs/openebs-localpv-localpv-provisioner-...-28pbv:51434 (ID:14777) -> 10.5.0.2:6443 (kube-apiserver) to-stack FORWARDED (TCP Flags: ACK)
+
+Same pod, same few seconds: kube-apiserver traffic FORWARDED, Google-IP telemetry
+traffic DROPPED. This is the concrete meaning of "default-deny plus explicit allow" --
+not a blanket block, a specific one.
+
+=== cross-namespace traffic that IS allowed still works: argocd -> coredns DNS,
+    a fresh live query ===
+$ kubectl run evidence-dns-test2 -n argocd --image=busybox --restart=Never \
+    --command -- sh -c 'nslookup kube-dns.kube-system.svc.cluster.local'
+
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+Name:	kube-dns.kube-system.svc.cluster.local
+Address: 10.96.0.10
+
+$ kubectl exec -n kube-system cilium-dn9h9 -- hubble observe --since 2m -o compact | grep evidence-dns-test2
+
+Jul 29 01:52:55.002: argocd/evidence-dns-test2:33798 (ID:6463) -> kube-system/coredns-...-fvd4g:53 (ID:4238) policy-verdict:none TRAFFIC_DIRECTION_UNKNOWN ALLOWED (UDP)
+Jul 29 01:52:55.002: argocd/evidence-dns-test2:33798 (ID:6463) -> kube-system/coredns-...-fvd4g:53 (ID:4238) to-endpoint FORWARDED (UDP)
+Jul 29 01:52:55.003: argocd/evidence-dns-test2:33798 (ID:6463) <- kube-system/coredns-...-fvd4g:53 (ID:4238) to-overlay FORWARDED (UDP)
+
+A pod in argocd resolving a Service in kube-system, across the namespace boundary,
+with an explicit ALLOWED policy-verdict -- confirms coredns's universal-source
+ingress rule (infrastructure/cilium/kube-system/coredns.yaml) works as designed after
+the fromEndpoints:[{}] bug (documented in that file's own comments) was found and
+fixed.
+
+=== the Kyverno admission webhook (highest blast-radius policy in this pass, failurePolicy:
+    Fail) still enforces correctly with the kyverno and argocd namespaces both segmented ===
+$ kubectl run evidence-netpol-test -n default --image=busybox --restart=Never \
+    --command -- sleep 30
+
+Warning: would violate PodSecurity "restricted:latest": allowPrivilegeEscalation != false (container "evidence-netpol-test" must set securityContext.allowPrivilegeEscalation=false), unrestricted capabilities (container "evidence-netpol-test" must set securityContext.capabilities.drop=["ALL"]), runAsNonRoot != true (pod or container "evidence-netpol-test" must set securityContext.runAsNonRoot=true), seccompProfile (pod or container "evidence-netpol-test" must set securityContext.seccompProfile.type to "RuntimeDefault" or "Localhost")
+Error from server: admission webhook "validate.kyverno.svc-fail" denied the request:
+
+resource Pod/default/evidence-netpol-test was blocked due to the following policies
+
+require-pod-security-restricted:
+  restricted: 'Validation rule ''restricted'' failed. ...'
+
+The webhook call itself crosses from kube-apiserver (control-plane node) to
+kyverno-admission-controller (worker-2) -- exactly the cross-node, two-identity
+(remote-node + host) ingress path documented in
+infrastructure/cilium/kyverno/admission-controller.yaml -- and it's still enforcing
+correctly with both the source (kube-apiserver, unsegmented by design -- see
+infrastructure/cilium/kube-system/README.md) and destination (kyverno namespace,
+fully segmented) namespaces under network policy.
+
+=== honest caveat: audit-mode is not fully reliable on this Cilium version ===
+Three separate times in this segmentation pass, a CiliumNetworkPolicy carrying the
+`policy.cilium.io/audit-mode: "true"` annotation was observed genuinely enforcing
+(real DROPPED verdicts, not just logged) rather than staying non-enforcing as the
+annotation is documented to do: loki's kube-apiserver egress (observability
+namespace), openebs's Google-telemetry egress (shown above -- caught DURING
+audit-mode testing, not after enforcing), and kube-system/coredns during its own
+fix cycle. In two of the three cases this happened to match the intended final
+policy anyway; in coredns's case it broke cluster DNS for several minutes during
+testing before being caught and fixed. Every namespace in this pass was still
+verified with a full audit-mode window AND a post-enforcement functional test, but
+the annotation itself should be treated as advisory on this Cilium version, not a
+hard guarantee of non-enforcement.

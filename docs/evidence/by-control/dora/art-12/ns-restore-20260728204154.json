@@ -1,0 +1,23 @@
+{
+  "drill_id": "ns-restore-20260728204154",
+  "scenario": "ns-restore",
+  "git_sha": "c9c6d1b",
+  "cluster_profile": "core",
+  "controls": ["DORA-Art11", "DORA-Art12", "NIS2-21.2.c", "ISO-A.8.13", "ISO-A.5.29"],
+  "target_rto_seconds": 300,
+  "target_rpo_seconds": 3600,
+  "measured_rto_seconds": 147,
+  "measured_rpo_records_lost": 1839,
+  "integrity_check": "pass",
+  "verdict": "pass",
+  "manual_runbook_steps_required": 0,
+  "t_inject": "2026-07-28T20:41:54Z",
+  "t_recover": "2026-07-28T20:44:21Z",
+  "t_verify": "2026-07-28T20:44:25Z",
+  "artifacts": [
+    "velero backup: velero-canary-hourly-20260728200018",
+    "velero restore: ns-restore-20260728204154-restore",
+    "restored namespace: canary-restored-20260728204311"
+  ],
+  "note": "Re-run after Phase 4 (Kyverno restricted enforcement) went live, to prove Phase 3's capability still works end-to-end rather than assume it. Surfaced a real gap the first two attempts didn't have to deal with: Argo Workflows' emissary-executor injects its own init/wait containers with no securityContext, which no WorkflowTemplate-level setting can cover (allowPrivilegeEscalation/capabilities have no pod-level fallback in the Kubernetes API) -- fixed via executor.securityContext in apps/argo-workflows.yaml. See README.md's Phase 4 notes and git history for the two prior failed attempts this run followed."
+}

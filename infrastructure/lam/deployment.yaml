@@ -45,17 +45,18 @@ spec:
         runAsUser: 33
         runAsGroup: 33
         fsGroup: 33
-      # LAM's own entrypoint unconditionally `sed -i`s /etc/php/7.4/apache2/php.ini on every
-      # start (real crash observed live: "sed: couldn't open temporary file
-      # /etc/php/7.4/apache2/sedcximsO: Permission denied") -- that path is baked into the
-      # image, not a volume, so fsGroup above never applies to it (fsGroup only affects mounted
-      # volumes). Rather than a Kyverno PolicyException, this initContainer copies that one
-      # directory into a writable emptyDir, which the main container then mounts back over the
-      # same path -- keeps the non-root/restricted posture intact instead of carving it out.
+      # LAM's own entrypoint unconditionally `sed -i`s two image-baked directories on every
+      # start -- caught live, one at a time: /etc/php/7.4/apache2/php.ini ("Configuring LAM"
+      # never even started), then /etc/ldap-account-manager (LAM's own config bootstrap,
+      # surfaced only once the first was fixed and the entrypoint got further). Neither is a
+      # volume, so fsGroup above never applies to either (fsGroup only affects mounted
+      # volumes). Rather than a Kyverno PolicyException, this initContainer copies both into
+      # writable emptyDirs the main container mounts back over the same paths -- keeps the
+      # non-root/restricted posture intact instead of carving it out.
       initContainers:
-        - name: copy-php-conf
+        - name: copy-baked-conf
           image: ghcr.io/ldapaccountmanager/lam:8.3
-          command: ["sh", "-c", "cp -r /etc/php/7.4/apache2/. /php-conf/"]
+          command: ["sh", "-c", "cp -r /etc/php/7.4/apache2/. /php-conf/ && cp -r /etc/ldap-account-manager/. /lam-conf/"]
           securityContext:
             runAsNonRoot: true
             runAsUser: 33
@@ -68,6 +69,8 @@ spec:
           volumeMounts:
             - name: php-conf
               mountPath: /php-conf
+            - name: lam-conf
+              mountPath: /lam-conf
       containers:
         - name: lam
           image: ghcr.io/ldapaccountmanager/lam:8.3
@@ -105,6 +108,8 @@ spec:
               mountPath: /var/lib/ldap-account-manager
             - name: php-conf
               mountPath: /etc/php/7.4/apache2
+            - name: lam-conf
+              mountPath: /etc/ldap-account-manager
           resources:
             requests:
               cpu: 50m
@@ -116,6 +121,8 @@ spec:
           persistentVolumeClaim:
             claimName: lam-data
         - name: php-conf
+          emptyDir: {}
+        - name: lam-conf
           emptyDir: {}
 ---
 apiVersion: v1

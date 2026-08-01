@@ -23,6 +23,30 @@ spec:
           ignoreUnfixed: false
         operator:
           scanJobsConcurrentLimit: 2
+          # Caught live during a resilience pass: infraAssessmentScannerEnabled (chart default
+          # true) spawns a node-collector Job per node needing hostPID + hostPath mounts into
+          # /var/lib/etcd, /var/lib/kubelet, etc. -- genuinely incompatible with Kyverno's PSS
+          # `restricted` enforcement, not a fixable securityContext gap the way the scan-job pods
+          # below were. It was retrying every few seconds, forever, rejected every time --
+          # real, continuous API/control-plane churn (a likely contributor to the kube-proxy
+          # nftables churn observed separately). Disabled rather than exempted: it's node/infra
+          # compliance scanning, not the container-image vulnerability scanning Phase 24 is
+          # actually about, and Phase 23's host-posture.py already covers real host posture
+          # without needing hostPID/hostPath at all.
+          infraAssessmentScannerEnabled: false
+          # The chart's scan-job default securityContext has the same gap trivy-operator's own
+          # deployment had below -- confirmed by a real admission denial on
+          # scan-vulnerabilityreport-* pods ("runAsNonRoot != true", "seccompProfile.type:
+          # Required value"), which was rejecting every real scan job continuously.
+          scanJobPodTemplatePodSecurityContext:
+            runAsNonRoot: true
+          scanJobPodTemplateContainerSecurityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+            seccompProfile:
+              type: RuntimeDefault
         # The chart's own default securityContext (allowPrivilegeEscalation: false,
         # capabilities.drop: [ALL], readOnlyRootFilesystem: true) is close but leaves out
         # runAsNonRoot and seccompProfile -- both required by Kyverno's PSS `restricted`

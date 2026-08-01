@@ -19,6 +19,16 @@ metadata:
   name: verify-image-signatures
 spec:
   background: false
+  # Caught live during a resilience pass: no explicit validationFailureAction here defaulted
+  # to Audit, and Kyverno's chart auto-updated (pinned targetRevision, but to a newer version
+  # than when this policy was first written) to a release that now validates
+  # mutateDigest: true against the failure action -- "mutateDigest must be set to false for
+  # 'Audit' failure action" -- correctly, since silently mutating a resource under an
+  # Audit-only policy never made sense. This policy's whole point (this file's own header
+  # comment, task tracking "Verify Kyverno admission live: unsigned/unpinned image rejected")
+  # was always Enforce; this just makes that explicit instead of relying on an implicit
+  # default that a later Kyverno version validated more strictly.
+  validationFailureAction: Enforce
   rules:
     - name: verify-canary-writer-signature
       match:

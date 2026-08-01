@@ -19,6 +19,7 @@ spec:
     - https://charts.jetstack.io
     - https://codecentric.github.io/helm-charts
     - https://helm.cilium.io/
+    - https://aquasecurity.github.io/helm-charts
   destinations:
     - namespace: argocd
       server: https://kubernetes.default.svc

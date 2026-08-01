@@ -86,7 +86,31 @@ helm upgrade --install cilium cilium/cilium \
   --set hubble.enabled=true \
   --set hubble.relay.enabled=true \
   --set hubble.ui.enabled=true \
+  --set resources.requests.cpu=100m \
+  --set resources.requests.memory=256Mi \
+  --set resources.limits.memory=512Mi \
+  --set operator.resources.requests.cpu=50m \
+  --set operator.resources.requests.memory=128Mi \
+  --set operator.resources.limits.memory=256Mi \
+  --set hubble.relay.resources.requests.cpu=50m \
+  --set hubble.relay.resources.requests.memory=128Mi \
+  --set hubble.relay.resources.limits.memory=256Mi \
+  --set hubble.ui.backend.resources.requests.cpu=25m \
+  --set hubble.ui.backend.resources.requests.memory=64Mi \
+  --set hubble.ui.backend.resources.limits.memory=128Mi \
+  --set hubble.ui.frontend.resources.requests.cpu=25m \
+  --set hubble.ui.frontend.resources.requests.memory=32Mi \
+  --set hubble.ui.frontend.resources.limits.memory=64Mi \
   --wait --timeout 10m
+# CPU is requests-only, deliberately -- a CPU *limit* causes throttling under legitimate
+# load, which reads to Kubernetes as slow/unhealthy and can itself trigger the exact kind
+# of probe-failure restart loop this change is trying to prevent (matches the real
+# kube-controller-manager crash-loop already documented above this block, root-caused to
+# memory pressure, not a CPU limit -- same root-cause discipline applied forward). Memory
+# gets both requests and limits: a runaway container should be cleanly OOMKilled and
+# restarted on its own, not silently starve the whole node the way the real Elastic Agent
+# fleet-server incident did (25GB RSS, no cgroup limit stopped it, host-wide memory/swap
+# exhaustion, api-server timeouts cluster-wide) -- caught live, documented in CHANGELOG.md.
 
 echo "==> [4/14] Waiting for nodes Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout=180s

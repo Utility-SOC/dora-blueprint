@@ -45,6 +45,29 @@ spec:
         runAsUser: 33
         runAsGroup: 33
         fsGroup: 33
+      # LAM's own entrypoint unconditionally `sed -i`s /etc/php/7.4/apache2/php.ini on every
+      # start (real crash observed live: "sed: couldn't open temporary file
+      # /etc/php/7.4/apache2/sedcximsO: Permission denied") -- that path is baked into the
+      # image, not a volume, so fsGroup above never applies to it (fsGroup only affects mounted
+      # volumes). Rather than a Kyverno PolicyException, this initContainer copies that one
+      # directory into a writable emptyDir, which the main container then mounts back over the
+      # same path -- keeps the non-root/restricted posture intact instead of carving it out.
+      initContainers:
+        - name: copy-php-conf
+          image: ghcr.io/ldapaccountmanager/lam:8.3
+          command: ["sh", "-c", "cp -r /etc/php/7.4/apache2/. /php-conf/"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 33
+            runAsGroup: 33
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: php-conf
+              mountPath: /php-conf
       containers:
         - name: lam
           image: ghcr.io/ldapaccountmanager/lam:8.3
@@ -80,6 +103,8 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/ldap-account-manager
+            - name: php-conf
+              mountPath: /etc/php/7.4/apache2
           resources:
             requests:
               cpu: 50m
@@ -90,6 +115,8 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: lam-data
+        - name: php-conf
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service

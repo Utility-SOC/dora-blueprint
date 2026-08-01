@@ -262,8 +262,16 @@ echo "==> [9/14] Argo CD OIDC + RBAC config"
 # 9083:80` running for both the browser redirect AND argocd-server's own token/JWKS
 # calls to reach Keycloak (confirmed hairpin NAT works for the latter -- see
 # infrastructure/cilium/argocd/argocd-server.yaml's own comment).
+# Real bug caught live (resilience pass): argocd-cm never set `url`, Argo CD's own field
+# for its externally-reachable base address. Without it, Argo CD constructs its OIDC
+# redirect_uri by guessing from the incoming request instead of a fixed value -- worked by
+# coincidence as long as every login happened to arrive with a matching Host header, broke
+# with "Invalid redirect URL: the protocol and host (including port) must match" once it
+# didn't. Set explicitly so the redirect_uri Argo CD sends is always
+# https://192.168.1.106:9080/auth/callback, matching exactly what's registered on the
+# Keycloak client (infrastructure/keycloak/configure-realm.sh), not guessed per-request.
 kubectl -n argocd patch cm argocd-cm --type merge -p "$(cat <<'PATCH'
-{"data":{"oidc.config":"name: Keycloak\nissuer: http://192.168.1.106:9083/auth/realms/platform\nclientID: argocd\nclientSecret: $argocd-oidc-secret:oidc.keycloak.clientSecret\nrequestedScopes: [\"openid\", \"profile\", \"email\", \"groups\"]\n"}}
+{"data":{"url":"https://192.168.1.106:9080","oidc.config":"name: Keycloak\nissuer: http://192.168.1.106:9083/auth/realms/platform\nclientID: argocd\nclientSecret: $argocd-oidc-secret:oidc.keycloak.clientSecret\nrequestedScopes: [\"openid\", \"profile\", \"email\", \"groups\"]\n"}}
 PATCH
 )"
 

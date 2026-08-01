@@ -63,7 +63,12 @@ spec:
           # overlays them. Seeded once here (not remounted at the same path in THIS container,
           # so the image's real content is still readable to copy from), guarded by a marker
           # check so a real restart never re-stomps whatever LAM has since written to the PVC.
-          command: ["sh", "-c", "cp -r /etc/php/7.4/apache2/. /php-conf/ && cp -r /etc/ldap-account-manager/. /lam-conf/ && (test -d /data-seed/config || cp -r /var/lib/ldap-account-manager/. /data-seed/)"]
+          # Checks for the actual lam.conf FILE, not just the config/ directory -- a real bug
+          # caught live: an earlier version checked `test -d config`, which a partially-seeded
+          # PVC from a prior crashed attempt satisfied without ever containing lam.conf, so the
+          # real copy kept getting skipped and the pod kept crash-looping on a PVC that looked
+          # "already seeded" but wasn't.
+          command: ["sh", "-c", "cp -r /etc/php/7.4/apache2/. /php-conf/ && cp -r /etc/ldap-account-manager/. /lam-conf/ && (test -f /data-seed/config/lam.conf || cp -r /var/lib/ldap-account-manager/. /data-seed/)"]
           securityContext:
             runAsNonRoot: true
             runAsUser: 33

@@ -81,7 +81,30 @@ $KCADM create components -r platform \
 GROUP_MAPPER_ID="$($KCADM get "components?parent=$LDAP_COMPONENT_ID&type=org.keycloak.storage.ldap.mappers.LDAPStorageMapper" -r platform -q name=ldap-groups --fields id --format csv --noquotes)"
 $KCADM create "user-storage/$LDAP_COMPONENT_ID/mappers/$GROUP_MAPPER_ID/sync?direction=fedToKeycloak" -r platform
 
-echo "==> [5/6] OIDC clients for Argo CD and Grafana, with a groups claim mapper each"
+echo "==> [5a/6] A real 'groups' client scope (not just a per-client mapper)"
+# CAUGHT LIVE (real browser OIDC login, reported directly): a first version of this script
+# only added a groups *protocol mapper* directly to each client -- a mapper enriches token
+# content once a scope is already granted, it does NOT make a scope requestable. Argo CD's
+# real oidc.config requests `scope: openid profile email groups` (a real browser
+# authorization-code flow, not the password-grant curl used for earlier verification, which
+# never exercises Keycloak's scope-request validation the same way) -- Keycloak rejected it
+# outright: "invalid_scope: Invalid scopes: openid profile email groups", because no
+# client-scope named `groups` existed in the realm at all. Fixed the correct way: a real,
+# reusable client scope with its own mapper, assigned as *default* so it's always granted
+# without either client even needing to explicitly request it.
+$KCADM create client-scopes -r platform -s name=groups -s protocol=openid-connect \
+  -s 'attributes."include.in.token.scope"="true"' \
+  -s 'attributes."display.on.consent.screen"="true"'
+GROUPS_SCOPE_ID="$($KCADM get client-scopes -r platform --fields id,name --format csv --noquotes | awk -F, '$2=="groups" {print $1}')"
+$KCADM create "client-scopes/$GROUPS_SCOPE_ID/protocol-mappers/models" -r platform \
+  -s name=groups -s protocol=openid-connect -s protocolMapper=oidc-group-membership-mapper \
+  -s 'config."full.path"="false"' \
+  -s 'config."id.token.claim"="true"' \
+  -s 'config."access.token.claim"="true"' \
+  -s 'config."userinfo.token.claim"="true"' \
+  -s 'config."claim.name"="groups"'
+
+echo "==> [5b/6] OIDC clients for Argo CD and Grafana"
 ARGOCD_SECRET="$(kubectl -n "$KC_NS" get secret iam-secrets -o jsonpath='{.data.argocdClientSecret}' | base64 -d)"
 GRAFANA_SECRET="$(kubectl -n "$KC_NS" get secret iam-secrets -o jsonpath='{.data.grafanaClientSecret}' | base64 -d)"
 
@@ -99,13 +122,7 @@ $KCADM create clients -r platform \
 
 for CLIENT in argocd grafana; do
   CID="$($KCADM get clients -r platform -q clientId="$CLIENT" --fields id --format csv --noquotes)"
-  $KCADM create "clients/$CID/protocol-mappers/models" -r platform \
-    -s name=groups -s protocol=openid-connect -s protocolMapper=oidc-group-membership-mapper \
-    -s 'config."full.path"="false"' \
-    -s 'config."id.token.claim"="true"' \
-    -s 'config."access.token.claim"="true"' \
-    -s 'config."userinfo.token.claim"="true"' \
-    -s 'config."claim.name"="groups"'
+  $KCADM update "clients/$CID/default-client-scopes/$GROUPS_SCOPE_ID" -r platform
 done
 
 echo "==> [6/6] Verification"

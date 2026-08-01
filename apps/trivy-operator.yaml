@@ -23,6 +23,22 @@ spec:
           ignoreUnfixed: false
         operator:
           scanJobsConcurrentLimit: 2
+        # The chart's own default securityContext (allowPrivilegeEscalation: false,
+        # capabilities.drop: [ALL], readOnlyRootFilesystem: true) is close but leaves out
+        # runAsNonRoot and seccompProfile -- both required by Kyverno's PSS `restricted`
+        # enforcement (require-pod-security-restricted.yaml), confirmed by a real admission
+        # denial ("spec.containers[0].securityContext.runAsNonRoot: Required value",
+        # "...seccompProfile.type: Required value") before being added here, same pattern as
+        # every other chart in this repo needing a securityContext top-up for restricted.
+        podSecurityContext:
+          runAsNonRoot: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: [ALL]
+          seccompProfile:
+            type: RuntimeDefault
   destination:
     server: https://kubernetes.default.svc
     namespace: trivy-system

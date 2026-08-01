@@ -34,6 +34,13 @@ spec:
           # actually about, and Phase 23's host-posture.py already covers real host posture
           # without needing hostPID/hostPath at all.
           infraAssessmentScannerEnabled: false
+          # clusterComplianceEnabled's ClusterComplianceReport CRs (k8s-cis-1.23,
+          # k8s-nsa-1.0, k8s-pss-baseline-0.1, k8s-pss-restricted-0.1) consume the infra-
+          # assessment data disabled above -- with that data source gone they had nothing to
+          # report (sat at real "Unknown" status, honestly, not fabricated) and then started
+          # failing to sync at all once infraAssessmentScannerEnabled flipped. Disabled for
+          # the same reason: not what Phase 24's vulnerability-scanning goal needs.
+          clusterComplianceEnabled: false
           # The chart's scan-job default securityContext has the same gap trivy-operator's own
           # deployment had below -- confirmed by a real admission denial on
           # scan-vulnerabilityreport-* pods ("runAsNonRoot != true", "seccompProfile.type:

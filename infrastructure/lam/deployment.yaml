@@ -1,0 +1,105 @@
+# LDAP Account Manager: requested directly ("I don't want to have to CLI to onboard every new
+# user") -- a GUI for real OpenLDAP user/group management. Bare manifests, matching this repo's
+# established pattern for smaller pieces (glpi, openldap itself) rather than a Helm chart.
+#
+# LDAP federation into Keycloak is READ_ONLY (infrastructure/keycloak/configure-realm.sh) -- LAM
+# writes directly to OpenLDAP, same as onboard-user.sh already does; Keycloak just picks up
+# whatever's there on its next sync/login, no different from any other LDAP write.
+#
+# LAM_PASSWORD protects LAM's own config UI (a master password, separate from any LDAP bind
+# credential) -- sourced from the same iam-secrets.enc.yaml every other IAM-adjacent credential
+# in this repo lives in, applied as a real k8s Secret by install.sh, not baked into this file.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: lam-data
+  namespace: lam
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 512Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lam
+  namespace: lam
+  labels:
+    app: lam
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: lam
+  template:
+    metadata:
+      labels:
+        app: lam
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 33
+        runAsGroup: 33
+        fsGroup: 33
+      containers:
+        - name: lam
+          image: ghcr.io/ldapaccountmanager/lam:8.3
+          ports:
+            - containerPort: 80
+          env:
+            - name: LAM_SKIP_PRECONFIGURE
+              value: "false"
+            - name: LDAP_BASE_DN
+              value: "dc=platform,dc=local"
+            - name: LDAP_USERS_DN
+              value: "ou=people,dc=platform,dc=local"
+            - name: LDAP_GROUPS_DN
+              value: "ou=groups,dc=platform,dc=local"
+            - name: LDAP_SERVER
+              value: "ldap://openldap.openldap.svc.cluster.local:389"
+            - name: LDAP_USER
+              value: "cn=admin,dc=platform,dc=local"
+            - name: LAM_LANG
+              value: "en_US"
+            - name: LAM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: lam-secrets
+                  key: lamMasterPassword
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/ldap-account-manager
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: lam-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lam
+  namespace: lam
+spec:
+  selector:
+    app: lam
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

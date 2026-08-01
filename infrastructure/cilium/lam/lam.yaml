@@ -1,0 +1,39 @@
+# LDAP Account Manager: egress to OpenLDAP only (its whole job), ingress from host (the same
+# LAN port-forward pattern every other admin UI in this repo uses, matching hubble-ui's own
+# CiliumNetworkPolicy -- port-forward traffic terminates via the node's own kubelet, arriving
+# as reserved:host from Cilium's perspective).
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: lam
+  namespace: lam
+spec:
+  endpointSelector:
+    matchLabels:
+      app: lam
+  ingress:
+    - fromEntities:
+        - host
+      toPorts:
+        - ports:
+            - port: "80"
+              protocol: TCP
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": openldap
+            app: openldap
+      toPorts:
+        - ports:
+            - port: "389"
+              protocol: TCP
+    - toEndpoints:
+        - matchLabels:
+            k8s-app: kube-dns
+            "k8s:io.kubernetes.pod.namespace": kube-system
+      toPorts:
+        - ports:
+            - port: "53"
+              protocol: UDP
+            - port: "53"
+              protocol: TCP

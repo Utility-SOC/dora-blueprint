@@ -1,0 +1,15 @@
+[Unit]
+Description=kubectl port-forward: lam (lam) -> LAN:9086
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=svc_bob
+ExecStart=/usr/local/bin/kubectl -n lam port-forward --address 192.168.1.106 svc/lam 9086:80
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -30,6 +30,12 @@ spec:
         - matchLabels:
             "k8s:io.kubernetes.pod.namespace": glpi
             app: glpi
+        # LDAP Account Manager (infrastructure/lam/) -- a third real consumer, the GUI
+        # replacing onboard-user.sh's CLI-only workflow. Same real write access
+        # onboard-user.sh already had via ldapadd/ldappasswd, just through a browser.
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": lam
+            app: lam
       toPorts:
         - ports:
             - port: "389"

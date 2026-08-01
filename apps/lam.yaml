@@ -1,0 +1,26 @@
+# LDAP Account Manager -- see infrastructure/lam/deployment.yaml for why this exists and how
+# it fits the LDAP federation already in place.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lam
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: infrastructure/lam
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lam
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

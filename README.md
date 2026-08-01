@@ -95,6 +95,14 @@ is expansion, not proof of concept.
 | 18 | Secrets lifecycle & certificate management — expiry monitoring for the CA chain and leaf certs, secret-age tracking | not started |
 | 19 | Chaos engineering breadth + DR tier — scenario 4 (control-plane/etcd loss), cross-cluster restore, Litmus decision | not started |
 | 20 | Evidence integrity — write-once/tamper-evident storage for drill records and evidence samples | not started |
+| 21 | Evidence tagging & crosswalk infrastructure — multi-framework manifest, generated per-control evidence folders | done |
+| 22 | NIST SP 800-53 crosswalk (representative subset, PE excluded — cloud-provider assumption) | done |
+| 23 | Host/config compliance scanning — real SELinux/AppArmor/FIPS status across all hosts, honestly reported | not started |
+| 24 | Vulnerability management — Trivy Operator, first-detected-date tracking, CISA KEV cross-reference | not started |
+| 25 | ATT&CK detection mapping — both real detection rules tagged with the technique they observe | done |
+| 26 | Cryptography evidence, expanded — real negotiated TLS version/cipher suite, SOPS/at-rest encryption evidence | not started |
+| 27 | OSCAL machine-readable export — real OSCAL JSON generated from the evidence manifest | not started |
+| 28 | Real Wazuh deployment (manager + indexer) — a genuine second HIDS/SIEM layer; a leftover, disabled Wazuh agent already sits on appserv from an earlier attempt | not started |
 
 Full phase-by-phase build notes — real bugs found and fixed by actually running each phase, not
 assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
@@ -130,6 +138,34 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   expiry monitoring); **19** (chaos breadth + the never-built `dr` tier + a real Litmus decision);
   **20** (evidence integrity — closes the write-once/tamper-evidence gap `docs/04-limitations.md`
   already flags). See `BUILD-SPEC.md` §12 for the full scope breakdown on each. Not started.
+- **Phases 21/22/25 — multi-framework evidence, NIST 800-53, ATT&CK**, added and built at the
+  repo owner's direct request, scoped explicitly as a *reference-architecture capability*
+  build — demonstrating the machinery real compliance/detection work needs, not running live
+  SOC/ConMon/POA&M operations. `docs/evidence/manifest.yaml` + `collect.py` tag every real
+  evidence artifact against five frameworks at once (`dora`/`nis2`/`iso27001`/`nist80053`/
+  `attack`) and generate real per-control folders — one artifact lands in several folders where
+  it genuinely satisfies several controls, not duplicated by hand. `docs/06-nist-800-53-crosswalk.md`
+  reuses that same evidence rather than re-proving anything (PE excluded — cloud-provider
+  assumption, no physical controls in scope; PS mostly not-applicable — solo-built, not
+  staffed; documentation assumes three operators purely so role-separation controls can be
+  described honestly). `docs/07-attack-mapping.md` ties both real detection rules to the ATT&CK
+  technique they actually observe, as real Grafana labels on the rules themselves. Done.
+- **Phases 23/24/26/27 — host compliance, vuln management, crypto evidence, OSCAL** — the
+  remaining pieces of that same push, not yet built. **23** was seeded by a real finding:
+  `appserv` has no SELinux at all (Ubuntu uses AppArmor; Talos has no traditional LSM story
+  either) — the point isn't to fake compliance, it's to pull and honestly report real host
+  security posture, including "not applicable" as a legitimate result. **24** is Trivy Operator
+  plus a real CISA KEV cross-reference, not just a CVE count. **27** is the real answer to "can we
+  get a machine-readable GPO-style export" — OSCAL is the modern, NIST-native machine-readable
+  format for exactly this, generated from the same manifest as Phase 21 rather than hand-written.
+- **Phase 28 — real Wazuh deployment.** Investigating a leftover, disabled `filebeat` install on
+  appserv (found while cleaning up an unrelated resource-hogging Elastic Agent process) turned up
+  that it was actually configured as a Wazuh agent's filebeat module, pointed at a Wazuh indexer
+  that no longer exists. Decided with the repo owner: appserv's real host logs
+  (`bootstrap/host-log-shipper/`) ship into the existing Loki stack now; a real Wazuh
+  manager+indexer, and reviving this agent for real, is its own later phase — a genuine second
+  HIDS/SIEM layer (file-integrity monitoring, SCA/CIS compliance checks, vulnerability detection),
+  not a replacement for Loki/Grafana.
 - **Not yet scheduled to a phase:** a jumphost/bastion replacing today's ad-hoc
   `kubectl port-forward` access pattern with a real network-level Ingress; a real standing
   webhook receiver for alerts independent of drill runs.

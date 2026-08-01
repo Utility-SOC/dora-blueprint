@@ -400,6 +400,14 @@ Do not build breadth-first. Get one drill measuring one number end to end before
 | 18 | Secrets lifecycle & certificate management: expiry monitoring for the offline CA chain and every leaf cert, secret-age tracking | A dashboard shows real days-until-expiry per certificate, sourced from the actual served cert, not the issuance record |
 | 19 | Chaos engineering breadth + DR tier: scenario 4 (control-plane/etcd loss), the deferred `dr` cross-cluster restore tier, Litmus decision (build it or formally retire the placeholder) | A real cross-cluster restore drill produces a measured RTO, the same rigor as every in-cluster scenario |
 | 20 | Evidence integrity: write-once/tamper-evident storage for drill records and evidence samples, closing the gap `docs/04-limitations.md` already flags (plain git-tracked files today) | A real evidence file's tamper-evidence property (object lock, or a hash chain over the evidence itself) is independently verifiable, not asserted |
+| 21 | Evidence tagging & crosswalk infrastructure: a multi-framework manifest (`dora`/`nis2`/`iso27001`/`nist80053`/`attack` tags) and a script generating real per-control evidence folders | `docs/evidence/collect.py` produces real file placements a reader can browse on GitHub, regenerated idempotently, not hand-maintained |
+| 22 | NIST SP 800-53 Rev 5 crosswalk: a representative subset (PE excluded, cloud-provider assumption; PS mostly not-applicable, solo-built) reusing the same evidence already built for DORA/NIS2/ISO, not re-proving anything | `docs/06-nist-800-53-crosswalk.md` rows resolve to the same real evidence artifacts already cited elsewhere |
+| 23 | Host/config compliance scanning: real SELinux/AppArmor/FIPS status pulled from every host (appserv + Talos nodes), reported honestly including "not applicable" as a legitimate result, plus `kube-bench` | A generated report shows real host security posture, not asserted or hidden when the answer is "not configured" |
+| 24 | Vulnerability management: Trivy Operator deployed for real, scan results with real first-detected dates tracked over time, cross-referenced against the real CISA KEV catalog | A dashboard shows which real findings are actively-exploited per CISA KEV, not just a raw CVE count |
+| 25 | ATT&CK detection mapping: every real detection rule tagged with the technique it actually observes | `docs/07-attack-mapping.md` + real Grafana rule labels, both real detections mapped, no aspirational coverage |
+| 26 | Cryptography evidence, expanded: real negotiated TLS version/cipher suite on every served leaf cert, SOPS/at-rest encryption evidence | A generated report shows the actual negotiated protocol, not just chain-of-trust |
+| 27 | OSCAL machine-readable export: real OSCAL JSON (component definitions, control implementations, assessment results) generated from the Phase 21 manifest | A real OSCAL document validates against the NIST OSCAL schema, generated not hand-written |
+| 28 | Real Wazuh deployment (manager + indexer): a genuine second HIDS/SIEM layer — file-integrity monitoring, SCA/CIS compliance checks, vulnerability detection — reviving a leftover, disabled Wazuh agent already found on appserv | Real Wazuh alerts/SCA results, independently verifiable, feeding the same evidence-manifest pattern as everything else |
 
 **Phase 3 is the milestone that matters.** Once one drill produces one honestly measured RTO and RPO, the project's thesis is proven and everything after is expansion.
 
@@ -484,6 +492,69 @@ gaps this repo's own build surfaced rather than generic filler:
   evidence. Real write-once storage (MinIO object lock is already in this stack) or a hash chain
   over the evidence files themselves, the same mechanism the canary's own writer already uses to
   prove *its* data hasn't been silently altered.
+
+**Phases 21–28, added at the repo owner's direct request**, scoped explicitly as a
+*reference-architecture capability* build: demonstrating the machinery real compliance/detection
+work needs — evidence generation, control crosswalks, host posture, vulnerability tracking,
+detection-to-technique mapping — not running live SOC/ConMon/POA&M operations. Where a control
+genuinely depends on more than one person (separation of duties, independent review),
+documentation assumes **three operators** (a platform lead, a security/compliance lead, an
+on-call responder) so role-separation controls can be described honestly rather than hand-waved.
+
+- **Phase 21 — Evidence tagging & crosswalk infrastructure.** `docs/evidence/manifest.yaml` tags
+  every real evidence artifact against five frameworks at once (`dora`/`nis2`/`iso27001`/
+  `nist80053`/`attack`); `docs/evidence/collect.py` generates real per-control folders under
+  `docs/evidence/by-control/` — one artifact lands in several folders where it genuinely
+  satisfies several controls, regenerated idempotently, never hand-maintained. Done.
+- **Phase 22 — NIST SP 800-53 crosswalk.** `docs/06-nist-800-53-crosswalk.md`, a representative
+  subset (not full ~1000-control coverage — not attemptable for a project this size), reusing the
+  *exact same* evidence already built for the DORA/NIS2/ISO matrix rather than re-proving
+  anything. PE (Physical and Environmental Protection) excluded entirely — this platform is
+  assumed deployed on a cloud provider, physical security is the provider's responsibility. PS
+  (Personnel Security) mostly not-applicable — solo-built, not staffed. Done.
+- **Phase 23 — Host/config compliance scanning.** Seeded by a real finding made while building
+  Phase 21: `appserv` has no SELinux at all — not disabled, not installed (`getenforce`/
+  `sestatus` don't exist on Ubuntu 22.04). AppArmor is the active LSM instead (Ubuntu's default).
+  Talos nodes have no traditional LSM story either — their hardening model is a signed, read-only,
+  API-only image with no shell and no package manager. None of that is a gap to hide: "SELinux not
+  applicable to this OS choice, AppArmor active instead" is itself the honest, reportable finding
+  this phase is built around — a real script pulling actual host state (SELinux/AppArmor status,
+  FIPS mode, kernel hardening flags) across every host, reporting honestly including "not
+  applicable" as a legitimate, non-hidden result, plus `kube-bench` for the Kubernetes-level CIS
+  layer.
+- **Phase 24 — Vulnerability management.** Trivy Operator deployed for real (currently an empty
+  placeholder at `infrastructure/trivy-operator/`), scan results with real first-detected dates
+  tracked over time — not a point-in-time snapshot — cross-referenced against the real CISA Known
+  Exploited Vulnerabilities catalog (a public feed) to flag actively-exploited CVEs specifically,
+  not just a raw severity count.
+- **Phase 25 — ATT&CK detection mapping.** Both real detection rules tagged with the technique
+  they actually observe — `canary-ns-delete-detect` → T1485 (Data Destruction),
+  `canary-shell-spawn-detect` → T1059.004 (Unix Shell) — as real Grafana labels/annotations on
+  the rules themselves (`apps/grafana.yaml`), not just documentation. Deliberately small: the
+  point is that both are real, eBPF/audit-log-observed detections tied to techniques they
+  genuinely detect, not a padded list of aspirational coverage. Done.
+- **Phase 26 — Cryptography evidence, expanded.** The existing PKI evidence
+  (`pki-chain-verification`) only checks the issuer chain; this phase adds real negotiated TLS
+  version/cipher suite evidence from the actually-served certificates, plus SOPS/at-rest
+  encryption evidence for the credentials this repo already has many of.
+- **Phase 27 — OSCAL machine-readable export.** The real answer to "can we get a machine-readable
+  GPO-style export" (asked directly): OSCAL (Open Security Controls Assessment Language) is the
+  actual modern, NIST-sponsored machine-readable format for exactly this — component definitions,
+  control implementations, assessment results — generated from the same manifest as Phase 21, not
+  hand-written, and not an invented analog to a Windows-specific concept that doesn't fit this
+  stack.
+- **Phase 28 — Real Wazuh deployment.** Cleaning up an unrelated, resource-hogging Elastic Agent
+  process on appserv (25GB RAM, unrelated Docker Compose stack) turned up a leftover, disabled
+  `filebeat` install that was actually configured as a **Wazuh agent's** filebeat module —
+  pointed at a Wazuh indexer that no longer exists. Decided with the repo owner: don't revive it
+  yet (the wazuh filebeat module ingests alerts a Wazuh *manager* has already generated, so it
+  needs a real manager+indexer behind it to mean anything) — appserv's real host logs ship into
+  the existing Loki stack now (`bootstrap/host-log-shipper/`, a standalone Alloy instance running
+  directly on appserv, since the in-cluster Alloy DaemonSet can't see the outer host's own logs).
+  A real Wazuh manager+indexer, reviving this agent for real, is this phase: a genuine second
+  HIDS/SIEM layer (file-integrity monitoring, SCA/CIS compliance checks, vulnerability detection)
+  feeding the same evidence-manifest pattern as everything else, not a replacement for
+  Loki/Grafana.
 
 ---
 

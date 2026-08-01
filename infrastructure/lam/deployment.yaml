@@ -56,7 +56,14 @@ spec:
       initContainers:
         - name: copy-baked-conf
           image: ghcr.io/ldapaccountmanager/lam:8.3
-          command: ["sh", "-c", "cp -r /etc/php/7.4/apache2/. /php-conf/ && cp -r /etc/ldap-account-manager/. /lam-conf/"]
+          # data-seed (a third caught-live case): mounting the persistent `data` PVC at
+          # /var/lib/ldap-account-manager in the main container hides the image's own baked-in
+          # sample templates the entrypoint expects there ("cannot stat
+          # .../config/unix.sample.conf: No such file or directory") -- the PVC starts empty and
+          # overlays them. Seeded once here (not remounted at the same path in THIS container,
+          # so the image's real content is still readable to copy from), guarded by a marker
+          # check so a real restart never re-stomps whatever LAM has since written to the PVC.
+          command: ["sh", "-c", "cp -r /etc/php/7.4/apache2/. /php-conf/ && cp -r /etc/ldap-account-manager/. /lam-conf/ && (test -d /data-seed/config || cp -r /var/lib/ldap-account-manager/. /data-seed/)"]
           securityContext:
             runAsNonRoot: true
             runAsUser: 33
@@ -71,6 +78,8 @@ spec:
               mountPath: /php-conf
             - name: lam-conf
               mountPath: /lam-conf
+            - name: data
+              mountPath: /data-seed
       containers:
         - name: lam
           image: ghcr.io/ldapaccountmanager/lam:8.3

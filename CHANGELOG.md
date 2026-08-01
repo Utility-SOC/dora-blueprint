@@ -387,3 +387,12 @@ fresh, confirmed via the real Grafana API afterward.
 - **`task_a45b9f18`** — `measured_rpo_records_lost` comes back negative in real drill runs, a
   pre-existing bug in the ns-restore workflow's counter-capture logic, unrelated to detection or
   incident-response work.
+- **GHCR package visibility** — `ghcr.io/utility-soc/canary-writer` still returns `401
+  Unauthorized` on anonymous pull, confirmed live as of this entry. The `canary-writer` pod has
+  been stuck `ImagePullBackOff` since Phase 12 as a result. Blocks verifying Kyverno's
+  `verify-image-signatures.yaml` policy admits the real signed image live (it can already be
+  confirmed rejecting an unsigned one) -- the repo owner needs to either make the GHCR package
+  public or this needs to move to an imagePullSecret-based approach instead.
+- **Integration-work report** — the write-up connecting this repo's actual implementation work
+  back to the control citations (originally scoped in Phase 0) has never been written. Not a
+  phase in its own right, but a real outstanding deliverable.

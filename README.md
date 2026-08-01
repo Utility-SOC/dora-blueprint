@@ -97,7 +97,7 @@ is expansion, not proof of concept.
 | 20 | Evidence integrity — write-once/tamper-evident storage for drill records and evidence samples | not started |
 | 21 | Evidence tagging & crosswalk infrastructure — multi-framework manifest, generated per-control evidence folders | done |
 | 22 | NIST SP 800-53 crosswalk (representative subset, PE excluded — cloud-provider assumption) | done |
-| 23 | Host/config compliance scanning — real SELinux/AppArmor/FIPS status across all hosts, honestly reported | not started |
+| 23 | Host/config compliance scanning — real SELinux/AppArmor/FIPS status across all hosts, honestly reported | done (appserv; Talos nodes documented as architectural fact — no shell exists to query) |
 | 24 | Vulnerability management — Trivy Operator, first-detected-date tracking, CISA KEV cross-reference | not started |
 | 25 | ATT&CK detection mapping — both real detection rules tagged with the technique they observe | done |
 | 26 | Cryptography evidence, expanded — real negotiated TLS version/cipher suite, SOPS/at-rest encryption evidence | not started |

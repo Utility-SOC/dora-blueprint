@@ -1,0 +1,71 @@
+{
+  "generated_at": "2026-08-01T01:55:22.951215+00:00",
+  "hosts": {
+    "appserv": {
+      "host": "appserv",
+      "os": {
+        "name": "Ubuntu",
+        "version": "22.04.5 LTS (Jammy Jellyfish)",
+        "kernel": "5.15.0-186-generic"
+      },
+      "lsm": {
+        "selinux": {
+          "present": false,
+          "finding": "not present -- SELinux is not installed on this OS choice (Ubuntu). This is not a misconfiguration, it's a different LSM choice."
+        },
+        "apparmor": {
+          "loaded": true,
+          "finding": "active (Ubuntu's default LSM)"
+        }
+      },
+      "fips": {
+        "kernel_fips_file_present": false,
+        "enabled": false,
+        "finding": "FIPS mode not applicable -- standard Ubuntu kernel has no FIPS module"
+      },
+      "kernel_hardening": {
+        "aslr": "full"
+      },
+      "ssh": {
+        "permit_root_login": "without-password",
+        "password_authentication": "yes",
+        "finding": "password authentication is ENABLED for this host -- a hardened baseline would typically be key-only"
+      },
+      "patching": {
+        "unattended_upgrades_installed": true,
+        "unattended_upgrades_enabled": true
+      },
+      "host_firewall": {
+        "ufw_status": "Status: inactive",
+        "finding": "no host-level firewall active -- network policy enforcement for cluster traffic is via Cilium (infrastructure/cilium/), not a host firewall on appserv itself"
+      }
+    },
+    "resilience-lab-controlplane-1": {
+      "queried_live": false,
+      "reason": "Talos nodes have no SSH and no shell at all -- there is no remote-exec mechanism to run a script against them, by design, not by omission. talosctl's own gRPC API (the only management surface) was not reachable from this session (endpoint config issue, tracked separately) -- even when reachable, it exposes structured resources, not a shell to run checks in.",
+      "architectural_facts": {
+        "lsm": "No traditional LSM (no SELinux, no AppArmor) -- Talos has no policy-based access control layer at all.",
+        "hardening_model": "Structural rather than policy-based: a signed, read-only, immutable root filesystem; no package manager; no shell; the only management surface is an authenticated gRPC API (talosctl). A host with no shell and no writable root filesystem has a categorically smaller attack surface than a conventional Linux box, even without SELinux/AppArmor/FIPS in the traditional sense.",
+        "source": "https://www.talos.dev/latest/introduction/security-disclosure-process/ and Talos's own architecture documentation -- this is Talos's documented design, not this project's own claim."
+      }
+    },
+    "resilience-lab-worker-1": {
+      "queried_live": false,
+      "reason": "Talos nodes have no SSH and no shell at all -- there is no remote-exec mechanism to run a script against them, by design, not by omission. talosctl's own gRPC API (the only management surface) was not reachable from this session (endpoint config issue, tracked separately) -- even when reachable, it exposes structured resources, not a shell to run checks in.",
+      "architectural_facts": {
+        "lsm": "No traditional LSM (no SELinux, no AppArmor) -- Talos has no policy-based access control layer at all.",
+        "hardening_model": "Structural rather than policy-based: a signed, read-only, immutable root filesystem; no package manager; no shell; the only management surface is an authenticated gRPC API (talosctl). A host with no shell and no writable root filesystem has a categorically smaller attack surface than a conventional Linux box, even without SELinux/AppArmor/FIPS in the traditional sense.",
+        "source": "https://www.talos.dev/latest/introduction/security-disclosure-process/ and Talos's own architecture documentation -- this is Talos's documented design, not this project's own claim."
+      }
+    },
+    "resilience-lab-worker-2": {
+      "queried_live": false,
+      "reason": "Talos nodes have no SSH and no shell at all -- there is no remote-exec mechanism to run a script against them, by design, not by omission. talosctl's own gRPC API (the only management surface) was not reachable from this session (endpoint config issue, tracked separately) -- even when reachable, it exposes structured resources, not a shell to run checks in.",
+      "architectural_facts": {
+        "lsm": "No traditional LSM (no SELinux, no AppArmor) -- Talos has no policy-based access control layer at all.",
+        "hardening_model": "Structural rather than policy-based: a signed, read-only, immutable root filesystem; no package manager; no shell; the only management surface is an authenticated gRPC API (talosctl). A host with no shell and no writable root filesystem has a categorically smaller attack surface than a conventional Linux box, even without SELinux/AppArmor/FIPS in the traditional sense.",
+        "source": "https://www.talos.dev/latest/introduction/security-disclosure-process/ and Talos's own architecture documentation -- this is Talos's documented design, not this project's own claim."
+      }
+    }
+  }
+}

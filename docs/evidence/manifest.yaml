@@ -62,3 +62,7 @@ artifacts:
   - path: samples/argocd-rbac-verification-20260729045300.txt
     description: Real API authorization decision distinguishing an admin role from a read-only one
     tags: [iso27001:a-5-15-18, iso27001:a-8-2, nist80053:ac-3]
+
+  - path: samples/host-posture-20260801015522.json
+    description: Real host security posture pulled live from appserv (LSM, FIPS, ASLR, SSH config, patching, host firewall), reported honestly including "not applicable" results; Talos nodes documented as an architectural fact (no shell exists to query them the same way)
+    tags: [dora:art-9, nist80053:cm-6]

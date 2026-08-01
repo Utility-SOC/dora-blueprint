@@ -124,6 +124,10 @@ spec:
               mountPath: /etc/php/7.4/apache2
             - name: lam-conf
               mountPath: /etc/ldap-account-manager
+            - name: apache-logs
+              mountPath: /var/log/apache2
+            - name: apache-run
+              mountPath: /var/run/apache2
           resources:
             requests:
               cpu: 50m
@@ -137,6 +141,12 @@ spec:
         - name: php-conf
           emptyDir: {}
         - name: lam-conf
+          emptyDir: {}
+        # No pre-seeding needed for these two, unlike php-conf/lam-conf above -- Apache starts
+        # fresh log/pid files on its own, there's no baked-in content worth preserving.
+        - name: apache-logs
+          emptyDir: {}
+        - name: apache-run
           emptyDir: {}
 ---
 apiVersion: v1

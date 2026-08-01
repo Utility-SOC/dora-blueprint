@@ -1,0 +1,30 @@
+// Host-level log shipper for appserv itself. The in-cluster Alloy DaemonSet (apps/loki.yaml)
+// only sees inside the Talos "node" containers' own filesystems -- it has no visibility into
+// appserv's own host-level OS logs (auth.log, syslog), since appserv is the outer host running
+// all three Talos nodes as processes/containers on itself, not a node inside the cluster. This
+// is a second, standalone Alloy instance running directly on appserv, tailing real host log
+// files and pushing to the same Loki instance via the existing host-only port-forward
+// (bootstrap/port-forwards/loki-gateway.service), tagged job="appserv-host" to stay distinct
+// from job="kube-audit" and the in-cluster pod-logs job already in Loki.
+
+local.file_match "host_logs" {
+	path_targets = [
+		{"__path__" = "/var/log/auth.log", "log_source" = "auth"},
+		{"__path__" = "/var/log/syslog", "log_source" = "syslog"},
+	]
+}
+
+loki.source.file "host_logs" {
+	targets    = local.file_match.host_logs.targets
+	forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://localhost:18097/loki/api/v1/push"
+	}
+	external_labels = {
+		job  = "appserv-host",
+		host = "appserv",
+	}
+}

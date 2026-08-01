@@ -13,10 +13,10 @@ reason to stop retrying). Installed as real system services (not user/session-sc
 survive an appserv reboot, which the ad-hoc `nohup ... & disown` pattern this repo used before
 never did either.
 
-Loki's own port-forward (18097, host-only, no `--address`) is deliberately not included here --
-it's used by host-side scripts (`drills/lib/run-drill.sh` and friends) directly on appserv, not
-as a LAN-facing UI, and doesn't need the same durability treatment as something a human is
-actively looking at in a browser.
+Loki's own port-forward (18097, host-only, no `--address`) is included too, even though it's not
+LAN-facing -- it started out as a convenience for host-side scripts (`drills/lib/run-drill.sh`
+and friends), but the host-level log shipper (`bootstrap/host-log-shipper/`) now depends on it
+being reliably up as well, so it gets the same durability treatment as everything else here.
 
 ## Install
 

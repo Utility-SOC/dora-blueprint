@@ -7,7 +7,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 UNIT_DIR="$REPO_ROOT/bootstrap/port-forwards"
-UNITS=(argocd hubble-ui grafana keycloak minio-console glpi)
+UNITS=(argocd hubble-ui grafana keycloak minio-console glpi loki-gateway)
 
 for name in "${UNITS[@]}"; do
   sudo cp "$UNIT_DIR/$name.service" "/etc/systemd/system/platform-port-forward-$name.service"

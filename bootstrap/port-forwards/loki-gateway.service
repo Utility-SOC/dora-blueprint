@@ -1,0 +1,15 @@
+[Unit]
+Description=kubectl port-forward: loki-gateway (observability) -> localhost:18097 (host-only, used by drills/lib scripts and the host-level Alloy shipper, not LAN-facing)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=svc_bob
+ExecStart=/usr/local/bin/kubectl -n observability port-forward svc/loki-gateway 18097:80
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

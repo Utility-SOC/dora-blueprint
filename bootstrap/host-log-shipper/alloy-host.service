@@ -1,0 +1,16 @@
+[Unit]
+Description=Grafana Alloy -- appserv host-level log shipper (auth.log, syslog -> Loki)
+After=network-online.target platform-port-forward-loki-gateway.service
+Wants=network-online.target
+Requires=platform-port-forward-loki-gateway.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=svc_bob
+ExecStart=/usr/local/bin/alloy run /etc/alloy-host/config.alloy --storage.path=/var/lib/alloy-host --server.http.listen-addr=127.0.0.1:12346
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

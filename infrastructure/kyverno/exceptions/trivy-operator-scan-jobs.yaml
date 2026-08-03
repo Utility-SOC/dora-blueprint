@@ -1,0 +1,43 @@
+# build-spec P2: "Every exception is explicit, scoped, and reasoned." Written risk
+# acceptance: docs/exceptions/trivy-operator-scan-jobs.md.
+#
+# Confirmed empirically (real admission denial, not assumed): trivy-operator's
+# scan-vulnerabilityreport-* jobs are multi-container (an initContainer plus three scanner
+# containers combined into one pod), and the chart's own
+# scanJobPodTemplateContainerSecurityContext value only reaches one container role, not all
+# of them -- "spec.containers[0/1/2].securityContext.runAsNonRoot: Required value",
+# "...seccompProfile.type: Required value" on every container. Scoped narrowly to exactly
+# those two controls (not a blanket exemption -- privileged/hostPath/capabilities are
+# already fine per the chart's real defaults) and to this one job-name pattern in
+# trivy-system only. These are transient, operator-managed scan jobs (minutes of lifetime,
+# not standing attack surface), matching the same reasoning already used for
+# local-path-provisioner/openebs-localpv's own helper-pod exceptions.
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: trivy-operator-scan-jobs
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: require-pod-security-restricted
+      ruleNames:
+        - restricted
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - trivy-system
+          names:
+            - "scan-vulnerabilityreport-*"
+  podSecurity:
+    - controlName: Running as Non-root
+      images:
+        - "*"
+    - controlName: Running as Non-root user
+      images:
+        - "*"
+    - controlName: Seccomp
+      images:
+        - "*"

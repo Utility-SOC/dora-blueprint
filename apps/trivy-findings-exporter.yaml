@@ -1,0 +1,28 @@
+# Separate from apps/trivy-operator.yaml on purpose -- that app syncs the upstream Helm chart
+# only, this syncs the bare manifests in infrastructure/trivy-operator/ (the CronJob exporting
+# real findings into Loki). Same chart-vs-config split already used for kyverno.yaml/
+# kyverno-policies.yaml and cert-manager.yaml/cert-manager-issuer.yaml.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: trivy-findings-exporter
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: platform
+  source:
+    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
+    targetRevision: master
+    path: infrastructure/trivy-operator
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: trivy-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -580,6 +580,126 @@ spec:
                     }
                   ]
                 }
+            # Phase 24: real Trivy vulnerability findings. This stack has no Prometheus/metrics
+            # datasource (Loki only), and VulnerabilityReport CRDs aren't log lines -- reuses
+            # the export-into-Loki pattern already established for drill records, this time via
+            # infrastructure/trivy-operator/export-findings-cronjob.yaml, a CronJob emitting one
+            # real JSON line per real Trivy report every 15 minutes. Same explicit-field
+            # extraction + `queryType: instant`-for-aggregation discipline already established
+            # elsewhere in this file.
+            vulnerability-management:
+              json: |
+                {
+                  "title": "Vulnerability management",
+                  "uid": "vulnerability-management",
+                  "editable": true,
+                  "timezone": "utc",
+                  "time": { "from": "now-24h", "to": "now" },
+                  "refresh": "5m",
+                  "schemaVersion": 39,
+                  "panels": [
+                    {
+                      "id": 1,
+                      "type": "stat",
+                      "title": "Critical findings (latest export)",
+                      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": {
+                        "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [
+                          { "color": "green", "value": null },
+                          { "color": "red", "value": 1 }
+                        ] } },
+                        "overrides": []
+                      },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "queryType": "instant",
+                          "expr": "sum(sum_over_time({namespace=\"trivy-system\"} |= \"trivy_vulnerability_report\" | json event=\"event\", crit=\"critical_count\" | event=\"trivy_vulnerability_report\" | unwrap crit [15m]))"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 2,
+                      "type": "stat",
+                      "title": "High findings (latest export)",
+                      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": {
+                        "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [
+                          { "color": "green", "value": null },
+                          { "color": "orange", "value": 1 }
+                        ] } },
+                        "overrides": []
+                      },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "queryType": "instant",
+                          "expr": "sum(sum_over_time({namespace=\"trivy-system\"} |= \"trivy_vulnerability_report\" | json event=\"event\", high=\"high_count\" | event=\"trivy_vulnerability_report\" | unwrap high [15m]))"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 3,
+                      "type": "stat",
+                      "title": "Images/workloads scanned",
+                      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "queryType": "instant",
+                          "expr": "count(count by (resource_name) (count_over_time({namespace=\"trivy-system\"} |= \"trivy_vulnerability_report\" | json event=\"event\", resource_name=\"resource_name\" | event=\"trivy_vulnerability_report\" [15m])))"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 4,
+                      "type": "timeseries",
+                      "title": "Critical/high findings over time (cluster-wide total)",
+                      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 5 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "sum(sum_over_time({namespace=\"trivy-system\"} |= \"trivy_vulnerability_report\" | json event=\"event\", crit=\"critical_count\" | event=\"trivy_vulnerability_report\" | unwrap crit [$__interval]))",
+                          "legendFormat": "critical",
+                          "queryType": "range"
+                        },
+                        {
+                          "refId": "B",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "sum(sum_over_time({namespace=\"trivy-system\"} |= \"trivy_vulnerability_report\" | json event=\"event\", high=\"high_count\" | event=\"trivy_vulnerability_report\" | unwrap high [$__interval]))",
+                          "legendFormat": "high",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 5,
+                      "type": "table",
+                      "title": "Findings by workload (most recent export)",
+                      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 13 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "options": { "showHeader": true, "sortBy": [{ "displayName": "critical_count", "desc": true }] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"trivy-system\"} |= \"trivy_vulnerability_report\" | json event=\"event\", resource_namespace=\"resource_namespace\", resource_name=\"resource_name\", image_repository=\"image_repository\", image_tag=\"image_tag\", critical_count=\"critical_count\", high_count=\"high_count\", medium_count=\"medium_count\", low_count=\"low_count\" | event=\"trivy_vulnerability_report\"",
+                          "queryType": "range"
+                        }
+                      ]
+                    }
+                  ]
+                }
   destination:
     server: https://kubernetes.default.svc
     namespace: observability

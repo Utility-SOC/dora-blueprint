@@ -1,0 +1,110 @@
+# Phase 24: periodically exports real Trivy VulnerabilityReport summaries into Loki -- see
+# export-findings.sh for why (no metrics datasource in this stack, reuse the log pipeline
+# everything else already uses instead of standing up a whole new one for this).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: trivy-findings-exporter
+  namespace: trivy-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: trivy-findings-exporter
+rules:
+  - apiGroups: ["aquasecurity.github.io"]
+    resources: ["vulnerabilityreports"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: trivy-findings-exporter
+subjects:
+  - kind: ServiceAccount
+    name: trivy-findings-exporter
+    namespace: trivy-system
+roleRef:
+  kind: ClusterRole
+  name: trivy-findings-exporter
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trivy-findings-exporter-script
+  namespace: trivy-system
+data:
+  export-findings.sh: |
+    #!/bin/sh
+    set -eu
+    kubectl get vulnerabilityreports -A -o json | jq -c '
+      .items[] | {
+        event: "trivy_vulnerability_report",
+        reported_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
+        resource_namespace: (.metadata.labels["trivy-operator.resource.namespace"] // ""),
+        resource_name: (.metadata.labels["trivy-operator.resource.name"] // ""),
+        resource_kind: (.metadata.labels["trivy-operator.resource.kind"] // ""),
+        container_name: (.metadata.labels["trivy-operator.container.name"] // ""),
+        image_repository: (.report.artifact.repository // ""),
+        image_tag: (.report.artifact.tag // ""),
+        critical_count: (.report.summary.criticalCount // 0),
+        high_count: (.report.summary.highCount // 0),
+        medium_count: (.report.summary.mediumCount // 0),
+        low_count: (.report.summary.lowCount // 0),
+        unknown_count: (.report.summary.unknownCount // 0)
+      }
+    '
+    COUNT=$(kubectl get vulnerabilityreports -A --no-headers 2>/dev/null | wc -l)
+    echo "trivy_export_summary: ${COUNT} reports exported" >&2
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trivy-findings-exporter
+  namespace: trivy-system
+spec:
+  schedule: "*/15 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        spec:
+          serviceAccountName: trivy-findings-exporter
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          containers:
+            - name: export
+              image: alpine/k8s:1.30.0
+              command: ["/bin/sh", "/scripts/export-findings.sh"]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: script
+              configMap:
+                name: trivy-findings-exporter-script
+                defaultMode: 0755
+            - name: tmp
+              emptyDir: {}

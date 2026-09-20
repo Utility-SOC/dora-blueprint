@@ -1,4 +1,4 @@
-# elastic-dora-blueprint
+# dora-blueprint
 
 A GitOps Kubernetes reference architecture demonstrating DORA, NIS2, and ISO 27001 controls,
 with automated recovery drills that emit measured evidence. Framed as a security control plane

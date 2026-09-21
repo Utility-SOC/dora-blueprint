@@ -70,7 +70,7 @@ milestone the build spec names as the point the project's thesis is proven — e
 is expansion, not proof of concept.
 
 **Phases 10, 11, and 13 are all done. Phase 12 (supply chain) was deliberately skipped ahead of
-— still unstarted, ready to pick up whenever.**
+— still unstarted**
 
 | Phase | Deliverable | Status |
 |---|---|---|

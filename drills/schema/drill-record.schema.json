@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/utility-soc/elastic-dora-blueprint/drills/schema/drill-record.schema.json",
+  "$id": "https://github.com/utility-soc/dora-blueprint/drills/schema/drill-record.schema.json",
   "title": "Drill record",
   "description": "One flat JSON document per drill (build-spec §6.6). Deliberately boring: every field is either a measurement or a reference to one, never an assertion typed by a human at drill time.",
   "type": "object",

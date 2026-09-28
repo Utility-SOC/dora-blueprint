@@ -9,7 +9,7 @@ metadata:
 spec:
   description: "Resilience Lab platform components"
   sourceRepos:
-    - git@github.com:utility-soc/elastic-dora-blueprint.git
+    - git@github.com:utility-soc/dora-blueprint.git
     - https://grafana.github.io/helm-charts
     - https://charts.min.io/
     - https://vmware-tanzu.github.io/helm-charts

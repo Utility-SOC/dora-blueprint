@@ -131,8 +131,8 @@ spec:
                   hostPath:
                     path: /var/log/audit/kube
                     type: Directory
-    - repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
-      targetRevision: master
+    - repoURL: git@github.com:utility-soc/dora-blueprint.git
+      targetRevision: main
       path: infrastructure/observability/alloy-rbac
   destination:
     server: https://kubernetes.default.svc

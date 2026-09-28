@@ -26,8 +26,8 @@ metadata:
 spec:
   project: platform
   source:
-    repoURL: git@github.com:utility-soc/elastic-dora-blueprint.git
-    targetRevision: master
+    repoURL: git@github.com:utility-soc/dora-blueprint.git
+    targetRevision: main
     path: infrastructure/cilium
     directory:
       recurse: true

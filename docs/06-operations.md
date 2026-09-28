@@ -40,7 +40,7 @@ real answer is "not built yet" rather than describing an aspirational process.
 ## 2. Change procedure
 
 There is no CI pipeline and no branch protection on this repo today — every change lands via a
-direct commit/push to `master`, and Argo CD's `selfHeal: true` picks it up automatically. That's
+direct commit/push to `main`, and Argo CD's `selfHeal: true` picks it up automatically. That's
 a deliberate scope cut for a reference lab with one operator, not a recommendation: a real
 deployment of this pattern would gate every merge behind CI (manifest linting, `kubeconform`/
 `kyverno test`, a `sops` pre-commit check that no plaintext secret is staged) and branch
@@ -52,7 +52,7 @@ as a real, current limitation rather than silently assumed away.
 1. Edit the manifest(s) under `infrastructure/` or `apps/` (or `platform/talos/` for
    node-level config, which requires a `talosctl apply-config` — not just a git push, since Talos
    config isn't Argo CD-managed).
-2. Commit and push to `master`.
+2. Commit and push to `main`.
 3. Argo CD syncs automatically (`selfHeal: true` on every `Application`). **Known gotcha, hit
    repeatedly in this repo's own history**: `apps/*.yaml` Application resources are themselves
    synced by `root-app` (the app-of-apps). If you changed an *Application's own spec* (new Helm
@@ -163,6 +163,6 @@ Two things worth being explicit about in the meantime, since "not built yet" doe
 | Question | Today | Planned |
 |---|---|---|
 | How do I bring the lab up? | `make lab-core` (idempotent, re-runnable) | — |
-| How do I make a change? | Direct push to `master`, Argo CD auto-syncs; higher-risk classes (Cilium, Kyverno, secrets) get an audit-first or decrypt/re-encrypt step, per §2 | CI + branch protection (not built — single-operator lab today) |
+| How do I make a change? | Direct push to `main`, Argo CD auto-syncs; higher-risk classes (Cilium, Kyverno, secrets) get an audit-first or decrypt/re-encrypt step, per §2 | CI + branch protection (not built — single-operator lab today) |
 | Do I need a ticketing system? | Yes — GLPI, self-hosted on this cluster. Every drill auto-opens a real ticket with computed DORA/NIS2 deadlines (Phase 11, done) | GLPI's asset-management module as a future source for DORA Art. 28's Register of Information (Phase 12) |
 | Where is evidence parsed? | Nowhere automated — `docs/03-control-matrix.md` is the hand-maintained index into `docs/evidence/samples/` | Phase 14: `make evidence` generates a consolidated report; write-once/tamper-evidence guarantees (build-spec P7) not yet scheduled to a specific phase |

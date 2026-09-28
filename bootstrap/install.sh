@@ -14,7 +14,7 @@ CILIUM_CHART_VERSION="1.19.6"
 ARGOCD_VERSION="v3.4.5"
 WORKERS="${WORKERS:-2}"
 
-REPO_SSH_URL="git@github.com:utility-soc/elastic-dora-blueprint.git"
+REPO_SSH_URL="git@github.com:utility-soc/dora-blueprint.git"
 # Dedicated per-cluster talosconfig, not the shared ~/.talos/config: `talosctl cluster
 # destroy` doesn't clean up the shared config's context entry, so a second create
 # collides with the stale one and silently gets renamed ("resilience-lab-1", "-2", ...),
@@ -132,7 +132,7 @@ trap 'shred -u "$SSH_KEY_TMP" 2>/dev/null || rm -f "$SSH_KEY_TMP"' EXIT
 sops --decrypt "$REPO_ROOT/bootstrap/secrets/argocd-repo-key.enc.yaml" \
   | awk '/^argocd_ssh_private_key:/{f=1;next} f' | sed 's/^    //' > "$SSH_KEY_TMP"
 
-kubectl -n argocd create secret generic elastic-dora-blueprint-repo \
+kubectl -n argocd create secret generic dora-blueprint-repo \
   --from-literal=type=git \
   --from-literal=url="$REPO_SSH_URL" \
   --from-file=sshPrivateKey="$SSH_KEY_TMP" \

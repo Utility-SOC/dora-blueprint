@@ -45,7 +45,7 @@ spec:
             - count: 1
               entries:
                 - keyless:
-                    subject: "https://github.com/Utility-SOC/elastic-dora-blueprint/.github/workflows/build-images.yaml@refs/heads/master"
+                    subject: "https://github.com/Utility-SOC/dora-blueprint/.github/workflows/build-images.yaml@refs/heads/main"
                     issuer: "https://token.actions.githubusercontent.com"
                     rekor:
                       url: https://rekor.sigstore.dev
@@ -66,7 +66,7 @@ spec:
                 - count: 1
                   entries:
                     - keyless:
-                        subject: "https://github.com/Utility-SOC/elastic-dora-blueprint/.github/workflows/build-images.yaml@refs/heads/master"
+                        subject: "https://github.com/Utility-SOC/dora-blueprint/.github/workflows/build-images.yaml@refs/heads/main"
                         issuer: "https://token.actions.githubusercontent.com"
                         rekor:
                           url: https://rekor.sigstore.dev

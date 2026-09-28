@@ -69,8 +69,8 @@ Built phase-by-phase per [`BUILD-SPEC.md`](BUILD-SPEC.md) §12, breadth-last. Ph
 milestone the build spec names as the point the project's thesis is proven — everything after
 is expansion, not proof of concept.
 
-**Phases 10, 11, and 13 are all done. Phase 12 (supply chain) was deliberately skipped ahead of
-— still unstarted**
+**Phases 10, 11, 12, and 13 are all done.** Phase 12 (supply chain) was deliberately skipped ahead
+of and picked up later.
 
 | Phase | Deliverable | Status |
 |---|---|---|
@@ -114,10 +114,6 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   *entire* platform (Argo CD, Grafana, GLPI, Keycloak, every namespace), not just the canary
   tenant, until fully rebuilt. Deliberately not folded into Phase 10 alongside the other,
   much lower-blast-radius scenarios; will get its own dedicated pass.
-- **Phase 12 — Supply chain.** Build-time image signing (apko + cosign keyless signing),
-  `verifyImages` admission enforcement, and a generated Register of Information / SBOMs for
-  DORA Art. 28–30. Not started; the likely target is repackaging `canary/writer.py` as a signed
-  apko-built image.
 - **Phase 14 — Remaining scenarios, kube-bench, evidence report generator.** `make evidence` is
   currently a stub; today, `docs/03-control-matrix.md` is the hand-maintained index into
   `docs/evidence/samples/` — see [`docs/06-operations.md`](docs/06-operations.md) §4.

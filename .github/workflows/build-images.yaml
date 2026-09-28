@@ -17,7 +17,7 @@ name: Build, sign, and attest images
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - "images/**"
       - "canary/writer.py"
@@ -142,10 +142,10 @@ jobs:
         # requirement ("the specific repository *and workflow identity*"), and is the same
         # identity infrastructure/kyverno/policies/verify-image-signatures.yaml requires at
         # admission. schedule/workflow_dispatch runs (the weekly rebuild) still execute against
-        # the default branch, so the ref is always refs/heads/master here, never a PR ref.
+        # the default branch, so the ref is always refs/heads/main here, never a PR ref.
         run: |
           set -euo pipefail
-          IDENTITY="https://github.com/${{ github.repository }}/.github/workflows/build-images.yaml@refs/heads/master"
+          IDENTITY="https://github.com/${{ github.repository }}/.github/workflows/build-images.yaml@refs/heads/main"
           cosign verify \
             --certificate-identity "$IDENTITY" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \

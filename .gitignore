@@ -1,11 +1,21 @@
 # generated evidence (sample artifacts are committed explicitly under docs/evidence/samples/;
-# manifest.yaml/collect.py are source, by-control/ is derived output but committed too so it's
-# browsable on GitHub without cloning and running the script)
+# manifest.yaml/collect.py/chain.py/oscal.py/report.py are source; by-control/,
+# integrity-chain.json, oscal-assessment-results.json, and report.md are all derived output but
+# committed too so they're browsable on GitHub without cloning and running anything --
+# integrity-chain.json specifically MUST be committed, not just generated locally:
+# .github/workflows/evidence-integrity.yaml's tamper-check diffs a fresh regeneration against
+# the committed copy, which is meaningless if there's no committed baseline to diff against)
 docs/evidence/*
 !docs/evidence/samples/
 !docs/evidence/manifest.yaml
 !docs/evidence/collect.py
+!docs/evidence/chain.py
+!docs/evidence/oscal.py
+!docs/evidence/report.py
 !docs/evidence/by-control/
+!docs/evidence/integrity-chain.json
+!docs/evidence/oscal-assessment-results.json
+!docs/evidence/report.md
 
 # secrets material — never committed in plaintext; SOPS-encrypted (*.enc.yaml) files are the exception
 *.key

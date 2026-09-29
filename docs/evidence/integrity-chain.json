@@ -1,0 +1,74 @@
+{
+  "algorithm": "sha256",
+  "genesis": "0000000000000000000000000000000000000000000000000000000000000000",
+  "generated_at": "2026-09-29T04:19:42Z",
+  "file_count": 13,
+  "entries": [
+    {
+      "path": "samples/argocd-rbac-verification-20260729045300.txt",
+      "file_hash": "81804b24f3c13be465412983b7912419f8d4b0ab4301167a53d620740b4cd814",
+      "chain_hash": "291d2ab8c10d1d0045b7a83c43502a48190fd8fd15a98f0b69511f592fc28123"
+    },
+    {
+      "path": "samples/cilium-network-segmentation-20260729015300.txt",
+      "file_hash": "054ec9376fad018716de547efd5d87754eb2ce855cce093093c80df6696f94cb",
+      "chain_hash": "ab5f36a51f659cab74ded1640c8b2a7d1f842d21d8e0503347bbe5b7ff659cea"
+    },
+    {
+      "path": "samples/credential-compromise-20260730044858.txt",
+      "file_hash": "63b619d8e4e0ad87c52e45e5021b0e560a2c267d5b2edfb84c3ac45dac319607",
+      "chain_hash": "f88872195a4c11d672ef7b61d8fa693749c564553b862c151f0a20d7beefa262"
+    },
+    {
+      "path": "samples/detection-latency-20260729135024.txt",
+      "file_hash": "e19aa5b6dcafc4f34855038c58200a70801e746ab359fd103f4dd6cdf319c36d",
+      "chain_hash": "da87d819566c2f32091718664d9b45da91630b1a408d303195a5fb3e095a2c2c"
+    },
+    {
+      "path": "samples/host-posture-20260801015522.json",
+      "file_hash": "8113af0881522a8970540df86a3334d73f7c0d34a7366748fc5186d556f8f438",
+      "chain_hash": "d4c73a91076b16261c818760df7160ac120524a6ce682fca386808030ee981a6"
+    },
+    {
+      "path": "samples/incident-response-20260729210627.txt",
+      "file_hash": "ba7c37c41a7ad5ce1bd69223615b5c02ea3e963683be7f33096d39447e872efb",
+      "chain_hash": "6223c8b0b8919b4f46cf2fb4bb2e58ed145fc4ed86e08f09f3f1c268fe1020bf"
+    },
+    {
+      "path": "samples/keycloak-ldap-oidc-verification-20260729043900.txt",
+      "file_hash": "7b0b47cf9cffafcf6b6451651a540a827ef5e478a7e7ca69a69ed8c44af52e73",
+      "chain_hash": "395dc30d2b335a8b9a0bccbfaedfaa3f8afdd4e12f3471a4db40bfff69c9fdfc"
+    },
+    {
+      "path": "samples/kyverno-admission-20260728202845.txt",
+      "file_hash": "175c75d4170588720614a55eee41c30bf34ac7646c064db8d11cdb694d4a55b1",
+      "chain_hash": "c940eae0d58e2ccc426558609acd5ef772605b5f07b5bb6ec71b3c227e104509"
+    },
+    {
+      "path": "samples/ns-restore-20260728152755.json",
+      "file_hash": "bd624c6f8cb82137ea5e36d2d5aeebf3d942c4132d807bd19ffe2348496e951b",
+      "chain_hash": "fc41d9f108ea2089bde8d9e726d8561ac6c93911bc35a5d2abfa1cebef5b1ab3"
+    },
+    {
+      "path": "samples/ns-restore-20260728204154.json",
+      "file_hash": "c624e7dcea035b153d59026b314531a6d8f45532261437e72763d628b35c949b",
+      "chain_hash": "ddb5a2dbc41bd03b33d8a5fa9a11e9e24de8395e1c013cd0353037123cc903fb"
+    },
+    {
+      "path": "samples/ns-restore-20260729135024.json",
+      "file_hash": "a64a3794f329acfa17842d0b54678854769b62a79e744dcbfc979552536bb3bf",
+      "chain_hash": "262733eaec9397ef8bd1f73c5985325eb5bf445964889976aa9a7b02132eea71"
+    },
+    {
+      "path": "samples/pki-chain-verification-20260729025500.txt",
+      "file_hash": "9efd81ae044c9ebc07d6b51108631512053210dfb3d4f2d75832c985ebfc9b12",
+      "chain_hash": "59c3d5cb407746722b264be586551ddc561d0d42c61c78e21c356f4ec6c84c9f"
+    },
+    {
+      "path": "samples/scenario-breadth-20260730021814.txt",
+      "file_hash": "a5d9feaa4097deaf5f70a16a8220399649697b8fde78407bd4022b4369a548cd",
+      "chain_hash": "017ed1b9a5196067e64edacef27b75b628bd59632bb351ac0d4515ca1aae68e1"
+    }
+  ],
+  "chain_head": "017ed1b9a5196067e64edacef27b75b628bd59632bb351ac0d4515ca1aae68e1"
+}

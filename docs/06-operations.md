@@ -142,21 +142,30 @@ calls out by name as what a reviewer who never deploys this lab should be able t
 in the README (an asciinema recording, an RTO/RPO trend chart, "a sample generated evidence
 report").
 
-Two things worth being explicit about in the meantime, since "not built yet" doesn't mean
-"unusable now":
+Two things worth being explicit about, both now real as of Phases 14 and 20:
 
-- **The control matrix itself is the parse target today.** It's not a placeholder waiting for
-  automation — read as a table, it already answers "what evidence backs this control" for every
-  row currently marked `generated`, with a direct link to the real artifact. The automation in
-  Phase 14 makes that easier to consume in bulk (a trend over many drill runs, a single exported
-  PDF/HTML for an auditor); it doesn't change what's true today.
+- **`make evidence` (Phase 14, done).** Runs `docs/evidence/collect.py` (by-control/
+  regeneration, pre-existing since Phase 21), `docs/evidence/chain.py` (the hash chain below),
+  `docs/evidence/oscal.py` (a real OSCAL `assessment-results` JSON document — a representative
+  subset of the model, not a verbatim schema implementation; see the script's own docstring),
+  and `docs/evidence/report.py` (a generated Markdown rollup, `docs/evidence/report.md`, grouped
+  by framework). `docs/03-control-matrix.md` stays the authoritative, hand-maintained
+  control-to-requirement mapping — this automation reads `manifest.yaml`, the same source
+  `collect.py` already used, and makes it consumable in bulk without changing what's
+  hand-asserted there.
 - **Evidence write-once/tamper-evidence** (build-spec P7: "Logs an admin can silently delete
-  are not evidence") is itself not implemented yet — today's evidence samples are plain
-  git-tracked files, which means git history is the only tamper-evidence property they currently
-  have (a deleted or edited sample shows up as a diff). Real write-once guarantees (ILM,
-  write-only ingest role, object-locked storage snapshots) are scoped to the detection-layer
-  work (Phase 9) and haven't landed. Don't cite this repo's evidence as tamper-proof beyond "it's
-  in git history" until that phase lands.
+  are not evidence") is real as of Phase 20, via a hash chain rather than the ILM/object-lock
+  approach build-spec §6.7 originally sketched (written when this stack was still
+  Elasticsearch-based, before the pivot to Loki — MinIO object lock remains available as a
+  second, not-yet-built option). `docs/evidence/chain.py` chains every file in
+  `docs/evidence/samples/` the same way `canary/writer.py` already chains its own rows — each
+  entry's hash commits to its content and the previous entry's hash, so any edit, removal, or
+  reorder breaks the chain from that point forward (`make evidence-verify` checks this locally).
+  `.github/workflows/evidence-integrity.yaml` goes further: it fails if the committed chain
+  doesn't match a fresh recomputation, then signs the chain head keylessly (GitHub OIDC ->
+  Fulcio -> Rekor, the same mechanism Phase 12 already uses for image signing) so the chain's
+  integrity has a real, independently-checkable transparency-log entry — not just "trust git
+  history."
 
 ## 5. Summary
 
@@ -165,4 +174,4 @@ Two things worth being explicit about in the meantime, since "not built yet" doe
 | How do I bring the lab up? | `make lab-core` (idempotent, re-runnable) | — |
 | How do I make a change? | Direct push to `main`, Argo CD auto-syncs; higher-risk classes (Cilium, Kyverno, secrets) get an audit-first or decrypt/re-encrypt step, per §2 | CI + branch protection (not built — single-operator lab today) |
 | Do I need a ticketing system? | Yes — GLPI, self-hosted on this cluster. Every drill auto-opens a real ticket with computed DORA/NIS2 deadlines (Phase 11, done) | GLPI's asset-management module as a future source for DORA Art. 28's Register of Information (Phase 12) |
-| Where is evidence parsed? | Nowhere automated — `docs/03-control-matrix.md` is the hand-maintained index into `docs/evidence/samples/` | Phase 14: `make evidence` generates a consolidated report; write-once/tamper-evidence guarantees (build-spec P7) not yet scheduled to a specific phase |
+| Where is evidence parsed? | `docs/03-control-matrix.md` is still the authoritative, hand-maintained index; `make evidence` (Phase 14) generates `docs/evidence/report.md` + `docs/evidence/oscal-assessment-results.json` from `manifest.yaml`; `make evidence-verify` (Phase 20) checks the sha256 hash chain over `docs/evidence/samples/`, independently anchored by a keyless-signed chain head in CI | MinIO object-lock as a second, stronger write-once mechanism alongside the hash chain — not yet built |

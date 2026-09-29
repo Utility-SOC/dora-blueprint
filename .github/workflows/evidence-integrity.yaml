@@ -1,0 +1,100 @@
+# Phase 20 (evidence integrity): closes the gap docs/06-operations.md and
+# docs/05-shared-responsibility.md both state plainly -- today's evidence samples are ordinary
+# git-tracked files, so git history alone is their tamper-evidence property. docs/evidence/chain.py
+# gives them a real hash chain (same mechanism canary/writer.py already uses for its own rows);
+# this workflow anchors that chain's head with a real, externally-verifiable signature rather
+# than leaving "trust git history" as the only property -- the same GitHub OIDC -> Fulcio ->
+# Rekor keyless-signing mechanism Phase 12 already uses for image signing
+# (.github/workflows/build-images.yaml), applied to a blob instead of an image.
+#
+# Regenerate-then-commit, same convention as images/generate-roi.py: a contributor runs
+# `python3 docs/evidence/chain.py` locally after adding/changing a sample and commits the
+# result. This job's own regeneration step is a *check* that this happened, not a bot
+# auto-commit -- `git diff --exit-code` fails the job if the committed
+# docs/evidence/integrity-chain.json doesn't match a fresh recomputation, catching "evidence
+# edited without regenerating the chain" before it ever gets signed.
+name: Evidence integrity chain
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/evidence/samples/**"
+      - "docs/evidence/chain.py"
+      - "docs/evidence/integrity-chain.json"
+      - ".github/workflows/evidence-integrity.yaml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write # required for cosign keyless: Fulcio issues a short-lived cert bound to this run's OIDC token
+
+jobs:
+  chain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Recompute the chain and confirm it matches what's committed
+        run: |
+          set -euo pipefail
+          python3 docs/evidence/chain.py
+          if ! git diff --exit-code docs/evidence/integrity-chain.json; then
+            echo "::error::docs/evidence/integrity-chain.json is out of date -- run \`python3 docs/evidence/chain.py\` locally and commit the result" >&2
+            exit 1
+          fi
+
+      - name: Verify the chain itself (per-file hashes, order, chain_head)
+        run: python3 docs/evidence/chain.py --verify
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the chain file (keyless)
+        run: |
+          set -euo pipefail
+          cosign sign-blob --yes \
+            --output-signature docs/evidence/integrity-chain.json.sig \
+            --output-certificate docs/evidence/integrity-chain.json.pem \
+            docs/evidence/integrity-chain.json
+
+      - name: Verify signature (real verification, not assumed from a 0 exit code above)
+        # Exact --certificate-identity, same discipline as build-images.yaml's own final
+        # verification step and infrastructure/kyverno/policies/verify-image-signatures.yaml's
+        # admission-time check.
+        run: |
+          set -euo pipefail
+          IDENTITY="https://github.com/${{ github.repository }}/.github/workflows/evidence-integrity.yaml@refs/heads/main"
+          cosign verify-blob \
+            --certificate-identity "$IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            --signature docs/evidence/integrity-chain.json.sig \
+            --certificate docs/evidence/integrity-chain.json.pem \
+            docs/evidence/integrity-chain.json
+
+      - name: Upload signature + certificate
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-integrity-chain-signature
+          path: |
+            docs/evidence/integrity-chain.json
+            docs/evidence/integrity-chain.json.sig
+            docs/evidence/integrity-chain.json.pem
+          retention-days: 90
+
+      - name: Summary
+        run: |
+          CHAIN_HEAD="$(python3 -c 'import json; print(json.load(open("docs/evidence/integrity-chain.json"))["chain_head"])')"
+          {
+            echo "### Evidence integrity chain signed"
+            echo ""
+            echo "Chain head: \`${CHAIN_HEAD}\`"
+            echo ""
+            echo "Signed keylessly (GitHub OIDC -> Fulcio -> Rekor) -- the signature and certificate are"
+            echo "attached to this run as the \`evidence-integrity-chain-signature\` artifact. Anyone can"
+            echo "independently verify with:"
+            echo ""
+            echo '```'
+            echo "cosign verify-blob --certificate-identity https://github.com/${{ github.repository }}/.github/workflows/evidence-integrity.yaml@refs/heads/main --certificate-oidc-issuer https://token.actions.githubusercontent.com --signature integrity-chain.json.sig --certificate integrity-chain.json.pem integrity-chain.json"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

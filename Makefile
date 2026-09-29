@@ -1,4 +1,4 @@
-.PHONY: lab-core lab-full lab-dr drill evidence images
+.PHONY: lab-core lab-full lab-dr drill evidence evidence-verify images
 
 # Targets not yet implemented fail loudly rather than pretending to work —
 # see build-spec P1 (no claim without an implementation).
@@ -17,7 +17,13 @@ drill:
 	@SCENARIO=$(SCENARIO) bash drills/lib/run-drill.sh
 
 evidence:
-	@echo "evidence: not implemented yet (build-spec Phase 14)"; exit 1
+	@python3 docs/evidence/collect.py
+	@python3 docs/evidence/chain.py
+	@python3 docs/evidence/oscal.py
+	@python3 docs/evidence/report.py
+
+evidence-verify:
+	@python3 docs/evidence/chain.py --verify
 
 images:
 	@echo "images: no local target -- built, signed (cosign keyless), and SBOM-attested by .github/workflows/build-images.yaml instead (Phase 12, done)"; exit 1

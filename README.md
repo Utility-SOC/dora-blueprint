@@ -95,20 +95,20 @@ of and picked up later.
 | 11 | Incident response — classification, regulatory clocks, GLPI ticket automation | done |
 | 12 | Supply chain — apko/cosign image signing, `verifyImages`, generated Register of Information | done |
 | 13 | Endpoint runtime security — Tetragon + `credential-compromise` scenario | done |
-| 14 | Remaining scenarios, kube-bench, evidence report generator | not started |
+| 14 | Remaining scenarios, kube-bench, evidence report generator | partial (`make evidence` done; kube-bench and the three remaining scenarios need a live cluster, still not started) |
 | 15 | README polish, asciinema, screenshots | not started |
 | 16 | Security operations — vulnerability scanning/tracking, continuous monitoring, endpoint/config baseline compliance, living asset inventory | not started |
 | 17 | Metrics & infrastructure observability — Prometheus/kube-state-metrics/node-exporter, real resource dashboards | not started |
 | 18 | Secrets lifecycle & certificate management — expiry monitoring for the CA chain and leaf certs, secret-age tracking | not started |
 | 19 | Chaos engineering breadth + DR tier — scenario 4 (control-plane/etcd loss), cross-cluster restore, Litmus decision | not started |
-| 20 | Evidence integrity — write-once/tamper-evident storage for drill records and evidence samples | not started |
+| 20 | Evidence integrity — write-once/tamper-evident storage for drill records and evidence samples | done (hash chain + keyless-signed chain head; MinIO object-lock remains a possible second mechanism, not built) |
 | 21 | Evidence tagging & crosswalk infrastructure — multi-framework manifest, generated per-control evidence folders | done |
 | 22 | NIST SP 800-53 crosswalk (representative subset, PE excluded — cloud-provider assumption) | done |
 | 23 | Host/config compliance scanning — real SELinux/AppArmor/FIPS status across all hosts, honestly reported | done (appserv; Talos nodes documented as architectural fact — no shell exists to query) |
 | 24 | Vulnerability management — Trivy Operator, first-detected-date tracking, CISA KEV cross-reference | done |
 | 25 | ATT&CK detection mapping — both real detection rules tagged with the technique they observe | done |
 | 26 | Cryptography evidence, expanded — real negotiated TLS version/cipher suite, SOPS/at-rest encryption evidence | not started |
-| 27 | OSCAL machine-readable export — real OSCAL JSON generated from the evidence manifest | not started |
+| 27 | OSCAL machine-readable export — real OSCAL JSON generated from the evidence manifest | done |
 | 28 | Real Wazuh deployment (manager + indexer) — a genuine second HIDS/SIEM layer; a leftover, disabled Wazuh agent already sits on appserv from an earlier attempt | not started |
 
 Full phase-by-phase build notes — real bugs found and fixed by actually running each phase, not
@@ -121,9 +121,12 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   *entire* platform (Argo CD, Grafana, GLPI, Keycloak, every namespace), not just the canary
   tenant, until fully rebuilt. Deliberately not folded into Phase 10 alongside the other,
   much lower-blast-radius scenarios; will get its own dedicated pass.
-- **Phase 14 — Remaining scenarios, kube-bench, evidence report generator.** `make evidence` is
-  currently a stub; today, `docs/03-control-matrix.md` is the hand-maintained index into
-  `docs/evidence/samples/` — see [`docs/06-operations.md`](docs/06-operations.md) §4.
+- **Phase 14 — Remaining scenarios, kube-bench, evidence report generator (partial).**
+  `make evidence` is done — `docs/evidence/report.py`/`oscal.py` generate a consolidated
+  Markdown report and a real OSCAL JSON export (Phase 27) from `manifest.yaml`;
+  `docs/03-control-matrix.md` stays the authoritative, hand-maintained index. `kube-bench` and
+  the three remaining drill scenarios (DNS failure, certificate expiry, clock skew) still need a
+  live cluster to build and verify against — not started.
 - **Phase 16 — Security operations.** Everything up through Phase 13 proves one narrow thing per
   drill or admission check; nothing yet stands watch continuously, independent of a drill
   happening to run. Vulnerability scanning and tracking (severity, first-detected date, age
@@ -134,13 +137,21 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   Register of Information to GLPI's own asset module. Organized with the breadth of a mature security
   control catalog without naming or branding it after any specific external framework — see
   `BUILD-SPEC.md` §12 for the full scope breakdown. Not started.
-- **Phases 17–20 — deeper security & observability**, added at the repo owner's direct request.
+- **Phases 17–19 — deeper security & observability**, added at the repo owner's direct request.
   Real gaps this repo's own build surfaced, not generic filler: **17** (metrics/infra
   observability — every dashboard here today is log-based, there's no real CPU/memory/restart
   metrics story at all); **18** (secrets/certificate lifecycle — Phase 7's real CA chain has no
-  expiry monitoring); **19** (chaos breadth + the never-built `dr` tier + a real Litmus decision);
-  **20** (evidence integrity — closes the write-once/tamper-evidence gap `docs/04-limitations.md`
-  already flags). See `BUILD-SPEC.md` §12 for the full scope breakdown on each. Not started.
+  expiry monitoring); **19** (chaos breadth + the never-built `dr` tier + a real Litmus decision).
+  See `BUILD-SPEC.md` §12 for the full scope breakdown on each. Not started.
+- **Phase 20 — evidence integrity — done.** Closes the write-once/tamper-evidence gap
+  `docs/05-shared-responsibility.md` and `docs/06-operations.md` both flag plainly: today's
+  evidence samples were plain git-tracked files, so git history alone was their tamper-evidence
+  property. `docs/evidence/chain.py` sha256-chains every file in `docs/evidence/samples/`
+  (`make evidence-verify` checks it), and `.github/workflows/evidence-integrity.yaml` signs the
+  chain head keylessly in CI (GitHub OIDC -> Fulcio -> Rekor, reusing Phase 12's image-signing
+  mechanism for a blob instead of an image) — a real, independently-checkable anchor, not just
+  "trust git history." MinIO object-lock remains a possible second, stronger mechanism, not
+  built.
 - **Phases 21/22/25 — multi-framework evidence, NIST 800-53, ATT&CK**, added and built at the
   repo owner's direct request, scoped explicitly as a *reference-architecture capability*
   build — demonstrating the machinery real compliance/detection work needs, not running live
@@ -153,14 +164,20 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   staffed; documentation assumes three operators purely so role-separation controls can be
   described honestly). `docs/07-attack-mapping.md` ties both real detection rules to the ATT&CK
   technique they actually observe, as real Grafana labels on the rules themselves. Done.
-- **Phases 23/24/26/27 — host compliance, vuln management, crypto evidence, OSCAL** — the
-  remaining pieces of that same push, not yet built. **23** was seeded by a real finding:
-  `appserv` has no SELinux at all (Ubuntu uses AppArmor; Talos has no traditional LSM story
-  either) — the point isn't to fake compliance, it's to pull and honestly report real host
-  security posture, including "not applicable" as a legitimate result. **24** is Trivy Operator
-  plus a real CISA KEV cross-reference, not just a CVE count. **27** is the real answer to "can we
-  get a machine-readable GPO-style export" — OSCAL is the modern, NIST-native machine-readable
-  format for exactly this, generated from the same manifest as Phase 21 rather than hand-written.
+- **Phases 23/24/27 — host compliance, vuln management, OSCAL — done.** **23** was seeded by a
+  real finding: `appserv` has no SELinux at all (Ubuntu uses AppArmor; Talos has no traditional
+  LSM story either) — the point isn't to fake compliance, it's to pull and honestly report real
+  host security posture, including "not applicable" as a legitimate result. **24** is Trivy
+  Operator plus a real CISA KEV cross-reference and first-detected-date/SLA tracking, not just a
+  CVE count. **27** is the real answer to "can we get a machine-readable GPO-style export" —
+  OSCAL is the modern, NIST-native machine-readable format for exactly this
+  (`docs/evidence/oscal.py`, a representative subset of the `assessment-results` model, not a
+  verbatim schema implementation), generated from the same manifest as Phase 21 rather than
+  hand-written.
+- **Phase 26 — cryptography evidence, expanded** — not yet built. Real negotiated TLS
+  version/cipher suite and SOPS/at-rest encryption evidence both need a live cluster to capture
+  (an actual served-certificate handshake, an actual encrypted secret), unlike 20/27 above which
+  were buildable and verifiable without one.
 - **Phase 28 — real Wazuh deployment.** Investigating a leftover, disabled `filebeat` install on
   appserv (found while cleaning up an unrelated resource-hogging Elastic Agent process) turned up
   that it was actually configured as a Wazuh agent's filebeat module, pointed at a Wazuh indexer

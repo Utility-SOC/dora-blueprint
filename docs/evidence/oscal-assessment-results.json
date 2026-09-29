@@ -1,0 +1,1409 @@
+{
+  "assessment-results": {
+    "uuid": "e4f18c19-55ad-559b-9ac9-855207cd4193",
+    "metadata": {
+      "title": "dora-blueprint Generated Assessment Results",
+      "last-modified": "2026-09-29T04:19:42Z",
+      "version": "2026-09-29",
+      "oscal-version": "1.1.2",
+      "remarks": "Generated, not hand-authored -- a representative subset of the OSCAL assessment-results model covering the same substantive relationships (evidence artifact -> observation -> finding -> control) as a full Assessment Plan/Results workflow would, not a verbatim implementation of one. Every finding's status is 'satisfied' because this reflects what this repo already asserts and evidences elsewhere (manifest.yaml, docs/03-control-matrix.md), not an independent audit. See docs/04-limitations.md."
+    },
+    "import-ap": {
+      "href": "../manifest.yaml",
+      "remarks": "Not a real OSCAL Assessment Plan document -- there isn't one in this repo. Points at manifest.yaml, this repo's actual source of evidence scope/mapping, stated plainly rather than fabricating a compliant-looking AP this generator doesn't really have."
+    },
+    "results": [
+      {
+        "uuid": "e1e21fc9-f226-51c0-a9dd-166f7f372363",
+        "title": "dora-blueprint generated assessment results",
+        "description": "Generated from docs/evidence/manifest.yaml's real artifact-to-control-tag mapping by docs/evidence/oscal.py -- one observation per real evidence artifact, one finding per (artifact, control tag) pair. Regenerate after any manifest.yaml change.",
+        "start": "2026-09-29T04:19:42Z",
+        "reviewed-controls": {
+          "control-selections": [
+            {
+              "description": "All control tags present in manifest.yaml at generation time; see target-id on each finding."
+            }
+          ]
+        },
+        "observations": [
+          {
+            "uuid": "fbbf17f7-ea5e-584c-86f0-019a026b86dd",
+            "title": "kyverno-admission-20260728202845.txt",
+            "description": "Real admission denial of a privileged pod (Kyverno PSS restricted enforcement)",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/kyverno-admission-20260728202845.txt",
+                "description": "Real admission denial of a privileged pod (Kyverno PSS restricted enforcement)"
+              }
+            ],
+            "collected": "2026-07-28T20:28:45Z"
+          },
+          {
+            "uuid": "45536d93-62e0-5309-b19a-d1ee141f3711",
+            "title": "cilium-network-segmentation-20260729015300.txt",
+            "description": "Default-deny blocking unwanted egress while explicit allows and cross-namespace DNS keep working, across all 8 segmented namespaces",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/cilium-network-segmentation-20260729015300.txt",
+                "description": "Default-deny blocking unwanted egress while explicit allows and cross-namespace DNS keep working, across all 8 segmented namespaces"
+              }
+            ],
+            "collected": "2026-07-29T01:53:00Z"
+          },
+          {
+            "uuid": "17659980-acd9-576c-93f0-86305c248d71",
+            "title": "scenario-breadth-20260730021814.txt",
+            "description": "Real, repeatable drill runs across three distinct fault types, including a live Cilium deny/recovery cycle",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/scenario-breadth-20260730021814.txt",
+                "description": "Real, repeatable drill runs across three distinct fault types, including a live Cilium deny/recovery cycle"
+              }
+            ],
+            "collected": "2026-07-30T02:18:14Z"
+          },
+          {
+            "uuid": "7a7a8a65-315c-595b-b2fc-71375bd355be",
+            "title": "detection-latency-20260729135024.txt",
+            "description": "Real Grafana Alerting rule independently observing a namespace-delete fault via the kube-audit log",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/detection-latency-20260729135024.txt",
+                "description": "Real Grafana Alerting rule independently observing a namespace-delete fault via the kube-audit log"
+              }
+            ],
+            "collected": "2026-07-29T13:50:24Z"
+          },
+          {
+            "uuid": "b051bc1e-ae64-52f9-87d8-034f92d7ab1f",
+            "title": "ns-restore-20260729135024.json",
+            "description": "Real non-null t_detect captured from Grafana's live Alerting API for the same namespace-delete detection",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/ns-restore-20260729135024.json",
+                "description": "Real non-null t_detect captured from Grafana's live Alerting API for the same namespace-delete detection"
+              }
+            ],
+            "collected": "2026-07-29T13:50:24Z"
+          },
+          {
+            "uuid": "c9a7a764-df8d-57b4-bb03-880099937500",
+            "title": "credential-compromise-20260730044858.txt",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/credential-compromise-20260730044858.txt",
+                "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification"
+              }
+            ],
+            "collected": "2026-07-30T04:48:58Z"
+          },
+          {
+            "uuid": "fb36365e-347f-5261-908b-17ee9b803c2d",
+            "title": "ns-restore-20260728152755.json",
+            "description": "Measured RTO 110s, measured RPO 71 records lost",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/ns-restore-20260728152755.json",
+                "description": "Measured RTO 110s, measured RPO 71 records lost"
+              }
+            ],
+            "collected": "2026-07-28T15:27:55Z"
+          },
+          {
+            "uuid": "203ee9c2-c2e2-501e-afcc-ad879765a84e",
+            "title": "ns-restore-20260728204154.json",
+            "description": "Additional ns-restore drill run, same category as the cited RTO/RPO evidence (not individually cited in the control matrix)",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/ns-restore-20260728204154.json",
+                "description": "Additional ns-restore drill run, same category as the cited RTO/RPO evidence (not individually cited in the control matrix)"
+              }
+            ],
+            "collected": "2026-07-28T20:41:54Z"
+          },
+          {
+            "uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8",
+            "title": "incident-response-20260729210627.txt",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/incident-response-20260729210627.txt",
+                "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section"
+              }
+            ],
+            "collected": "2026-07-29T21:06:27Z"
+          },
+          {
+            "uuid": "3cebf2fd-1f31-56e4-8379-c01f9dbf3ff0",
+            "title": "pki-chain-verification-20260729025500.txt",
+            "description": "Argo CD and Grafana's actually-served certificates checked live, both chaining to the platform's own offline Root CA",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/pki-chain-verification-20260729025500.txt",
+                "description": "Argo CD and Grafana's actually-served certificates checked live, both chaining to the platform's own offline Root CA"
+              }
+            ],
+            "collected": "2026-07-29T02:55:00Z"
+          },
+          {
+            "uuid": "df4570b6-0eef-561e-ae3a-ecc393019067",
+            "title": "keycloak-ldap-oidc-verification-20260729043900.txt",
+            "description": "Real LDAP-federated login, real groups claim in the issued token",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/keycloak-ldap-oidc-verification-20260729043900.txt",
+                "description": "Real LDAP-federated login, real groups claim in the issued token"
+              }
+            ],
+            "collected": "2026-07-29T04:39:00Z"
+          },
+          {
+            "uuid": "082afae7-ff42-5048-a867-62ebb124ccdf",
+            "title": "argocd-rbac-verification-20260729045300.txt",
+            "description": "Real API authorization decision distinguishing an admin role from a read-only one",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/argocd-rbac-verification-20260729045300.txt",
+                "description": "Real API authorization decision distinguishing an admin role from a read-only one"
+              }
+            ],
+            "collected": "2026-07-29T04:53:00Z"
+          },
+          {
+            "uuid": "af1e57ad-950a-5008-8d09-d177aa5871a5",
+            "title": "host-posture-20260801015522.json",
+            "description": "Real host security posture pulled live from appserv (LSM, FIPS, ASLR, SSH config, patching, host firewall), reported honestly including \"not applicable\" results; Talos nodes documented as an architectural fact (no shell exists to query them the same way)",
+            "methods": [
+              "EXAMINE"
+            ],
+            "types": [
+              "finding"
+            ],
+            "subjects": [
+              {
+                "subject-uuid": "00a8929e-4bf9-5bb7-8870-4adc440cac7e",
+                "type": "component"
+              }
+            ],
+            "relevant-evidence": [
+              {
+                "href": "samples/host-posture-20260801015522.json",
+                "description": "Real host security posture pulled live from appserv (LSM, FIPS, ASLR, SSH config, patching, host firewall), reported honestly including \"not applicable\" results; Talos nodes documented as an architectural fact (no shell exists to query them the same way)"
+              }
+            ],
+            "collected": "2026-08-01T01:55:22Z"
+          }
+        ],
+        "findings": [
+          {
+            "uuid": "6e7bf76a-703e-5966-bfaa-05402ac058af",
+            "title": "Evidence for dora:art-9",
+            "description": "Real admission denial of a privileged pod (Kyverno PSS restricted enforcement)",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-9",
+              "description": "Control tag dora:art-9, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "fbbf17f7-ea5e-584c-86f0-019a026b86dd"
+              }
+            ]
+          },
+          {
+            "uuid": "83ace1e1-e7bd-5f0a-b4e1-1c527a4c0f5e",
+            "title": "Evidence for nist80053:cm-7",
+            "description": "Real admission denial of a privileged pod (Kyverno PSS restricted enforcement)",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:cm-7",
+              "description": "Control tag nist80053:cm-7, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "fbbf17f7-ea5e-584c-86f0-019a026b86dd"
+              }
+            ]
+          },
+          {
+            "uuid": "65caabc7-ee77-50c6-b906-6e48bbb8c3cd",
+            "title": "Evidence for dora:art-9",
+            "description": "Default-deny blocking unwanted egress while explicit allows and cross-namespace DNS keep working, across all 8 segmented namespaces",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-9",
+              "description": "Control tag dora:art-9, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "45536d93-62e0-5309-b19a-d1ee141f3711"
+              }
+            ]
+          },
+          {
+            "uuid": "4f5b3630-4771-50f4-813d-79de1302cedd",
+            "title": "Evidence for iso27001:a-8-20",
+            "description": "Default-deny blocking unwanted egress while explicit allows and cross-namespace DNS keep working, across all 8 segmented namespaces",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-8-20",
+              "description": "Control tag iso27001:a-8-20, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "45536d93-62e0-5309-b19a-d1ee141f3711"
+              }
+            ]
+          },
+          {
+            "uuid": "f99b5fec-b5f2-5b3a-8502-c8b8efcd348e",
+            "title": "Evidence for nist80053:sc-7",
+            "description": "Default-deny blocking unwanted egress while explicit allows and cross-namespace DNS keep working, across all 8 segmented namespaces",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:sc-7",
+              "description": "Control tag nist80053:sc-7, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "45536d93-62e0-5309-b19a-d1ee141f3711"
+              }
+            ]
+          },
+          {
+            "uuid": "c733f0cf-4c82-5f6f-b07f-93cfbc6cc1ad",
+            "title": "Evidence for dora:art-9",
+            "description": "Real, repeatable drill runs across three distinct fault types, including a live Cilium deny/recovery cycle",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-9",
+              "description": "Control tag dora:art-9, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "17659980-acd9-576c-93f0-86305c248d71"
+              }
+            ]
+          },
+          {
+            "uuid": "1231f645-9ff4-5ef0-8a43-c7f5e4afc5da",
+            "title": "Evidence for dora:art-24-27",
+            "description": "Real, repeatable drill runs across three distinct fault types, including a live Cilium deny/recovery cycle",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-24-27",
+              "description": "Control tag dora:art-24-27, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "17659980-acd9-576c-93f0-86305c248d71"
+              }
+            ]
+          },
+          {
+            "uuid": "cc160358-b9cf-5893-b523-1ab184a11a68",
+            "title": "Evidence for iso27001:a-8-20",
+            "description": "Real, repeatable drill runs across three distinct fault types, including a live Cilium deny/recovery cycle",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-8-20",
+              "description": "Control tag iso27001:a-8-20, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "17659980-acd9-576c-93f0-86305c248d71"
+              }
+            ]
+          },
+          {
+            "uuid": "0c201bdd-719d-5951-9b41-bf26234e3413",
+            "title": "Evidence for nist80053:sc-7",
+            "description": "Real, repeatable drill runs across three distinct fault types, including a live Cilium deny/recovery cycle",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:sc-7",
+              "description": "Control tag nist80053:sc-7, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "17659980-acd9-576c-93f0-86305c248d71"
+              }
+            ]
+          },
+          {
+            "uuid": "80e3f76b-46d0-5a35-8689-3e64b89ee6ab",
+            "title": "Evidence for nist80053:cp-4",
+            "description": "Real, repeatable drill runs across three distinct fault types, including a live Cilium deny/recovery cycle",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:cp-4",
+              "description": "Control tag nist80053:cp-4, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "17659980-acd9-576c-93f0-86305c248d71"
+              }
+            ]
+          },
+          {
+            "uuid": "729c74e3-3eb7-59c2-ba68-b0dd102fb469",
+            "title": "Evidence for dora:art-10",
+            "description": "Real Grafana Alerting rule independently observing a namespace-delete fault via the kube-audit log",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-10",
+              "description": "Control tag dora:art-10, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "7a7a8a65-315c-595b-b2fc-71375bd355be"
+              }
+            ]
+          },
+          {
+            "uuid": "d18dc03c-9e25-53d6-a6fa-33727a0656b7",
+            "title": "Evidence for iso27001:a-8-16",
+            "description": "Real Grafana Alerting rule independently observing a namespace-delete fault via the kube-audit log",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-8-16",
+              "description": "Control tag iso27001:a-8-16, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "7a7a8a65-315c-595b-b2fc-71375bd355be"
+              }
+            ]
+          },
+          {
+            "uuid": "79a1d339-10a3-5f0a-9524-c2f3ec872605",
+            "title": "Evidence for nist80053:si-4",
+            "description": "Real Grafana Alerting rule independently observing a namespace-delete fault via the kube-audit log",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:si-4",
+              "description": "Control tag nist80053:si-4, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "7a7a8a65-315c-595b-b2fc-71375bd355be"
+              }
+            ]
+          },
+          {
+            "uuid": "f9572c0b-aa2d-5d78-a101-8801ad285f2e",
+            "title": "Evidence for nist80053:au-6",
+            "description": "Real Grafana Alerting rule independently observing a namespace-delete fault via the kube-audit log",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:au-6",
+              "description": "Control tag nist80053:au-6, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "7a7a8a65-315c-595b-b2fc-71375bd355be"
+              }
+            ]
+          },
+          {
+            "uuid": "c7c2ae5f-15ea-5d09-ab0f-486361d6173b",
+            "title": "Evidence for attack:t1485",
+            "description": "Real Grafana Alerting rule independently observing a namespace-delete fault via the kube-audit log",
+            "target": {
+              "type": "objective-id",
+              "target-id": "attack:t1485",
+              "description": "Control tag attack:t1485, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "7a7a8a65-315c-595b-b2fc-71375bd355be"
+              }
+            ]
+          },
+          {
+            "uuid": "2d1a84bf-8516-5489-8219-9201c12b2124",
+            "title": "Evidence for dora:art-10",
+            "description": "Real non-null t_detect captured from Grafana's live Alerting API for the same namespace-delete detection",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-10",
+              "description": "Control tag dora:art-10, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "b051bc1e-ae64-52f9-87d8-034f92d7ab1f"
+              }
+            ]
+          },
+          {
+            "uuid": "cdc4211a-6a84-59e0-8374-b079133f75d0",
+            "title": "Evidence for nist80053:si-4",
+            "description": "Real non-null t_detect captured from Grafana's live Alerting API for the same namespace-delete detection",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:si-4",
+              "description": "Control tag nist80053:si-4, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "b051bc1e-ae64-52f9-87d8-034f92d7ab1f"
+              }
+            ]
+          },
+          {
+            "uuid": "e078f8cf-d52c-5e34-8f02-ea32a8fcde34",
+            "title": "Evidence for attack:t1485",
+            "description": "Real non-null t_detect captured from Grafana's live Alerting API for the same namespace-delete detection",
+            "target": {
+              "type": "objective-id",
+              "target-id": "attack:t1485",
+              "description": "Control tag attack:t1485, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "b051bc1e-ae64-52f9-87d8-034f92d7ab1f"
+              }
+            ]
+          },
+          {
+            "uuid": "fbf89e3c-4718-5626-83c2-97fc755c4e6d",
+            "title": "Evidence for dora:art-10",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-10",
+              "description": "Control tag dora:art-10, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "5ffd6017-c4c4-5963-b54c-6b38bb158127",
+            "title": "Evidence for dora:art-24-27",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-24-27",
+              "description": "Control tag dora:art-24-27, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "c0954e97-6f2a-5eb0-b095-88909e22948c",
+            "title": "Evidence for dora:art-28-30",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-28-30",
+              "description": "Control tag dora:art-28-30, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "f34cd8b7-9723-5e86-ab62-0d08f92694dd",
+            "title": "Evidence for iso27001:a-8-16",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-8-16",
+              "description": "Control tag iso27001:a-8-16, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "a6a6dcb0-3c93-5cb9-984f-e3a6ff10f9d6",
+            "title": "Evidence for nist80053:si-4",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:si-4",
+              "description": "Control tag nist80053:si-4, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "01cc48d8-1e53-5acd-a296-3d6ad398f798",
+            "title": "Evidence for nist80053:ir-4",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:ir-4",
+              "description": "Control tag nist80053:ir-4, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "567cf3aa-ba93-50fe-b9ab-2aa677a967cc",
+            "title": "Evidence for nist80053:sa-11",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:sa-11",
+              "description": "Control tag nist80053:sa-11, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "6e87b0ec-0584-5bd8-ba0c-065546d06315",
+            "title": "Evidence for nist80053:sr-3",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:sr-3",
+              "description": "Control tag nist80053:sr-3, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "59ef89f0-bdbf-51eb-952c-ba37b2a79933",
+            "title": "Evidence for nist80053:sr-4",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:sr-4",
+              "description": "Control tag nist80053:sr-4, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "74063fa2-d21b-5e33-b41c-ca0498049783",
+            "title": "Evidence for attack:t1059.004",
+            "description": "Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification",
+            "target": {
+              "type": "objective-id",
+              "target-id": "attack:t1059.004",
+              "description": "Control tag attack:t1059.004, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "c9a7a764-df8d-57b4-bb03-880099937500"
+              }
+            ]
+          },
+          {
+            "uuid": "cbc5fd22-0540-581f-b329-19291c36100d",
+            "title": "Evidence for dora:art-11",
+            "description": "Measured RTO 110s, measured RPO 71 records lost",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-11",
+              "description": "Control tag dora:art-11, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "fb36365e-347f-5261-908b-17ee9b803c2d"
+              }
+            ]
+          },
+          {
+            "uuid": "c83e813f-eea4-5619-9c02-107b2eeed553",
+            "title": "Evidence for dora:art-12",
+            "description": "Measured RTO 110s, measured RPO 71 records lost",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-12",
+              "description": "Control tag dora:art-12, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "fb36365e-347f-5261-908b-17ee9b803c2d"
+              }
+            ]
+          },
+          {
+            "uuid": "a3ec1101-4817-5ae9-bca5-63f47d8000c8",
+            "title": "Evidence for nis2:21-2-c",
+            "description": "Measured RTO 110s, measured RPO 71 records lost",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nis2:21-2-c",
+              "description": "Control tag nis2:21-2-c, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "fb36365e-347f-5261-908b-17ee9b803c2d"
+              }
+            ]
+          },
+          {
+            "uuid": "19f9e193-71bd-538f-b6de-49bb2d9fe292",
+            "title": "Evidence for iso27001:a-8-13",
+            "description": "Measured RTO 110s, measured RPO 71 records lost",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-8-13",
+              "description": "Control tag iso27001:a-8-13, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "fb36365e-347f-5261-908b-17ee9b803c2d"
+              }
+            ]
+          },
+          {
+            "uuid": "b0fbcf0b-7486-5d55-afa1-0b6931595e50",
+            "title": "Evidence for nist80053:cp-9",
+            "description": "Measured RTO 110s, measured RPO 71 records lost",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:cp-9",
+              "description": "Control tag nist80053:cp-9, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "fb36365e-347f-5261-908b-17ee9b803c2d"
+              }
+            ]
+          },
+          {
+            "uuid": "1e045bd6-4eec-5805-ad23-fb5d0452c428",
+            "title": "Evidence for nist80053:cp-10",
+            "description": "Measured RTO 110s, measured RPO 71 records lost",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:cp-10",
+              "description": "Control tag nist80053:cp-10, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "fb36365e-347f-5261-908b-17ee9b803c2d"
+              }
+            ]
+          },
+          {
+            "uuid": "3ec539d3-07c7-5b43-8623-fb0f19ece946",
+            "title": "Evidence for dora:art-11",
+            "description": "Additional ns-restore drill run, same category as the cited RTO/RPO evidence (not individually cited in the control matrix)",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-11",
+              "description": "Control tag dora:art-11, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "203ee9c2-c2e2-501e-afcc-ad879765a84e"
+              }
+            ]
+          },
+          {
+            "uuid": "ae9c08a3-c452-532b-9f40-14abd2c7d58d",
+            "title": "Evidence for dora:art-12",
+            "description": "Additional ns-restore drill run, same category as the cited RTO/RPO evidence (not individually cited in the control matrix)",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-12",
+              "description": "Control tag dora:art-12, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "203ee9c2-c2e2-501e-afcc-ad879765a84e"
+              }
+            ]
+          },
+          {
+            "uuid": "78942a32-adf0-5b2c-a342-63e018b3053c",
+            "title": "Evidence for nist80053:cp-9",
+            "description": "Additional ns-restore drill run, same category as the cited RTO/RPO evidence (not individually cited in the control matrix)",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:cp-9",
+              "description": "Control tag nist80053:cp-9, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "203ee9c2-c2e2-501e-afcc-ad879765a84e"
+              }
+            ]
+          },
+          {
+            "uuid": "ccd497bb-f3d7-5e2f-8535-ee2b0120d1d4",
+            "title": "Evidence for nist80053:cp-10",
+            "description": "Additional ns-restore drill run, same category as the cited RTO/RPO evidence (not individually cited in the control matrix)",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:cp-10",
+              "description": "Control tag nist80053:cp-10, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "203ee9c2-c2e2-501e-afcc-ad879765a84e"
+              }
+            ]
+          },
+          {
+            "uuid": "f142af17-cff2-5a7c-9f3a-abaae3be558e",
+            "title": "Evidence for dora:art-13",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-13",
+              "description": "Control tag dora:art-13, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "ac6deebc-9fcd-5056-a798-aa1383fb433c",
+            "title": "Evidence for dora:art-18",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-18",
+              "description": "Control tag dora:art-18, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "666c48dc-f4a1-5cfe-af9f-7040b353bba5",
+            "title": "Evidence for dora:art-19",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-19",
+              "description": "Control tag dora:art-19, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "a5e191ca-a57c-5c57-8b25-1fb1e33bd49c",
+            "title": "Evidence for nis2:art-23",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nis2:art-23",
+              "description": "Control tag nis2:art-23, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "13173cb9-1079-5bac-9bd9-6721730cffb0",
+            "title": "Evidence for iso27001:a-5-25",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-5-25",
+              "description": "Control tag iso27001:a-5-25, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "1c7b2b80-aca6-5470-94a0-3cbcb054d594",
+            "title": "Evidence for iso27001:a-5-26",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-5-26",
+              "description": "Control tag iso27001:a-5-26, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "74b3e302-78a2-5352-9c6c-182797529391",
+            "title": "Evidence for iso27001:a-5-27",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-5-27",
+              "description": "Control tag iso27001:a-5-27, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "de768fd7-cf83-5eff-b1b9-b2eaa001694d",
+            "title": "Evidence for nist80053:ir-4",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:ir-4",
+              "description": "Control tag nist80053:ir-4, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "e2a0ce8d-2f59-575e-bd35-fc0b7bf8b33f",
+            "title": "Evidence for nist80053:ir-6",
+            "description": "Real GLPI ticket auto-generated from a drill record -- classification, both regulatory clocks, and post-incident-review section",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:ir-6",
+              "description": "Control tag nist80053:ir-6, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "9c777e4c-d964-5d15-9d02-caf73d7456a8"
+              }
+            ]
+          },
+          {
+            "uuid": "7679e5a6-459e-5132-8b04-de7ac5244871",
+            "title": "Evidence for iso27001:a-8-24",
+            "description": "Argo CD and Grafana's actually-served certificates checked live, both chaining to the platform's own offline Root CA",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-8-24",
+              "description": "Control tag iso27001:a-8-24, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "3cebf2fd-1f31-56e4-8379-c01f9dbf3ff0"
+              }
+            ]
+          },
+          {
+            "uuid": "114e161a-2ec1-5bdb-a561-3a83c2ab5955",
+            "title": "Evidence for nist80053:sc-12",
+            "description": "Argo CD and Grafana's actually-served certificates checked live, both chaining to the platform's own offline Root CA",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:sc-12",
+              "description": "Control tag nist80053:sc-12, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "3cebf2fd-1f31-56e4-8379-c01f9dbf3ff0"
+              }
+            ]
+          },
+          {
+            "uuid": "d3e2d14b-e550-58dd-a1a0-abfe05108212",
+            "title": "Evidence for nist80053:sc-17",
+            "description": "Argo CD and Grafana's actually-served certificates checked live, both chaining to the platform's own offline Root CA",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:sc-17",
+              "description": "Control tag nist80053:sc-17, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "3cebf2fd-1f31-56e4-8379-c01f9dbf3ff0"
+              }
+            ]
+          },
+          {
+            "uuid": "94b159c8-4fcc-5dd3-a9b1-4a4b4a2e2852",
+            "title": "Evidence for iso27001:a-5-15-18",
+            "description": "Real LDAP-federated login, real groups claim in the issued token",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-5-15-18",
+              "description": "Control tag iso27001:a-5-15-18, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "df4570b6-0eef-561e-ae3a-ecc393019067"
+              }
+            ]
+          },
+          {
+            "uuid": "8f2f06fb-57de-53e7-96ad-e24a74415068",
+            "title": "Evidence for iso27001:a-8-2",
+            "description": "Real LDAP-federated login, real groups claim in the issued token",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-8-2",
+              "description": "Control tag iso27001:a-8-2, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "df4570b6-0eef-561e-ae3a-ecc393019067"
+              }
+            ]
+          },
+          {
+            "uuid": "59c5a5d9-4846-5d15-80bc-71262794565c",
+            "title": "Evidence for nist80053:ac-2",
+            "description": "Real LDAP-federated login, real groups claim in the issued token",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:ac-2",
+              "description": "Control tag nist80053:ac-2, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "df4570b6-0eef-561e-ae3a-ecc393019067"
+              }
+            ]
+          },
+          {
+            "uuid": "50912334-19d1-5a40-ba35-7590c7572d71",
+            "title": "Evidence for nist80053:ia-2",
+            "description": "Real LDAP-federated login, real groups claim in the issued token",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:ia-2",
+              "description": "Control tag nist80053:ia-2, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "df4570b6-0eef-561e-ae3a-ecc393019067"
+              }
+            ]
+          },
+          {
+            "uuid": "7b7e8e89-01cb-5c0d-93cf-d41c1a488a3e",
+            "title": "Evidence for iso27001:a-5-15-18",
+            "description": "Real API authorization decision distinguishing an admin role from a read-only one",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-5-15-18",
+              "description": "Control tag iso27001:a-5-15-18, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "082afae7-ff42-5048-a867-62ebb124ccdf"
+              }
+            ]
+          },
+          {
+            "uuid": "c920a0ee-bbad-5d48-83bd-8645a83996ee",
+            "title": "Evidence for iso27001:a-8-2",
+            "description": "Real API authorization decision distinguishing an admin role from a read-only one",
+            "target": {
+              "type": "objective-id",
+              "target-id": "iso27001:a-8-2",
+              "description": "Control tag iso27001:a-8-2, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "082afae7-ff42-5048-a867-62ebb124ccdf"
+              }
+            ]
+          },
+          {
+            "uuid": "93a93d88-6168-5d59-bc89-e479fedb9956",
+            "title": "Evidence for nist80053:ac-3",
+            "description": "Real API authorization decision distinguishing an admin role from a read-only one",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:ac-3",
+              "description": "Control tag nist80053:ac-3, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "082afae7-ff42-5048-a867-62ebb124ccdf"
+              }
+            ]
+          },
+          {
+            "uuid": "f192ab93-4960-5ffc-86bc-99468b94a847",
+            "title": "Evidence for dora:art-9",
+            "description": "Real host security posture pulled live from appserv (LSM, FIPS, ASLR, SSH config, patching, host firewall), reported honestly including \"not applicable\" results; Talos nodes documented as an architectural fact (no shell exists to query them the same way)",
+            "target": {
+              "type": "objective-id",
+              "target-id": "dora:art-9",
+              "description": "Control tag dora:art-9, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "af1e57ad-950a-5008-8d09-d177aa5871a5"
+              }
+            ]
+          },
+          {
+            "uuid": "f2335b80-ac1f-5b93-98d0-27aea3b514ab",
+            "title": "Evidence for nist80053:cm-6",
+            "description": "Real host security posture pulled live from appserv (LSM, FIPS, ASLR, SSH config, patching, host firewall), reported honestly including \"not applicable\" results; Talos nodes documented as an architectural fact (no shell exists to query them the same way)",
+            "target": {
+              "type": "objective-id",
+              "target-id": "nist80053:cm-6",
+              "description": "Control tag nist80053:cm-6, per docs/03-control-matrix.md / docs/06-nist-800-53-crosswalk.md / docs/07-attack-mapping.md (see manifest.yaml's own tag-namespace comment for which doc each prefix maps to).",
+              "status": {
+                "state": "satisfied"
+              }
+            },
+            "related-observations": [
+              {
+                "observation-uuid": "af1e57ad-950a-5008-8d09-d177aa5871a5"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

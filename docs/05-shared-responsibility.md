@@ -183,9 +183,13 @@ provides the alerting engine and the pattern (a LogQL/PromQL condition, file-pro
 evaluated on a short interval with `for: 0s` so latency reflects real pipeline behavior rather
 than an artificial debounce), not an exhaustive rule set for every tenant's own risk profile.
 
-**Explicitly still missing:** evidence write-once/tamper-evidence guarantees (build-spec P7) —
-today's evidence samples are plain git-tracked files, so git history is the only tamper-evidence
-property they have; real ILM/write-only-ingest/object-locked-snapshot guarantees aren't built.
+**Now built (Phase 20):** evidence write-once/tamper-evidence guarantees (build-spec P7) — a
+sha256 hash chain over `docs/evidence/samples/` (`docs/evidence/chain.py`, the same mechanism
+`canary/writer.py` uses for its own rows), with the chain head signed keylessly in CI
+(`.github/workflows/evidence-integrity.yaml`, GitHub OIDC -> Fulcio -> Rekor, reusing Phase 12's
+image-signing mechanism for a blob instead) so the tamper-evidence property is independently
+checkable, not just "it's in git history." **Still missing:** MinIO object-lock as a second,
+stronger write-once mechanism — not yet built.
 
 ## Incident response — built
 

@@ -586,7 +586,10 @@ spec:
             # infrastructure/trivy-operator/export-findings-cronjob.yaml, a CronJob emitting one
             # real JSON line per real Trivy report every 15 minutes. Same explicit-field
             # extraction + `queryType: instant`-for-aggregation discipline already established
-            # elsewhere in this file.
+            # elsewhere in this file. Panels 1-5 read the per-resource aggregate
+            # (trivy_vulnerability_report); panels 6-9 read the per-CVE finding event
+            # (trivy_vulnerability_finding, added alongside first-detected-date tracking and the
+            # CISA KEV cross-reference) -- both event types come from the same CronJob run.
             vulnerability-management:
               json: |
                 {
@@ -694,6 +697,82 @@ spec:
                           "refId": "A",
                           "datasource": { "type": "loki", "uid": "loki" },
                           "expr": "{namespace=\"trivy-system\"} |= \"trivy_vulnerability_report\" | json event=\"event\", resource_namespace=\"resource_namespace\", resource_name=\"resource_name\", image_repository=\"image_repository\", image_tag=\"image_tag\", critical_count=\"critical_count\", high_count=\"high_count\", medium_count=\"medium_count\", low_count=\"low_count\" | event=\"trivy_vulnerability_report\"",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 6,
+                      "type": "stat",
+                      "title": "SLA breaches (latest export)",
+                      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 23 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": {
+                        "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [
+                          { "color": "green", "value": null },
+                          { "color": "red", "value": 1 }
+                        ] } },
+                        "overrides": []
+                      },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "queryType": "instant",
+                          "expr": "count_over_time({namespace=\"trivy-system\"} |= \"trivy_vulnerability_finding\" | json event=\"event\", sla=\"sla_status\" | event=\"trivy_vulnerability_finding\" | sla=\"breached\" [15m])"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 7,
+                      "type": "stat",
+                      "title": "KEV-listed findings (latest export)",
+                      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 23 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "fieldConfig": {
+                        "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [
+                          { "color": "green", "value": null },
+                          { "color": "red", "value": 1 }
+                        ] } },
+                        "overrides": []
+                      },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "queryType": "instant",
+                          "expr": "count_over_time({namespace=\"trivy-system\"} |= \"trivy_vulnerability_finding\" | json event=\"event\", kev=\"kev_known\" | event=\"trivy_vulnerability_finding\" | kev=\"true\" [15m])"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 8,
+                      "type": "table",
+                      "title": "Findings past SLA (open, cluster-wide)",
+                      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 28 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "options": { "showHeader": true, "sortBy": [{ "displayName": "age_days", "desc": true }] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"trivy-system\"} |= \"trivy_vulnerability_finding\" | json event=\"event\", cve_id=\"cve_id\", resource_name=\"resource_name\", image_repository=\"image_repository\", severity=\"severity\", first_detected_at=\"first_detected_at\", age_days=\"age_days\", sla_days=\"sla_days\", sla_status=\"sla_status\", kev_known=\"kev_known\" | event=\"trivy_vulnerability_finding\" | sla_status=\"breached\"",
+                          "queryType": "range"
+                        }
+                      ]
+                    },
+                    {
+                      "id": 9,
+                      "type": "table",
+                      "title": "All findings by age (latest export)",
+                      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 38 },
+                      "datasource": { "type": "loki", "uid": "loki" },
+                      "options": { "showHeader": true, "sortBy": [{ "displayName": "age_days", "desc": true }] },
+                      "targets": [
+                        {
+                          "refId": "A",
+                          "datasource": { "type": "loki", "uid": "loki" },
+                          "expr": "{namespace=\"trivy-system\"} |= \"trivy_vulnerability_finding\" | json event=\"event\", cve_id=\"cve_id\", resource_name=\"resource_name\", image_repository=\"image_repository\", severity=\"severity\", first_detected_at=\"first_detected_at\", age_days=\"age_days\", sla_days=\"sla_days\", sla_status=\"sla_status\", kev_known=\"kev_known\" | event=\"trivy_vulnerability_finding\"",
                           "queryType": "range"
                         }
                       ]

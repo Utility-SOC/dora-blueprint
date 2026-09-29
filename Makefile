@@ -17,7 +17,7 @@ drill:
 	@SCENARIO=$(SCENARIO) bash drills/lib/run-drill.sh
 
 evidence:
-	@echo "evidence: not implemented yet (build-spec Phase 8)"; exit 1
+	@echo "evidence: not implemented yet (build-spec Phase 14)"; exit 1
 
 images:
-	@echo "images: not implemented yet (build-spec Phase 6)"; exit 1
+	@echo "images: no local target -- built, signed (cosign keyless), and SBOM-attested by .github/workflows/build-images.yaml instead (Phase 12, done)"; exit 1

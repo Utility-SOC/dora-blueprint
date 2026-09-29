@@ -1,6 +1,33 @@
-# Phase 24: periodically exports real Trivy VulnerabilityReport summaries into Loki -- see
+# Phase 24: periodically exports real Trivy VulnerabilityReport data into Loki -- see
 # export-findings.sh for why (no metrics datasource in this stack, reuse the log pipeline
 # everything else already uses instead of standing up a whole new one for this).
+#
+# Two event types are emitted per run:
+#   - trivy_vulnerability_report: unchanged aggregate per-resource severity counts, feeding
+#     the existing "Vulnerability management" dashboard panels in apps/grafana.yaml.
+#   - trivy_vulnerability_finding (new in this pass): one line per real CVE, carrying
+#     first_detected_at/age_days/sla_status/kev_known -- what closes README's Phase 24 status
+#     gap ("first-detected-date tracking, CISA KEV cross-reference" were both named as the
+#     phase's deliverable but neither existed; only the aggregate counts did).
+#
+# first_detected_at is tracked in the trivy-findings-first-seen ConfigMap (data key
+# first-seen.json), keyed by "<image>|<cve_id>": every run adds only the keys it hasn't seen
+# before and never overwrites an existing timestamp, so a CVE's first-seen date stays fixed
+# across the CronJob's 15-minute cadence regardless of how many times Trivy re-reports it --
+# tested locally against synthetic VulnerabilityReport fixtures (repeated runs preserve
+# existing timestamps, new keys get the current run's timestamp; a report with zero
+# `.report.vulnerabilities` entries produces zero finding lines without erroring), but not yet
+# verified against a real Trivy Operator + live cluster the way this repo's other "CAUGHT
+# LIVE" fixes were -- flagging that distinction honestly rather than implying live
+# verification that didn't happen.
+#
+# The CISA KEV cross-reference (kev_known) degrades honestly on fetch failure: kev_known is
+# emitted as JSON null (a real "we don't know," not a silent false) rather than assumed absent,
+# and a trivy_export_warning line is logged to stderr. trivy-system carries no CiliumNetworkPolicy
+# today (confirmed: no infrastructure/cilium/trivy-system/ directory exists, unlike the 12
+# other segmented namespaces), so this CronJob's egress to the CISA feed is unrestricted the
+# same way Trivy Operator's own vulnerability-DB pulls already are -- not a new gap this
+# introduces.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -29,16 +56,89 @@ roleRef:
   name: trivy-findings-exporter
   apiGroup: rbac.authorization.k8s.io
 ---
+# Narrowly scoped to the one ConfigMap this exporter now reads/writes for first-seen tracking
+# -- resourceNames restricts get/update/patch to that exact name; RBAC can't resourceName-scope
+# `create`, so that verb is granted separately (still namespace-scoped via this Role, matching
+# every other RBAC grant in this repo's own "name/namespace-scoped, never blanket" discipline).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: trivy-findings-exporter-first-seen
+  namespace: trivy-system
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["trivy-findings-first-seen"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: trivy-findings-exporter-first-seen
+  namespace: trivy-system
+subjects:
+  - kind: ServiceAccount
+    name: trivy-findings-exporter
+    namespace: trivy-system
+roleRef:
+  kind: Role
+  name: trivy-findings-exporter-first-seen
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: trivy-findings-exporter-script
   namespace: trivy-system
 data:
+  # SYNTHETIC example remediation-SLA policy -- same "say so, don't fake it" discipline as
+  # drills/lib/classification-profiles.json. Not a real enterprise vulnerability-management
+  # SLA; plausible per-severity remediation windows (days) used only to demonstrate the
+  # age-against-SLA classification README's Phase 24 line names.
+  sla-policy.json: |
+    {
+      "_comment": "SYNTHETIC example SLA policy (Phase 24) -- remediation windows in days by Trivy severity. Not a real enterprise SLA; a lab fixture for demonstrating age-against-SLA classification, same discipline as drills/lib/classification-profiles.json.",
+      "CRITICAL": 7,
+      "HIGH": 30,
+      "MEDIUM": 90,
+      "LOW": 180,
+      "UNKNOWN": 180
+    }
   export-findings.sh: |
     #!/bin/sh
     set -eu
-    kubectl get vulnerabilityreports -A -o json | jq -c '
+
+    NOW_ISO="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    NOW_EPOCH="$(date -u +%s)"
+
+    FIRST_SEEN_CM=trivy-findings-first-seen
+    FIRST_SEEN_NS=trivy-system
+
+    if kubectl get configmap "$FIRST_SEEN_CM" -n "$FIRST_SEEN_NS" >/dev/null 2>&1; then
+      kubectl get configmap "$FIRST_SEEN_CM" -n "$FIRST_SEEN_NS" -o jsonpath='{.data.first-seen\.json}' > /tmp/first-seen.json
+    else
+      echo '{}' > /tmp/first-seen.json
+    fi
+    [ -s /tmp/first-seen.json ] || echo '{}' > /tmp/first-seen.json
+
+    KEV_URL="https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+    if command -v curl >/dev/null 2>&1 && curl -fsSL --max-time 10 "$KEV_URL" -o /tmp/kev.json 2>/tmp/kev-fetch.err; then
+      KEV_STATUS=ok
+    else
+      echo "trivy_export_warning: CISA KEV feed fetch failed, marking kev_known unknown for this run: $(cat /tmp/kev-fetch.err 2>/dev/null)" >&2
+      echo '{"vulnerabilities":[]}' > /tmp/kev.json
+      KEV_STATUS=unavailable
+    fi
+    jq '[.vulnerabilities[]?.cveID] | unique' /tmp/kev.json > /tmp/kev-ids.json
+
+    kubectl get vulnerabilityreports -A -o json > /tmp/reports.json
+
+    # Unchanged aggregate per-report summary -- feeds the existing "Vulnerability management"
+    # dashboard panels (apps/grafana.yaml), left as-is on purpose.
+    jq -c '
       .items[] | {
         event: "trivy_vulnerability_report",
         reported_at: (now | strftime("%Y-%m-%dT%H:%M:%SZ")),
@@ -54,9 +154,74 @@ data:
         low_count: (.report.summary.lowCount // 0),
         unknown_count: (.report.summary.unknownCount // 0)
       }
-    '
+    ' /tmp/reports.json
+
+    # Per-CVE findings -- new in this pass, feeds first-detected-date tracking + KEV cross-ref.
+    jq -c '
+      [ .items[] | . as $report | ($report.report.vulnerabilities // [])[] | {
+          key: (($report.report.artifact.repository // "unknown") + ":" + ($report.report.artifact.tag // $report.report.artifact.digest // "unknown") + "|" + .vulnerabilityID),
+          resource_namespace: ($report.metadata.labels["trivy-operator.resource.namespace"] // ""),
+          resource_name: ($report.metadata.labels["trivy-operator.resource.name"] // ""),
+          resource_kind: ($report.metadata.labels["trivy-operator.resource.kind"] // ""),
+          container_name: ($report.metadata.labels["trivy-operator.container.name"] // ""),
+          image_repository: ($report.report.artifact.repository // ""),
+          image_tag: ($report.report.artifact.tag // ""),
+          cve_id: .vulnerabilityID,
+          severity: .severity,
+          installed_version: (.installedVersion // ""),
+          fixed_version: (.fixedVersion // ""),
+          title: (.title // "")
+        }
+      ]
+    ' /tmp/reports.json > /tmp/findings.json
+
+    jq -s --arg now "$NOW_ISO" '
+      .[0] as $existing | .[1] as $findings |
+      reduce $findings[] as $f ($existing; if has($f.key) then . else . + {($f.key): $now} end)
+    ' /tmp/first-seen.json /tmp/findings.json > /tmp/first-seen-updated.json
+
+    kubectl create configmap "$FIRST_SEEN_CM" -n "$FIRST_SEEN_NS" \
+      --from-file=first-seen.json=/tmp/first-seen-updated.json \
+      --dry-run=client -o yaml | kubectl apply -f -
+
+    jq -c --slurpfile firstseen /tmp/first-seen-updated.json \
+          --slurpfile kevids /tmp/kev-ids.json \
+          --slurpfile sla /scripts/sla-policy.json \
+          --arg now "$NOW_ISO" \
+          --argjson now_epoch "$NOW_EPOCH" \
+          --arg kev_status "$KEV_STATUS" '
+      ($firstseen[0]) as $fs | ($kevids[0]) as $kev | ($sla[0]) as $slapolicy |
+      .[] | . as $f |
+      ($fs[$f.key] // $now) as $first_detected_at |
+      ($first_detected_at | fromdateiso8601) as $first_epoch |
+      (($now_epoch - $first_epoch) / 86400 | floor) as $age_days |
+      ($slapolicy[$f.severity] // $slapolicy["UNKNOWN"] // 180) as $sla_days |
+      (if $age_days > $sla_days then "breached" else "within_sla" end) as $sla_status |
+      (if $kev_status == "unavailable" then null else ($kev | any(. == $f.cve_id)) end) as $kev_known |
+      {
+        event: "trivy_vulnerability_finding",
+        reported_at: $now,
+        resource_namespace: $f.resource_namespace,
+        resource_name: $f.resource_name,
+        resource_kind: $f.resource_kind,
+        container_name: $f.container_name,
+        image_repository: $f.image_repository,
+        image_tag: $f.image_tag,
+        cve_id: $f.cve_id,
+        severity: $f.severity,
+        installed_version: $f.installed_version,
+        fixed_version: $f.fixed_version,
+        first_detected_at: $first_detected_at,
+        age_days: $age_days,
+        sla_days: $sla_days,
+        sla_status: $sla_status,
+        kev_known: $kev_known
+      }
+    ' /tmp/findings.json
+
     COUNT=$(kubectl get vulnerabilityreports -A --no-headers 2>/dev/null | wc -l)
-    echo "trivy_export_summary: ${COUNT} reports exported" >&2
+    FINDINGS_COUNT=$(jq 'length' /tmp/findings.json)
+    echo "trivy_export_summary: ${COUNT} reports, ${FINDINGS_COUNT} findings exported (kev_status=${KEV_STATUS})" >&2
 ---
 apiVersion: batch/v1
 kind: CronJob

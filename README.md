@@ -98,7 +98,7 @@ of and picked up later.
 | 21 | Evidence tagging & crosswalk infrastructure — multi-framework manifest, generated per-control evidence folders | done |
 | 22 | NIST SP 800-53 crosswalk (representative subset, PE excluded — cloud-provider assumption) | done |
 | 23 | Host/config compliance scanning — real SELinux/AppArmor/FIPS status across all hosts, honestly reported | done (appserv; Talos nodes documented as architectural fact — no shell exists to query) |
-| 24 | Vulnerability management — Trivy Operator, first-detected-date tracking, CISA KEV cross-reference | not started |
+| 24 | Vulnerability management — Trivy Operator, first-detected-date tracking, CISA KEV cross-reference | done |
 | 25 | ATT&CK detection mapping — both real detection rules tagged with the technique they observe | done |
 | 26 | Cryptography evidence, expanded — real negotiated TLS version/cipher suite, SOPS/at-rest encryption evidence | not started |
 | 27 | OSCAL machine-readable export — real OSCAL JSON generated from the evidence manifest | not started |
@@ -119,12 +119,12 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
   `docs/evidence/samples/` — see [`docs/06-operations.md`](docs/06-operations.md) §4.
 - **Phase 16 — Security operations.** Everything up through Phase 13 proves one narrow thing per
   drill or admission check; nothing yet stands watch continuously, independent of a drill
-  happening to run. Phase 16 closes that gap: real vulnerability scanning and tracking (severity,
-  first-detected date, age against a stated SLA window — Trivy Operator is the leading candidate;
-  `infrastructure/trivy-operator/` is currently an empty placeholder, not a running scanner),
-  standing security-monitoring alerts independent of drill triggers, `kube-bench` tracked over
-  time rather than one-off, and a living asset inventory connecting Phase 12's generated Register
-  of Information to GLPI's own asset module. Organized with the breadth of a mature security
+  happening to run. Vulnerability scanning and tracking (severity, first-detected date, age
+  against a stated SLA window, CISA KEV cross-reference) is done — built as Phase 24, see
+  `infrastructure/trivy-operator/` and the "Vulnerability management" Grafana dashboard. Still
+  open: standing security-monitoring alerts independent of drill triggers, `kube-bench` tracked
+  over time rather than one-off, and a living asset inventory connecting Phase 12's generated
+  Register of Information to GLPI's own asset module. Organized with the breadth of a mature security
   control catalog without naming or branding it after any specific external framework — see
   `BUILD-SPEC.md` §12 for the full scope breakdown. Not started.
 - **Phases 17–20 — deeper security & observability**, added at the repo owner's direct request.

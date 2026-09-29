@@ -16,7 +16,7 @@
 # would just be a second, weaker place secrets could leak from.
 #
 # Why this needs to exist at all: this Keycloak deployment runs on `dev-mem` (an
-# in-memory H2 database, apps/keycloak.yaml) -- every realm, user, and credential
+# in-memory H2 database, apps/full/keycloak.yaml) -- every realm, user, and credential
 # lives only in the running pod's JVM heap. A pod restart doesn't just log everyone
 # out, it erases the platform realm, LDAP federation, OIDC clients, and every
 # non-bootstrap user entirely. Re-provisioning the realm itself is

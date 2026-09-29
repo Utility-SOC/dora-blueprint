@@ -83,7 +83,7 @@ originally-intended one has a real bug blocking it for this specific field.
   doesn't permit anything the cluster wasn't already permitting — it makes Kyverno's own view
   consistent with that pre-existing reality instead of denying things natively-allowed pods.
 - **Purpose-built namespace**: `velero` hosts only Velero and its in-cluster MinIO backend
-  (`apps/minio.yaml`) — no application workload shares this namespace.
+  (`apps/core/minio.yaml`) — no application workload shares this namespace.
 - **RBAC-gated, not open access**: node-agent's own ServiceAccount permissions (chart-managed)
   are scoped to backup/restore operations, not general cluster admin.
 - **Evidence integrity note**: this is the exact mechanism the control matrix's DORA Art. 11/12

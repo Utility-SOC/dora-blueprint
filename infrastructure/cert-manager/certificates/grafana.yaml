@@ -1,6 +1,6 @@
 # Unlike Argo CD, Grafana's chart has no "checks for a secret of this name" convenience
 # -- the resulting secret is mounted explicitly via extraVolumes/extraVolumeMounts and
-# wired into grafana.ini's [server] block in apps/grafana.yaml. Same SAN reasoning as
+# wired into grafana.ini's [server] block in apps/core/grafana.yaml. Same SAN reasoning as
 # argocd-server.yaml: 192.168.1.106 is the real LAN access address in use, plus the
 # in-cluster service names and localhost for the other real access paths.
 apiVersion: cert-manager.io/v1

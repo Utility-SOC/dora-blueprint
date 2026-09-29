@@ -9,7 +9,7 @@ already fine per the chart's real defaults — not exempted, not needed.)
 
 Trivy Operator's `scan-vulnerabilityreport-*` jobs are multi-container: one initContainer plus
 three scanner containers combined into a single pod. The Helm chart's own
-`scanJobPodTemplateContainerSecurityContext` value (set in `apps/trivy-operator.yaml`, and
+`scanJobPodTemplateContainerSecurityContext` value (set in `apps/full/trivy-operator.yaml`, and
 correctly applied — confirmed by checking the deployed ConfigMap) only reaches one container
 role in that pod, not all four. Confirmed empirically (not assumed) by the exact real denial this
 exception clears: `spec.containers[0/1/2].securityContext.runAsNonRoot: Required value`,

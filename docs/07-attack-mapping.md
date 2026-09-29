@@ -1,7 +1,7 @@
 # MITRE ATT&CK mapping
 
 Every real detection this platform has (both live Grafana Alerting rules in
-`apps/grafana.yaml`'s `detection` group) mapped to the ATT&CK technique it actually observes. Two
+`apps/core/grafana.yaml`'s `detection` group) mapped to the ATT&CK technique it actually observes. Two
 detections, two techniques — this is small on purpose: the point is that both are *real*,
 eBPF/audit-log-observed detections tied to techniques they genuinely detect, not a padded list of
 aspirational coverage.
@@ -12,7 +12,7 @@ aspirational coverage.
 | `canary-shell-spawn-detect` | [T1059.004 — Command and Scripting Interpreter: Unix Shell](https://attack.mitre.org/techniques/T1059/004/) | Execution (TA0002) | Observes a real `/bin/sh`/`/bin/bash` `execve` inside the canary namespace via Tetragon's eBPF process-exec instrumentation — the `credential-compromise` scenario's fault injection. |
 
 Both rules carry these as real Grafana annotations (`attack_technique`, `attack_tactic`), visible
-on the alert itself, not just in this document — see `apps/grafana.yaml`. Evidence for both is
+on the alert itself, not just in this document — see `apps/core/grafana.yaml`. Evidence for both is
 indexed under `docs/evidence/by-control/attack/` (`docs/evidence/manifest.yaml` +
 `docs/evidence/collect.py`).
 

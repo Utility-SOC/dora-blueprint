@@ -8,7 +8,7 @@
 
 `openebs-localpv-provisioner` exists specifically because `local-path-provisioner`'s
 hostPath-typed PVs can't be backed up by Velero's File System Backup — see
-`apps/openebs-localpv.yaml` for the full story of finding this out the hard way, and
+`apps/core/openebs-localpv.yaml` for the full story of finding this out the hard way, and
 `platform/talos/patches/common.yaml`'s `kubelet.extraMounts` entry it also required. Like
 local-path-provisioner, it creates and removes the on-disk directory backing each PVC via a
 short-lived helper pod with a hostPath mount — confirmed empirically (not assumed) by the exact

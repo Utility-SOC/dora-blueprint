@@ -53,7 +53,7 @@ rather than silently omit, what's deliberately left alone.
 
 ## Applied out-of-band, not via Argo CD
 
-The three in-scope policies here are **not** managed by `apps/cilium-policies.yaml`
+The three in-scope policies here are **not** managed by `apps/core/cilium-policies.yaml`
 the way every other namespace's policies are. `infrastructure/cilium/kube-system/`
 is explicitly excluded from that Application's sync scope
 (`directory.exclude: "kube-system/*"`).

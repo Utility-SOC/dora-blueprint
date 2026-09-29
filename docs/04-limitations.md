@@ -61,7 +61,7 @@ gaps to be closed, the claim doesn't get made.
   tool for hostNetwork traffic, and writing policy that restricts the pods which *implement*
   Cilium's own enforcement is a well-known way to end up with no `kubectl` left to fix a mistake
   with. Separately, `kube-system`'s three in-scope policies (coredns, hubble-relay, hubble-ui)
-  are applied by hand (`kubectl apply`), not through `apps/cilium-policies.yaml` —
+  are applied by hand (`kubectl apply`), not through `apps/core/cilium-policies.yaml` —
   a real sync attempt showed the `platform` AppProject's own `destinations` allowlist already
   excludes `kube-system`, and that boundary was kept rather than widened. Full reasoning in
   `infrastructure/cilium/kube-system/README.md`.
@@ -84,7 +84,7 @@ gaps to be closed, the claim doesn't get made.
   prevent a new pod from returning to the tainted node — a real, load-bearing fact about default
   Kubernetes scheduling behavior, not a drill bug. See
   `docs/evidence/samples/scenario-breadth-20260730021814.txt`.
-- **Backup retention (`apps/velero.yaml`'s `ttl: 3h0m0s`) is sized for this lab's disk budget,
+- **Backup retention (`apps/core/velero.yaml`'s `ttl: 3h0m0s`) is sized for this lab's disk budget,
   not a compliance-appropriate recovery/record-keeping policy.** One physical host, one MinIO
   PVC — a real retention window (weeks of daily backups plus longer-tiered archival, per DORA's
   emphasis on ICT risk management being proportionate to the entity's own risk assessment rather

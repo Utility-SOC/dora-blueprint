@@ -1,6 +1,14 @@
-# App-of-apps root. Points at apps/, which is empty until Phase 4+ lands
-# infrastructure Applications there. From this point on, adding a component is a
-# `git push`, not a `kubectl apply` — build-spec P4.
+# App-of-apps root for the `core` tier — always applied, by every tier. Points at apps/core/,
+# the set of components required for the documented Quick-start flow itself
+# (`make lab-core && make drill SCENARIO=ns-restore`) to fully succeed: cert-manager/Cilium/
+# Kyverno/storage foundation, the observability pipeline, the canary, drill orchestration, and
+# Velero/MinIO/GLPI -- ns-restore is what proves this project's thesis (BUILD-SPEC.md's own
+# Phase 3 framing), and drills/lib/run-drill.sh unconditionally calls open-incident.py (GLPI)
+# regardless of scenario, so GLPI is core too, not optional.
+#
+# `full`-tier components (IAM, Tetragon, Trivy Operator -- apps/full/, see
+# bootstrap/root-app-full.yaml) are not required for that flow and are heavier/optional, applied
+# separately and only when TIER=full (bootstrap/install.sh).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -13,7 +21,7 @@ spec:
   source:
     repoURL: git@github.com:utility-soc/dora-blueprint.git
     targetRevision: main
-    path: apps
+    path: apps/core
     directory:
       recurse: true
   destination:

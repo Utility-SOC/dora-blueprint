@@ -79,7 +79,7 @@ check.
 
 Unlike Kyverno's PolicyException/exclude, native PSS has no per-resource-name
 granularity — the enforce label is namespace-wide only, there is no equivalent to
-matching just `alloy*`. The fix (`apps/alloy.yaml`'s `syncPolicy.managedNamespaceMetadata`)
+matching just `alloy*`. The fix (`apps/core/alloy.yaml`'s `syncPolicy.managedNamespaceMetadata`)
 sets `pod-security.kubernetes.io/enforce: privileged` on the whole `observability`
 namespace, declared in git so Argo CD's `selfHeal` keeps it in place rather than a
 one-off `kubectl label` (the pattern `velero`'s bootstrap-time labeling used, which this

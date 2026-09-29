@@ -1,5 +1,5 @@
 # Supplemental to argo-workflows' own chart-managed RBAC (scoped to the
-# argo-workflows namespace only, per apps/argo-workflows.yaml). The ns-restore
+# argo-workflows namespace only, per apps/core/argo-workflows.yaml). The ns-restore
 # scenario needs cluster-scoped namespace delete/create, cross-namespace pod
 # exec (to run canary/verify.py inside whichever pod currently has the data),
 # and Velero's Backup/Restore CRDs — none of which a workflow-execution SA gets

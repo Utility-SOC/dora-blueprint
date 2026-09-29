@@ -9,7 +9,7 @@ controller denies these pods independently of, and before, Kyverno ever evaluate
 **Scope:** `Pod` resources in the `tetragon` namespace matching name `tetragon-*` — the
 main DaemonSet only. The `tetragon-operator` Deployment runs fully `restricted`-compliant
 (its one real gap, a missing `seccompProfile`, was fixed via chart config —
-`tetragonOperator.podSecurityContext` in `apps/tetragon.yaml` — not folded into this
+`tetragonOperator.podSecurityContext` in `apps/full/tetragon.yaml` — not folded into this
 exception, since it had a real config-surface fix and the DaemonSet doesn't).
 **Controls exempted:** all `restricted`-profile PSS controls (Privileged Containers, Host
 Namespaces, HostPath Volumes, Running as Non-root, Capabilities, Seccomp) — for the

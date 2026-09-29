@@ -17,15 +17,22 @@ and [`docs/04-limitations.md`](docs/04-limitations.md).
 ## Quick start
 
 ```bash
-make lab-core                       # Talos + Cilium + Argo CD, ~10GB RAM
+make lab-core                       # Talos + Cilium + Argo CD + everything ns-restore needs
 make drill SCENARIO=ns-restore      # inject a fault, recover, classify, ticket — all measured
 ```
 
-| Tier | Command | RAM | Contents |
+| Tier | Command | Deploys | Contents |
 |---|---|---|---|
-| `core` | `make lab-core` | ~10 GB | Talos, Cilium, cert-manager, Kyverno, Argo CD, Trivy, lightweight log sink |
-| `full` | `make lab-full` | ~28 GB | + Elastic/Fleet/eBPF agent, Velero + MinIO, Argo Workflows, Litmus |
-| `dr` | `make lab-dr` | ~40 GB | + second cluster for cross-cluster restore drills |
+| `core` | `make lab-core` | `apps/core/` | Talos, Cilium, cert-manager, Kyverno, storage, the observability pipeline (Alloy/Loki/Grafana), the canary, Argo Workflows, Velero + MinIO, GLPI — everything `make drill SCENARIO=ns-restore` itself needs to fully succeed |
+| `full` | `make lab-full` | `apps/core/` + `apps/full/` | + IAM (Keycloak/Postgres/OpenLDAP/LAM), Tetragon (needed for the `credential-compromise` scenario's detection path), Trivy Operator + findings exporter |
+| `dr` | `make lab-dr` | — | Not implemented — needs a genuine second cluster for cross-cluster restore drills, not just another Application set on this one cluster. `full` is real; this isn't yet (build-spec Phase 19) |
+
+`TIER` only controls which Argo CD Applications get synced (`apps/core/` always; `apps/full/`
+in addition when `TIER=full`) — the underlying Talos cluster's own memory footprint
+(`bootstrap/install.sh`'s `--memory-controlplanes`/`--memory-workers` flags) is fixed regardless
+of tier, so `full` runs more workloads on the same cluster capacity rather than a bigger one.
+No RAM figures are stated here since none have been measured against this split — see
+`bootstrap/install.sh` for the exact real flags if you need to size a host.
 
 `make drill` deletes the canary namespace, restores it from a real Velero backup into a
 freshly-named namespace, and prints a *measured* RTO and RPO — not asserted numbers. Sample:

@@ -468,7 +468,7 @@ the security and observability needs that go deeper than what we have already"),
 gaps this repo's own build surfaced rather than generic filler:
 
 - **Phase 17 — Metrics & infrastructure observability.** Every dashboard and alert in this repo
-  today is log-based (Loki is the only datasource `apps/grafana.yaml` provisions) — there is no
+  today is log-based (Loki is the only datasource `apps/core/grafana.yaml` provisions) — there is no
   real metrics story at all: no CPU/memory trends, no pod-restart-count history, nothing that
   would catch a slow resource leak before it becomes a real incident. Prometheus +
   kube-state-metrics + node-exporter, and dashboards built with the same care Phase 16's
@@ -530,7 +530,7 @@ on-call responder) so role-separation controls can be described honestly rather 
 - **Phase 25 — ATT&CK detection mapping.** Both real detection rules tagged with the technique
   they actually observe — `canary-ns-delete-detect` → T1485 (Data Destruction),
   `canary-shell-spawn-detect` → T1059.004 (Unix Shell) — as real Grafana labels/annotations on
-  the rules themselves (`apps/grafana.yaml`), not just documentation. Deliberately small: the
+  the rules themselves (`apps/core/grafana.yaml`), not just documentation. Deliberately small: the
   point is that both are real, eBPF/audit-log-observed detections tied to techniques they
   genuinely detect, not a padded list of aspirational coverage. Done.
 - **Phase 26 — Cryptography evidence, expanded.** The existing PKI evidence

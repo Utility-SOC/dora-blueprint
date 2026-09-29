@@ -1,12 +1,26 @@
 #!/usr/bin/env bash
-# Idempotent, re-runnable bootstrap for the `core` tier: Talos cluster (Docker
-# provisioner) + Cilium + Argo CD + AppProject + app-of-apps. This is the one
+# Idempotent, re-runnable bootstrap for the `core` (default) or `full` tier: Talos cluster
+# (Docker provisioner) + Cilium + Argo CD + AppProject + app-of-apps. This is the one
 # manual-apply exception build-spec P4 allows — everything after this point is
-# GitOps-managed via Argo CD syncing apps/.
+# GitOps-managed via Argo CD syncing apps/core/ (always) and apps/full/ (TIER=full only).
+#
+# TIER only gates which Applications get synced (apps/core/ vs apps/core/+apps/full/), i.e.
+# what actually runs and consumes cluster resources -- it does NOT skip any of this script's own
+# secret-provisioning steps below (7-14 create IAM/Tetragon/etc. secrets and namespaces
+# unconditionally). A TIER=core run leaves those secrets unused rather than never-created: safer
+# and far simpler than threading tier-conditionals through this script's own numbered,
+# trap-chained secret handling, at the cost of a few harmless idle Secrets/namespaces when
+# TIER=core -- not a resource cost worth the added risk to the one script here that handles
+# real credential material.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLUSTER_NAME="${CLUSTER_NAME:-resilience-lab}"
+TIER="${TIER:-core}"
+case "$TIER" in
+  core|full) ;;
+  *) echo "unknown TIER '$TIER' -- expected 'core' or 'full' (see README.md's tier table); 'dr' has no bootstrap.install.sh support yet, use \`make lab-dr\`'s own message for why" >&2; exit 1 ;;
+esac
 
 TALOS_VERSION="v1.13.7"
 KUBERNETES_VERSION="1.36.2"
@@ -126,7 +140,7 @@ kubectl apply -n argocd --server-side --force-conflicts \
 kubectl -n argocd rollout status deploy/argocd-repo-server --timeout=300s
 kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 
-echo "==> [6/14] Repo credential, AppProject (never 'default'), and app-of-apps"
+echo "==> [6/14] Repo credential, AppProject (never 'default'), and app-of-apps (TIER=$TIER)"
 SSH_KEY_TMP="$(mktemp)"
 trap 'shred -u "$SSH_KEY_TMP" 2>/dev/null || rm -f "$SSH_KEY_TMP"' EXIT
 sops --decrypt "$REPO_ROOT/bootstrap/secrets/argocd-repo-key.enc.yaml" \
@@ -142,6 +156,10 @@ kubectl -n argocd create secret generic dora-blueprint-repo \
 
 kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/appproject-platform.yaml"
 kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/root-app.yaml"
+if [ "$TIER" = "full" ]; then
+  echo "    TIER=full — also applying root-app-full (IAM, Tetragon, Trivy Operator)"
+  kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/root-app-full.yaml"
+fi
 
 echo "==> [7/14] cert-manager Intermediate CA secret"
 # cert-manager's ca-type ClusterIssuer (infrastructure/cert-manager/cluster-issuer.yaml)
@@ -214,7 +232,7 @@ kubectl -n keycloak create secret generic keycloak-admin \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Phase 8 follow-up: infrastructure/keycloak/postgres.yaml's own DB password -- key name
-# "password" matches apps/keycloak.yaml's existingSecretKey: password, which the
+# "password" matches apps/full/keycloak.yaml's existingSecretKey: password, which the
 # keycloakx chart reads directly (KC_DB_PASSWORD), and infrastructure/keycloak/postgres.yaml's
 # own POSTGRES_PASSWORD env var reads the same secret/key.
 kubectl -n keycloak create secret generic keycloak-db \

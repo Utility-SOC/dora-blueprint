@@ -6,7 +6,7 @@ spec:
   accessModes:
     - ReadWriteOnce
   # openebs-hostpath, not local-path: this PVC needs to be Velero-FSB-restorable —
-  # see apps/openebs-localpv.yaml for why local-path-provisioner can't do that.
+  # see apps/core/openebs-localpv.yaml for why local-path-provisioner can't do that.
   storageClassName: openebs-hostpath
   resources:
     requests:

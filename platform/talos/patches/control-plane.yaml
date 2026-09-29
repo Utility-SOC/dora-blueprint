@@ -34,7 +34,7 @@
 # volumes work unprompted only because they land under paths kubelet is already wired to
 # see. /var/log/audit is a path this repo's own auditPolicy config causes Talos to write
 # to, not a standard Talos-wired path, so Alloy's hostPath mount for it
-# (apps/alloy.yaml, see docs/exceptions/alloy-audit-log.md) failed at the kubelet mount
+# (apps/core/alloy.yaml, see docs/exceptions/alloy-audit-log.md) failed at the kubelet mount
 # step specifically — "hostPath type check failed: /var/log/audit/kube is not a
 # directory" — even though the directory demonstrably exists (confirmed both via
 # `talosctl ls` and by inspecting the named Docker volume backing this container's /var

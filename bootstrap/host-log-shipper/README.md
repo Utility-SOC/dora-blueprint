@@ -13,7 +13,7 @@ a real Wazuh deployment later as its own phase, once the current stack's covered
 
 ## Why a separate Alloy instance
 
-The in-cluster Alloy DaemonSet (`apps/loki.yaml`) only has visibility inside the Talos "node"
+The in-cluster Alloy DaemonSet (`apps/core/loki.yaml`) only has visibility inside the Talos "node"
 containers' own filesystems -- it can't see appserv's own host-level OS logs, because appserv is
 the *outer* host running all three Talos nodes as processes/containers on itself, not a node
 inside the cluster. So this is a second, standalone Alloy binary running directly on appserv

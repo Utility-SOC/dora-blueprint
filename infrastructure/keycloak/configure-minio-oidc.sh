@@ -4,7 +4,7 @@
 # runs later, against a realm that already exists, rather than as part of initial realm
 # creation.
 #
-# MinIO's own OIDC config (apps/minio.yaml's `oidc:` block) uses `claimName: groups` --
+# MinIO's own OIDC config (apps/core/minio.yaml's `oidc:` block) uses `claimName: groups` --
 # same "the IdP just asserts group membership, each consuming app maps it locally"
 # pattern already used for Argo CD's policy.csv and Grafana's role mapping, not a
 # MinIO-specific "policy" claim baked into the token. Group -> policy binding itself
@@ -51,7 +51,7 @@ echo
 echo "Next steps, in order:"
 echo "  1. Add minio_oidc_client_secret to iam-secrets.enc.yaml (re-encrypt, commit)."
 echo "  2. Re-run bootstrap/install.sh so step 8 applies the new minio-oidc-secret K8s Secret."
-echo "  3. Let Argo CD sync apps/minio.yaml (already has the oidc: block referencing that"
+echo "  3. Let Argo CD sync apps/core/minio.yaml (already has the oidc: block referencing that"
 echo "     secret) -- MinIO restarts with OIDC enabled."
 echo "  4. Attach policies to the new LDAP groups (requires the minio/mc image -- not bundled"
 echo "     in minio/minio itself):"

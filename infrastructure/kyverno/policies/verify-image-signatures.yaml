@@ -77,7 +77,7 @@ spec:
       # explicit ":latest" tag outright at the source, rather than relying on mutateDigest to
       # quietly resolve a floating tag someone hand-wrote into a manifest. Every image
       # reference already committed in this repo (canary/deployment.yaml,
-      # apps/tetragon.yaml, etc.) is pinned by tag-or-digest as a matter of practice; this
+      # apps/full/tetragon.yaml, etc.) is pinned by tag-or-digest as a matter of practice; this
       # makes that practice enforced, not just followed, for the one image this repo builds.
       match:
         any:

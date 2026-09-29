@@ -7,10 +7,10 @@ lab-core:
 	@bash bootstrap/install.sh
 
 lab-full:
-	@echo "lab-full: not implemented yet (build-spec Phase 1/5)"; exit 1
+	@TIER=full bash bootstrap/install.sh
 
 lab-dr:
-	@echo "lab-dr: not implemented yet (build-spec Phase 8+, out of Phase 3 milestone scope)"; exit 1
+	@echo "lab-dr: not implemented -- the full tier (make lab-full: apps/core/ + apps/full/, IAM/Tetragon/Trivy) is real; a genuine second cluster plus a cross-cluster restore drill beyond that is still unbuilt (build-spec Phase 19, README.md roadmap)"; exit 1
 
 drill:
 	@test -n "$(SCENARIO)" || { echo "usage: make drill SCENARIO=<name>"; exit 1; }

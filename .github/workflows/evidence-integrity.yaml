@@ -9,10 +9,17 @@
 #
 # Regenerate-then-commit, same convention as images/generate-roi.py: a contributor runs
 # `python3 docs/evidence/chain.py` locally after adding/changing a sample and commits the
-# result. This job's own regeneration step is a *check* that this happened, not a bot
-# auto-commit -- `git diff --exit-code` fails the job if the committed
-# docs/evidence/integrity-chain.json doesn't match a fresh recomputation, catching "evidence
-# edited without regenerating the chain" before it ever gets signed.
+# result. This job checks that happened -- but via `chain.py --verify`, not a raw
+# `git diff --exit-code` against a fresh `chain.py` run.
+#
+# CAUGHT LIVE (first real run of this workflow, run 36521135959): a `git diff --exit-code`
+# step here failed every single time, on an unmodified repo -- `generated_at` is a wall-clock
+# timestamp, written fresh on every `chain.py` invocation by design, so a full-file diff between
+# "freshly regenerated" and "committed a moment earlier" always shows that one field changing,
+# even with zero real changes. `chain.py --verify` (still one step below) already does the
+# right comparison -- it recomputes file_hash/chain_hash per entry and compares those plus the
+# final chain_head, deliberately never touching generated_at -- so this job just relies on that
+# instead of a second, cruder check that could never pass.
 name: Evidence integrity chain
 
 on:
@@ -35,16 +42,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Recompute the chain and confirm it matches what's committed
-        run: |
-          set -euo pipefail
-          python3 docs/evidence/chain.py
-          if ! git diff --exit-code docs/evidence/integrity-chain.json; then
-            echo "::error::docs/evidence/integrity-chain.json is out of date -- run \`python3 docs/evidence/chain.py\` locally and commit the result" >&2
-            exit 1
-          fi
-
-      - name: Verify the chain itself (per-file hashes, order, chain_head)
+      - name: Verify the committed chain against real current file content
+        # Fails if docs/evidence/samples/ was edited, added to, or had a file removed without
+        # regenerating docs/evidence/integrity-chain.json (`python3 docs/evidence/chain.py`)
+        # locally first -- exactly the check the removed git-diff step was trying for, done
+        # right: this compares substance (file_hash/chain_hash per entry, final chain_head),
+        # not a raw text diff that a legitimate, always-changing timestamp field would always
+        # trip.
         run: python3 docs/evidence/chain.py --verify
 
       - name: Install cosign

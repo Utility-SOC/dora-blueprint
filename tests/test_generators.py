@@ -122,6 +122,9 @@ MD_FILES = sorted(p for p in REPO.rglob("*.md") if not {".venv", ".git", "node_m
 
 
 def slug(heading: str) -> str:
+    explicit = re.search(r"\{#([\w\-]+)\}\s*$", heading)  # markdown attr_list: "## Title {#id}"
+    if explicit:
+        return explicit.group(1)
     s = heading.strip().lower()
     s = re.sub(r"[`*_]", "", s)
     s = re.sub(r"[^\w\- ]", "", s)

@@ -95,7 +95,9 @@ are computed by `drills/lib/clocks.py` (§6.4 of the build spec) because:
    what the NIS2 clock *would* have required and confirm the DORA clock is in fact the binding
    one.
 2. The two regimes start the clock on different events — DORA Art. 19 starts from
-   **classification as major**, capped at 24h from **detection**; NIS2 Art. 23 starts from
+   **classification as major**, capped at 24h from **detection** (if classification itself only
+   happens more than 24h after detection, the 4h window simply restarts from classification, per
+   Commission Delegated Regulation (EU) 2025/301, which sets these time limits); NIS2 Art. 23 starts from
    **awareness**. In a single incident timeline these are not the same instant, and the gap
    between them is exactly the kind of thing a lab can measure and a whitepaper can only
    describe.

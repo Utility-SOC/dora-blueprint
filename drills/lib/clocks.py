@@ -7,8 +7,11 @@ displacement *verifiable*, by showing what the NIS2 clock would have required al
 DORA clock that's actually binding, not to assert the divergence in prose.
 
 The two regimes start the clock on different events:
-  - DORA Art. 19: initial notification within 4h of *classification* as major, capped at 24h
-    from *detection* — `t_notify_due_dora = min(t_classify + 4h, t_detect + 24h)`.
+  - DORA Art. 19 + Commission Delegated Regulation (EU) 2025/301: initial notification within
+    4h of *classification* as major, and no later than 24h from *awareness* (detection here).
+    Normally `t_notify_due_dora = min(t_classify + 4h, t_detect + 24h)`. If classification
+    only happens MORE than 24h after detection, the 24h cap is already blown, and the RTS
+    says the 4h runs from classification: `t_notify_due_dora = t_classify + 4h`.
   - NIS2 Art. 23: early warning within 24h of *awareness* — this repo has no distinct
     "awareness" event separate from detection, so `t_detect` stands in for it, per
     docs/00-scope.md §0.4 — `t_notify_due_nis2 = t_detect + 24h`.
@@ -50,7 +53,9 @@ def compute_clocks(t_detect: str | None, t_classify: str | None) -> dict:
         classify_dt = _parse(t_classify)
         dora_from_classify = classify_dt + DORA_CLASSIFY_WINDOW
         dora_cap = detect_dt + DORA_DETECT_CAP
-        result["t_notify_due_dora"] = _format(min(dora_from_classify, dora_cap))
+        # Delayed classification: the cap has already passed, so 4h-from-classification governs.
+        due = dora_from_classify if classify_dt > dora_cap else min(dora_from_classify, dora_cap)
+        result["t_notify_due_dora"] = _format(due)
 
     return result
 

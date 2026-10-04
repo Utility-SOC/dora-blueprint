@@ -22,12 +22,25 @@ def test_dora_is_capped_at_detect_plus_24h_for_late_classification(clocks):
     assert out["t_notify_due_dora"] == out["t_notify_due_nis2"]
 
 
-def test_dora_never_later_than_nis2(clocks):
+def test_dora_never_later_than_nis2_when_classified_within_24h(clocks):
     detect = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    for hours in range(0, 72, 5):
+    for hours in range(0, 25, 3):
         classify = detect + timedelta(hours=hours)
         out = clocks.compute_clocks(clocks._format(detect), clocks._format(classify))
         assert out["t_notify_due_dora"] <= out["t_notify_due_nis2"]
+
+
+def test_delayed_classification_restarts_the_4h_window(clocks):
+    """Delegated Reg. (EU) 2025/301: classified as major >24h after awareness -> 4h from
+    classification. The 24h cap would otherwise yield a deadline already in the past."""
+    out = clocks.compute_clocks("2026-01-01T10:00:00Z", "2026-01-02T16:00:00Z")
+    assert out["t_notify_due_dora"] == "2026-01-02T20:00:00Z"
+    assert out["t_notify_due_dora"] > out["t_notify_due_nis2"]
+
+
+def test_classification_exactly_at_the_cap_boundary(clocks):
+    out = clocks.compute_clocks("2026-01-01T10:00:00Z", "2026-01-02T10:00:00Z")
+    assert out["t_notify_due_dora"] == "2026-01-02T10:00:00Z"
 
 
 def test_missing_detect_omits_both_deadlines_rather_than_fabricating(clocks):

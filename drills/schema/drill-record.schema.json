@@ -66,7 +66,7 @@
     "t_notify_due_dora": {
       "type": "string",
       "format": "date-time",
-      "description": "t_classify + 4h, capped at t_detect + 24h — build-spec §6.4/§0.4"
+      "description": "t_classify + 4h, capped at t_detect + 24h unless classified later than that, in which case t_classify + 4h (Delegated Reg. (EU) 2025/301) — build-spec §6.4/§0.4"
     },
     "t_notify_due_nis2": {
       "type": "string",

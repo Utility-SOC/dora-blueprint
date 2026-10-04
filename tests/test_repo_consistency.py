@@ -168,10 +168,11 @@ def test_image_signature_policy_names_the_current_repo_and_branch():
 
 
 def test_no_stale_project_name_anywhere():
+    stale = "elastic-dora" + "-blueprint"  # built by concatenation so this file doesn't match itself
     for p in tracked("*.md", "*.yaml", "*.sh", "*.py", "*.json"):
         if p.name in {"CHANGELOG.md"} or p.relative_to(REPO).parts[:2] == ("docs", "evidence"):
             continue  # history and signed evidence legitimately mention the old name
-        assert "elastic-dora-blueprint" not in p.read_text(), p
+        assert stale not in p.read_text(), p
 
 
 # ---- secrets hygiene --------------------------------------------------------------------------

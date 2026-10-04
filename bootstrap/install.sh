@@ -27,6 +27,13 @@ KUBERNETES_VERSION="1.36.2"
 CILIUM_CHART_VERSION="1.19.6"
 ARGOCD_VERSION="v3.4.5"
 WORKERS="${WORKERS:-2}"
+# Defaults assume a host with real headroom (~20GB+ free) -- see the comment at the
+# `talosctl cluster create` call below for why 8/6GB isn't arbitrary. Override both for a
+# smaller host; WORKERS=0 (control-plane doubles as worker -- untainted for scheduling below,
+# step 4) plus a much smaller MEMORY_CONTROLPLANES is the realistic shape for a single laptop
+# rather than trying to shrink three separately-sized nodes down individually.
+MEMORY_CONTROLPLANES="${MEMORY_CONTROLPLANES:-8GB}"
+MEMORY_WORKERS="${MEMORY_WORKERS:-6GB}"
 
 REPO_SSH_URL="git@github.com:utility-soc/dora-blueprint.git"
 # Dedicated per-cluster talosconfig, not the shared ~/.talos/config: `talosctl cluster
@@ -52,14 +59,17 @@ else
   # memory usage once real workloads (Loki, MinIO, Velero, Argo Workflows) landed —
   # kube-controller-manager crash-looped for hours on probe timeouts before this was
   # diagnosed as memory pressure, not a config bug. These values assume a host with
-  # real headroom (~20GB+ free); tune down for a tighter core-tier laptop deployment.
+  # real headroom (~20GB+ free); MEMORY_CONTROLPLANES/MEMORY_WORKERS/WORKERS above override
+  # these for a tighter deployment. --memory-workers is passed even when WORKERS=0 --
+  # talosctl accepts it as a no-op with no worker nodes to apply it to, simpler than
+  # conditionally omitting the flag.
   talosctl cluster create docker \
     --name "$CLUSTER_NAME" \
     --image "ghcr.io/siderolabs/talos:${TALOS_VERSION}" \
     --kubernetes-version "$KUBERNETES_VERSION" \
     --workers "$WORKERS" \
-    --memory-controlplanes 8GB \
-    --memory-workers 6GB \
+    --memory-controlplanes "$MEMORY_CONTROLPLANES" \
+    --memory-workers "$MEMORY_WORKERS" \
     --talosconfig-destination "$TALOSCONFIG" \
     --config-patch @"$REPO_ROOT/platform/talos/patches/common.yaml" \
     --config-patch-controlplanes @"$REPO_ROOT/platform/talos/patches/control-plane.yaml"
@@ -128,6 +138,17 @@ helm upgrade --install cilium cilium/cilium \
 
 echo "==> [4/14] Waiting for nodes Ready"
 kubectl wait --for=condition=Ready nodes --all --timeout=180s
+
+if [ "$WORKERS" -eq 0 ]; then
+  # Single-node: Kubernetes taints every control-plane node node-role.kubernetes.io/control-
+  # plane:NoSchedule by default, same as any vanilla cluster -- nothing Talos- or
+  # provisioner-specific removes it. With no separate worker node to take the load instead,
+  # that taint leaves nothing schedulable at all, starting with Argo CD's own pods in the
+  # very next step. Untainting here, not by patching every third-party Helm chart's own
+  # tolerations (a couple dozen charts in this repo, most with no toleration knob at all).
+  echo "    WORKERS=0 -- untainting the control-plane node so it can schedule regular workloads too"
+  kubectl taint nodes --all node-role.kubernetes.io/control-plane- 2>&1 | grep -v 'not found' || true
+fi
 
 echo "==> [5/14] Installing Argo CD $ARGOCD_VERSION"
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -

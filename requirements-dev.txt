@@ -1,0 +1,5 @@
+# Test-only dependencies. The runtime scripts under drills/ and canary/ are deliberately
+# stdlib-only; PyYAML is needed by docs/evidence/*.py, jsonschema only by one cross-check test.
+pytest>=8
+PyYAML>=6
+jsonschema>=4

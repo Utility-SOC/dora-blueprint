@@ -1,0 +1,119 @@
+site_name: dora-blueprint
+site_description: A GitOps Kubernetes reference architecture that measures its own recovery objectives and maps them to DORA, NIS2, ISO 27001 and NIST SP 800-53.
+site_url: https://utility-soc.github.io/dora-blueprint/
+repo_url: https://github.com/Utility-SOC/dora-blueprint
+edit_uri: edit/main/docs/
+docs_dir: docs
+strict: true
+
+# Evidence samples and generated per-control copies are data, not pages.
+exclude_docs: |
+  evidence/by-control/
+  evidence/__pycache__/
+  evidence/*.py
+  evidence/*.yaml
+  evidence/*.json
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: {icon: material/weather-night, name: Dark mode}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: {icon: material/weather-sunny, name: Light mode}
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc: {permalink: true}
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.details
+
+# Page lists are maintained here; tests/test_docs_site.py fails if a page exists but is not listed.
+nav:
+  - Home: index.md
+  - Start here:
+      - Executive summary: guide/executive-summary.md
+      - How it works: guide/how-it-works.md
+      - Reading the evidence: guide/reading-the-evidence.md
+      - Glossary: guide/glossary.md
+      - Running the demo on a VM: guide/demo-vm.md
+  - Tools and products:
+      - Overview: components/index.md
+      - "Grafana Alloy": components/alloy.md
+      - "apko, Wolfi and the SBOM": components/apko-wolfi.md
+      - "Argo CD": components/argo-cd.md
+      - "Argo Workflows": components/argo-workflows.md
+      - "The canary workload (and SQLite)": components/canary.md
+      - "cert-manager and the offline CA": components/cert-manager.md
+      - "Cilium (and Hubble)": components/cilium.md
+      - "Docker": components/docker.md
+      - "The drill framework (Python)": components/drill-framework.md
+      - "The evidence pipeline": components/evidence-pipeline.md
+      - "GitHub Actions": components/github-actions.md
+      - "GLPI (and MariaDB)": components/glpi.md
+      - "Grafana (dashboards and Alerting)": components/grafana.md
+      - "Helm": components/helm.md
+      - "Keycloak (and PostgreSQL)": components/keycloak.md
+      - "kube-bench (planned)": components/kube-bench.md
+      - "Kubernetes": components/kubernetes.md
+      - "Kyverno": components/kyverno.md
+      - "Loki": components/loki.md
+      - "MinIO": components/minio.md
+      - "MITRE ATT&CK": components/mitre-attack.md
+      - "MkDocs Material": components/mkdocs.md
+      - "OpenLDAP and LDAP Account Manager": components/openldap-lam.md
+      - "OSCAL": components/oscal.md
+      - "Sigstore and cosign": components/sigstore-cosign.md
+      - "SOPS and age": components/sops-age.md
+      - "Storage provisioners (local-path and OpenEBS LocalPV)": components/storage.md
+      - "Talos Linux": components/talos.md
+      - "pytest and the offline test suite": components/testing.md
+      - "Tetragon": components/tetragon.md
+      - "Trivy Operator and the findings exporter": components/trivy-operator.md
+      - "Velero": components/velero.md
+  - Compliance mapping:
+      - Overview: compliance/index.md
+      - DORA: compliance/dora.md
+      - NIS2: compliance/nis2.md
+      - ISO 27001: compliance/iso27001.md
+      - NIST 800-53: compliance/nist80053.md
+      - Gaps register: compliance/gaps.md
+  - Runbooks:
+      - "---": runbooks/credential-compromise-incident.md
+      - "---": runbooks/network-partition-incident.md
+      - "---": runbooks/node-kill-incident.md
+      - "---": runbooks/ns-restore-incident.md
+      - "Runbook: offline Root CA issuance, and Intermediate CA (re-)signing": runbooks/pki-root-ca-issuance.md
+      - "---": runbooks/pvc-corruption-restore-incident.md
+  - Policy exceptions:
+      - "Exception: Alloy audit-log shipper": exceptions/alloy-audit-log.md
+      - "Exception: GLPI (incident ticketing)": exceptions/glpi.md
+      - "Exception: local-path-provisioner helper pods": exceptions/local-path-provisioner.md
+      - "Exception: OpenEBS localpv-provisioner helper pods": exceptions/openebs-localpv.md
+      - "Exception: OpenLDAP (toy directory)": exceptions/openldap.md
+      - "Exception: Tetragon (endpoint runtime security)": exceptions/tetragon.md
+      - "Exception: Trivy Operator vulnerability-scan jobs": exceptions/trivy-operator-scan-jobs.md
+      - "Exception: Velero node-agent (File System Backup)": exceptions/velero-node-agent.md
+  - Generated evidence report: evidence/report.md
+  - Reference:
+      - Scope: 00-scope.md
+      - Control matrix: 03-control-matrix.md
+      - Limitations: 04-limitations.md
+      - Shared responsibility: 05-shared-responsibility.md
+      - Operations: 06-operations.md
+      - NIST 800-53 crosswalk: 06-nist-800-53-crosswalk.md
+      - ATT&CK mapping: 07-attack-mapping.md

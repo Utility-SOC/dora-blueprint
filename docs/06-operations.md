@@ -4,7 +4,7 @@ This document answers three questions a reviewer or a real operator would ask th
 control matrix and shared-responsibility doc don't cover: how do you actually run this thing
 day to day, what's the change procedure when something needs to be modified, and what happens
 to the evidence this repo generates. It's written against the platform as it exists today
-(Phases 0–9 and 11 complete, Phase 10 not yet started) — sections below say plainly where the
+(see the README phase table for current status) — sections below say plainly where the
 real answer is "not built yet" rather than describing an aspirational process.
 
 ## 1. Bringing the lab up and using it
@@ -23,9 +23,10 @@ real answer is "not built yet" rather than describing an aspirational process.
   record — see `drills/schema/drill-record.schema.json` — printed to stdout and, for now,
   manually promoted to `docs/evidence/samples/` when it's worth keeping as citable evidence
   (§3 below).
-- `make lab-full`, `make lab-dr`, `make evidence`, `make images` all exist as stubs today and
-  fail loudly rather than silently no-op — build-spec P1 ("no claim without an implementation").
-  Don't trust a green run of these; they're not implemented yet.
+- `make lab-full`, `make evidence`, `make evidence-verify` and `make test` are real. `make lab-dr`
+  and `make images` are deliberate stubs that fail loudly rather than silently no-op — build-spec P1
+  ("no claim without an implementation"): `lab-dr` needs a second cluster (Phase 19) and images are
+  built in CI, not locally.
 - **Accessing the UIs**: nothing in this lab has a real network-level Ingress yet — every UI
   (Argo CD, Grafana, Keycloak, Hubble) is reached via `kubectl port-forward --address
   192.168.1.106 ...`, which is confirmed (Phase 6) to bypass Cilium's CNI enforcement entirely on
@@ -39,8 +40,10 @@ real answer is "not built yet" rather than describing an aspirational process.
 
 ## 2. Change procedure
 
-There is no CI pipeline and no branch protection on this repo today — every change lands via a
-direct commit/push to `main`, and Argo CD's `selfHeal: true` picks it up automatically. That's
+There is now CI (`.github/workflows/`: offline tests, docs build, evidence-integrity, image build) but
+**no branch protection requiring it** — a change can still land via a direct push to `main`, and Argo CD's
+`selfHeal: true` picks it up automatically. Making the `tests` and `docs` checks required is a repository
+setting for the owner (gap G9 in [`compliance/gaps.md`](compliance/gaps.md)). That's
 a deliberate scope cut for a reference lab with one operator, not a recommendation: a real
 deployment of this pattern would gate every merge behind CI (manifest linting, `kubeconform`/
 `kyverno test`, a `sops` pre-commit check that no plaintext secret is staged) and branch

@@ -382,6 +382,25 @@ ConfigMap (the live Application spec had the new dashboards; the actual `grafana
 ConfigMap didn't) — worked around by deleting the ConfigMap and letting `selfHeal` recreate it
 fresh, confirmed via the real Grafana API afterward.
 
+## Test suite, documentation site, and compliance mapping
+
+Offline test suite (`tests/`, `make test`, `.github/workflows/tests.yaml`): classification, notification clocks,
+drill-record schema, canary and evidence hash chains, OSCAL export, manifest hygiene, GitOps invariants, secrets
+hygiene, shell syntax, and every relative Markdown link. Documentation site (`mkdocs.yml`,
+`.github/workflows/docs.yaml`): executive guide, one page per tool with official-documentation links, article-level
+DORA / NIS2 / ISO 27001 / NIST 800-53 mappings, and a gaps register.
+
+Real problems found by writing the tests, not by running a cluster: `images/generate-roi.py` found zero Helm
+components after the tier split and missed multi-source Applications (alloy); `configure-service-groups.sh` had a
+stray quote and did not parse; `drills/lib/clocks.py` returned an already-passed deadline when an incident was
+classified more than 24h after detection (Delegated Regulation (EU) 2025/301 restarts the 4h window from
+classification); two historical evidence samples violate the drill-record schema, one with a negative
+`measured_rpo_records_lost` (-34657), now pinned as known deviations (not edited, since the evidence is hash-chained).
+
+Also surfaced, not fixed (needs a live cluster to verify): the ns-restore verdict does not compare measured RTO to
+`target_rto_seconds`; `docs/01-risk-assessment.md` and `docs/02-statement-of-applicability.md` were referenced but
+never written. See `docs/compliance/gaps.md`.
+
 ## Follow-ups spawned, not yet resolved
 
 - **`task_a45b9f18`** — `measured_rpo_records_lost` comes back negative in real drill runs, a

@@ -31,3 +31,4 @@ talosconfig
 .terraform/
 .venv/
 __pycache__/
+site/

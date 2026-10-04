@@ -63,6 +63,11 @@ VENDOR_NAMES = {
     "glpi": ("GLPI project / MariaDB Foundation", "Self-hosted ITSM (incident tickets)"),
     "openldap": ("osixia/openldap (community image)", "LDAP directory (identity backing store)"),
     "local-path-provisioner": ("Rancher (local-path-provisioner)", "Default StorageClass provisioner"),
+    "trivy-operator": ("Aqua Security (Trivy Operator)", "Continuous in-cluster vulnerability scanning"),
+    "mariadb": ("MariaDB Foundation", "Relational database backing GLPI"),
+    "k8s": ("Alpine / alpine-k8s image (community)", "kubectl toolbox image used by helper Jobs"),
+    "lam": ("LDAP Account Manager project", "Web UI for managing OpenLDAP accounts"),
+    "postgres": ("PostgreSQL Global Development Group", "Relational database backing Keycloak"),
     "canary-writer": ("Built by this repo (apko/Wolfi)", "RPO-measurement canary workload"),
 }
 
@@ -70,12 +75,12 @@ VENDOR_NAMES = {
 def discover_helm_sourced() -> list[dict]:
     """Real scan of apps/*.yaml Application manifests for chart-sourced (third-party) components."""
     rows = []
-    for f in sorted(APPS_DIR.glob("*.yaml")):
+    for f in sorted(APPS_DIR.rglob("*.yaml")):
         text = f.read_text()
         name_m = re.search(r"^\s*name:\s*(\S+)", text, re.MULTILINE)
         chart_m = re.search(r"^\s*chart:\s*(\S+)", text, re.MULTILINE)
-        repo_m = re.search(r"^\s*repoURL:\s*(\S+)", text, re.MULTILINE)
-        rev_m = re.search(r"^\s*targetRevision:\s*(\S+)", text, re.MULTILINE)
+        repo_m = re.search(r"^\s*(?:-\s+)?repoURL:\s*(\S+)", text, re.MULTILINE)
+        rev_m = re.search(r"^\s*(?:-\s+)?targetRevision:\s*(\S+)", text, re.MULTILINE)
         if not (name_m and chart_m and repo_m):
             continue  # this repo's own git-sourced Applications (canary, cilium-policies, ...) aren't third-party
         name = name_m.group(1)

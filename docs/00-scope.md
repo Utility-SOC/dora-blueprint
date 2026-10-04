@@ -95,7 +95,9 @@ are computed by `drills/lib/clocks.py` (§6.4 of the build spec) because:
    what the NIS2 clock *would* have required and confirm the DORA clock is in fact the binding
    one.
 2. The two regimes start the clock on different events — DORA Art. 19 starts from
-   **classification as major**, capped at 24h from **detection**; NIS2 Art. 23 starts from
+   **classification as major**, capped at 24h from **detection** (if classification itself only
+   happens more than 24h after detection, the 4h window simply restarts from classification, per
+   Commission Delegated Regulation (EU) 2025/301, which sets these time limits); NIS2 Art. 23 starts from
    **awareness**. In a single incident timeline these are not the same instant, and the gap
    between them is exactly the kind of thing a lab can measure and a whitepaper can only
    describe.
@@ -109,9 +111,9 @@ Statement of Applicability, not a certifiable object on its own.
 This repository implements **technical controls that map to specific Annex A controls**
 (A.5.1–A.5.30, A.8.x as listed in the build spec's article map). It does **not** implement an
 ISMS: there is no management review, no internal audit programme, no top-management-owned risk
-acceptance process, no HR/supplier-contract lifecycle. `docs/02-statement-of-applicability.md`
-states explicitly which Annex A controls are addressed and marks the rest "not implemented —
-lab scope."
+acceptance process, no HR/supplier-contract lifecycle. [`docs/compliance/iso27001.md`](compliance/iso27001.md)
+states which Annex A controls are addressed and their status (a Statement of Applicability proper was
+never written; see the [gaps register](compliance/gaps.md), G14).
 
 ## 0.6 Platform controls vs. tenant-specific artifacts
 
@@ -148,10 +150,10 @@ Restated from the build spec §0, because it belongs in the scope document too:
 
 ## 0.8 Open items carried to later docs
 
-- `docs/01-risk-assessment.md` — Meridian Pay's notional risk register (Phase 0/1 follow-on).
+- `docs/01-risk-assessment.md` — **not written** (gap G14 in [`compliance/gaps.md`](compliance/gaps.md)). Meridian Pay's notional risk register (Phase 0/1 follow-on).
   When written, should carry the platform/tenant distinction from §0.6 forward — this is a
   tenant-level artifact, not a platform-level one.
-- `docs/02-statement-of-applicability.md` — full Annex A applicability table.
+- `docs/02-statement-of-applicability.md` — **not written**; an applicability table with statuses is in [`compliance/iso27001.md`](compliance/iso27001.md).
 - `docs/04-limitations.md` — stated limitations (build spec §11), written alongside this file.
 - Automated multi-tenant onboarding is an explicit non-goal for now — this platform demonstrates
   the pattern with one worked example (reference architecture), not a mechanism for provisioning

@@ -50,6 +50,7 @@ nav:
       - How it works: guide/how-it-works.md
       - Reading the evidence: guide/reading-the-evidence.md
       - Glossary: guide/glossary.md
+      - Running the demo on a VM: guide/demo-vm.md
   - Tools and products:
       - Overview: components/index.md
       - "Grafana Alloy": components/alloy.md

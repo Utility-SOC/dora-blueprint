@@ -192,6 +192,13 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Docs
 
+**New here?** Start with the [executive summary](docs/guide/executive-summary.md) (five minutes, no Kubernetes
+knowledge needed) or [how it works](docs/guide/how-it-works.md). Every tool has a page in
+[`docs/components/`](docs/components/index.md) with a link to its official documentation, and
+[`docs/compliance/`](docs/compliance/index.md) maps features to the text of DORA, NIS2, ISO 27001 and NIST
+SP 800-53, with an honest [gaps register](docs/compliance/gaps.md). Build the site locally with
+`pip install -r requirements-docs.txt && mkdocs serve`; `make test` runs the offline test suite.
+
 - [`docs/00-scope.md`](docs/00-scope.md) — platform/tenant framing, lex specialis reasoning, per-tenant DORA Art. 16 analysis
 - [`docs/03-control-matrix.md`](docs/03-control-matrix.md) — control traceability, the front-door artifact
 - [`docs/04-limitations.md`](docs/04-limitations.md) — what this lab cannot demonstrate, and why

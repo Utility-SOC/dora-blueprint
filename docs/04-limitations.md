@@ -21,7 +21,7 @@ gaps to be closed, the claim doesn't get made.
 - **ISO 27001 requires an ISMS.** Clauses 4–10 — management review, internal audit, continual
   improvement, top-management ownership of risk acceptance — are organisational processes this
   repository does not and cannot implement. Only a subset of Annex A technical/procedural
-  controls is addressed; see `docs/02-statement-of-applicability.md`.
+  controls is addressed; see [`compliance/iso27001.md`](compliance/iso27001.md) (a formal Statement of Applicability was never written).
 - **Single-operator lab.** Segregation of duties is asserted through branch protection and
   required review rules rather than genuinely enforced across multiple humans with distinct
   roles. A real ISMS would require more than one person able to demonstrate this control.

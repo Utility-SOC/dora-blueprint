@@ -20,11 +20,17 @@ def tracked(*patterns):
 
 # ---- every YAML / shell / JSON file at least parses -----------------------------------------
 
+class _TolerantLoader(yaml.SafeLoader):
+    """SafeLoader that accepts `!!python/...` tags (mkdocs.yml uses one for its mermaid fence)
+    without executing anything: we only care that the file is well-formed YAML."""
+
+
+_TolerantLoader.add_multi_constructor("tag:yaml.org,2002:python/", lambda loader, suffix, node: None)
+
+
 @pytest.mark.parametrize("path", tracked("*.yaml", "*.yml"), ids=lambda p: str(p.relative_to(REPO)))
 def test_yaml_parses(path):
-    if "helm" in path.parts or path.name.startswith("values"):
-        pass
-    list(yaml.safe_load_all(path.read_text()))
+    list(yaml.load_all(path.read_text(), Loader=_TolerantLoader))
 
 
 @pytest.mark.parametrize("path", tracked("*.json"), ids=lambda p: str(p.relative_to(REPO)))

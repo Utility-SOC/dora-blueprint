@@ -123,10 +123,10 @@ F08 can proceed.
 | T08 | One-command VM provisioning (cloud-init) | 02 | no | |
 | T07 | Pin CI tooling by version and SHA | 03 | no | |
 | T25 | CI smoke bring-up of the `core` tier | 03 | runs in CI | |
-| T09 | Drill verdict honours RTO/RPO targets | 04 | proof only | |
+| T09 | Drill verdict honours RTO/RPO targets (**PR #6**) | 04 | proof only | |
 | T10 | Intermediate and final reporting deadlines | 04 | no | **yes** |
 | T11 | Schedule the drills; alert on missed runs | 04 | proof only | |
-| T12 | Find and fix the negative-RPO bug | 04 | proof only | |
+| T12 | Find and fix the negative-RPO bug (**PR #7**) | 04 | proof only | |
 | T15 | Risk register, BIA and Statement of Applicability | 05 | no | |
 | T27 | Verify and extend the DORA coverage sheet | 05 | no | **yes** |
 | T29 | Incident report drafts in the official template structure | 05 | no | **yes** |

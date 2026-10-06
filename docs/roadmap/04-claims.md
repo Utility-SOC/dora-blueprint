@@ -155,7 +155,13 @@ verification".
    **node-kill is excluded** by default (blast radius); document how to enable it. Use `concurrencyPolicy: Forbid`,
    `startingDeadlineSeconds`, `successfulJobsHistoryLimit: 3` and `failedJobsHistoryLimit: 5`. Stagger the schedules
    so no two drills overlap, and so none overlaps the Velero backup window.
-3. Mark scheduled runs: `trigger: "schedule"` vs `"manual"` in the record (an optional schema field).
+3. **Take a fresh backup first** (a consequence of T12, PR #7). Restore drills now refuse a backup
+   older than the current canary volume, and every `ns-restore` recreates that volume. Start each
+   restore drill with an on-demand backup (`velero backup create --from-schedule <canary schedule> --wait`,
+   run in-cluster through the Velero CLI image, pinned), or stagger restore drills more than one Schedule
+   interval apart. The on-demand backup is preferred, because it also makes the measured RPO reflect a
+   known backup age.
+3b. Mark scheduled runs: `trigger: "schedule"` vs `"manual"` in the record (an optional schema field).
 4. **The control on the control:** a Grafana alert rule fires when the newest drill record for a scenario in Loki is older
    than 2× its interval. This implements BUILD-SPEC §6.2: "a drill that fails to emit a record is itself a control failure."
    Add a dashboard panel, "last successful drill per scenario", showing the age and the verdict.

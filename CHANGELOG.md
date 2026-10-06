@@ -435,3 +435,26 @@ than produce a failed drill record. Enrichment now moves an impossible value to
 reason, so the fault is preserved and loud. Re-evaluating the committed samples: the two good
 ns-restore samples still pass, and `ns-restore-20260729135024.json` now fails. The root cause of
 the negative value is T12. 16 new tests; the suite is at 517 passed.
+
+## T12: negative-RPO root cause (gap G15)
+
+`ns-restore` and `pvc-corruption-restore` chose "the newest Completed Velero backup", whatever
+namespace it covered and whenever it was taken. Every `ns-restore` drill deletes the canary
+namespace, and Argo CD recreates it with a fresh volume whose counter restarts at 1. A drill run
+before the hourly Schedule had backed up the new volume therefore restored the *previous* volume
+and computed before-minus-after across two unrelated counters. That is consistent with the
+committed sample's RPO of -34657; the code path is certain, and the live confirmation is T19.
+
+Fix, in both templates: the backup must be Completed, cover the canary namespace (or all
+namespaces), and have **started after the canary PVC's creationTimestamp**. If none qualifies, the
+drill stops with a clear message, and it refuses to choose at all if the PVC timestamp can't be
+read. Independently, the drill now records the canary's genesis row hash before and after. A
+mismatch means a different incarnation was restored, so it fails the integrity check loudly
+instead of producing a nonsense number. The selection logic stays shell (the drill pod is a
+kubectl image with no Python), between marker comments. `tests/test_select_backup.py` extracts
+that exact snippet and runs it against a fake `kubectl`, so the tests exercise the shipped code;
+it also `bash -n`s every drill step script. A mutation check (removing the timestamp condition)
+fails the tests as intended. The first draft of the test didn't catch it, because an old-volume
+backup is never *newer* than a new-volume one. The bug only bites when no new-volume backup exists
+yet, and that is the case the test now models. 19 new tests; the suite is at 538 passed.
+

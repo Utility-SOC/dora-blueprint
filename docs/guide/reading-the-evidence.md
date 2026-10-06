@@ -75,7 +75,13 @@ break the chain, and are pinned in the tests with the reason:
 | `ns-restore-20260728204154.json` | has an extra free-text `note` field | Hand-added annotation after the run |
 | `ns-restore-20260729135024.json` | `measured_rpo_records_lost` is **-34657** | An unresolved bug in how the workflow captures the "before" counter. Hypothesis, **unverified**: the live canary had been recreated with a fresh volume (counter near zero) while the backup chosen was from the earlier, much longer-lived volume, so "before minus after" went negative |
 
-Negative data loss is impossible, so the RPO in that sample should not be relied on. The RTO and
+Negative data loss is impossible, so the RPO in that sample should not be relied on. **Root cause (T12, found in code review; confirm live):** the drill picked the newest Completed
+Velero backup of *any* namespace, without checking it was taken after the current canary volume
+was created. Every `ns-restore` drill deletes the canary namespace and Argo CD recreates it with a
+fresh volume (counter back to 1). A drill that runs before the hourly Schedule has backed up the
+new volume therefore restored the *previous* volume, whose counter was far higher. Selection now
+requires a backup of the current volume, and a genesis-hash comparison fails any restore of a
+different incarnation. The sample itself is left exactly as committed: it is evidence of the bug. The RTO and
 detection timing in the same sample are unaffected. The first and most-cited sample
 (`ns-restore-20260728152755.json`, RPO 71) is schema-valid.
 

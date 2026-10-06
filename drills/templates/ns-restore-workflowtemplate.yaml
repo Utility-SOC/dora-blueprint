@@ -55,13 +55,26 @@ spec:
             echo "[$DRILL_ID] capturing baseline from the live canary"
             CANARY_POD="$(kubectl -n canary get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
             MAX_BEFORE="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 /scripts/verify.py --field max_counter)"
+            GENESIS_BEFORE="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 -c "import sqlite3; r = sqlite3.connect('/data/canary.db').execute('SELECT hash FROM canary ORDER BY counter ASC LIMIT 1').fetchone(); print(r[0] if r else '')")"
 
             echo "[$DRILL_ID] finding most recent completed backup of canary"
+            # --- select-backup:start (extracted and tested by tests/test_select_backup.py) ---
+            # Newest Completed backup that covers the canary namespace AND started after the current canary
+            # volume was created. Without the second condition a backup of a *previous* canary incarnation
+            # can be chosen -- Argo CD recreates the namespace with a fresh volume after every ns-restore
+            # drill, so the counter restarts at 1 -- and before-minus-after goes negative (gap G15, T12).
+            CANARY_PVC_CREATED="$(kubectl -n canary get pvc canary-data -o jsonpath='{.metadata.creationTimestamp}')"
+            if [ -z "$CANARY_PVC_CREATED" ]; then
+              echo "cannot read the canary PVC's creationTimestamp -- refusing to pick a backup blind" >&2
+              exit 1
+            fi
             BACKUP_NAME="$(kubectl -n velero get backups.velero.io \
-              -o jsonpath='{range .items[?(@.status.phase=="Completed")]}{.metadata.creationTimestamp}{" "}{.metadata.name}{"\n"}{end}' \
-              | sort | tail -1 | awk '{print $2}')"
+              -o jsonpath='{range .items[*]}{.status.phase}{"\t"}{.status.startTimestamp}{"\t"}{.metadata.name}{"\t"}{.spec.includedNamespaces}{"\n"}{end}' \
+              | awk -F'\t' -v since="$CANARY_PVC_CREATED" '$1 == "Completed" && $2 > since && ($4 == "" || $4 ~ /"canary"/ || $4 ~ /"\*"/) {print $2 "\t" $3}' \
+              | sort | tail -1 | cut -f2)"
+            # --- select-backup:end ---
             if [ -z "$BACKUP_NAME" ]; then
-              echo "no completed backup found for canary — the hourly Schedule hasn't fired yet" >&2
+              echo "no completed backup of the current canary volume (created $CANARY_PVC_CREATED) yet -- wait for the hourly Schedule" >&2
               exit 1
             fi
             echo "[$DRILL_ID] using backup: $BACKUP_NAME"
@@ -143,6 +156,13 @@ spec:
             RESTORED_POD="$(kubectl -n "$RESTORE_NS" get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
             INTEGRITY="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field integrity_check)"
             MAX_AFTER="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field max_counter)"
+            GENESIS_AFTER="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3.13 -c "import sqlite3; r = sqlite3.connect('/data/canary.db').execute('SELECT hash FROM canary ORDER BY counter ASC LIMIT 1').fetchone(); print(r[0] if r else '')")"
+            if [ "$GENESIS_BEFORE" != "$GENESIS_AFTER" ]; then
+              # The restored data is a different canary incarnation than the one that was running: a
+              # records-lost figure computed across incarnations is meaningless, so fail loudly.
+              echo "[$DRILL_ID] restored canary is a different incarnation (genesis ${GENESIS_BEFORE:0:12} vs ${GENESIS_AFTER:0:12}) -- integrity fail" >&2
+              INTEGRITY="fail"
+            fi
             T_VERIFY="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
             RTO=$(( $(date -u -d "$T_RECOVER" +%s) - $(date -u -d "$T_INJECT" +%s) ))
@@ -151,7 +171,7 @@ spec:
 
             echo "[$DRILL_ID] emitting drill record"
             RECORD="$(cat <<EOF
-            {"drill_id":"${DRILL_ID}","scenario":"ns-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29","ISO-A.8.16","DORA-Art10"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","restored namespace: ${RESTORE_NS}"]}
+            {"drill_id":"${DRILL_ID}","scenario":"ns-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29","ISO-A.8.16","DORA-Art10"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","canary genesis before/after: ${GENESIS_BEFORE:0:12}/${GENESIS_AFTER:0:12}","velero restore: ${RESTORE_NAME}","restored namespace: ${RESTORE_NS}"]}
             EOF
             )"
             if [ -n "$T_DETECT" ]; then

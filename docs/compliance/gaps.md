@@ -27,7 +27,7 @@ you what *not* to repeat in a meeting.
 | G12 | Only the initial-notification deadline is computed | DORA Art. 19(4); NIS2 Art. 23(4) | Offline | Add intermediate and final deadlines after checking the RTS |
 | G13 | Third-party contract fields are synthetic; register is not the official template | DORA Art. 28(3), 30 | Organisational | Real contracts; the RTS register format |
 | G14 | No business impact analysis, risk register, or Statement of Applicability | DORA Art. 11(5); NIS2 21(2)(a); ISO 27001 Cl. 6 | Organisational | Write them. [Scope](../00-scope.md) names `docs/01` and `docs/02` that do not exist |
-| G15 | Two historical samples violate the schema; one has a **negative RPO** | Evidence quality | Live | Find the counter-capture bug (hypothesis in [Reading the evidence](../guide/reading-the-evidence.md)), re-run, regenerate the chain deliberately |
+| G15 | Two historical samples violate the schema; one has a **negative RPO** | Evidence quality | **Fixed, pending live verification** | Backup selection now requires a backup of the *current* canary volume, and a genesis-hash check fails any restore of a different incarnation (roadmap T12). The historical sample stays as committed, annotated in [Reading the evidence](../guide/reading-the-evidence.md) |
 | G16 | One age key, one holder; the CA was re-issued after the original key was lost | NIST SC-12; DORA Art. 9(4)(d) | Organisational | Back up the key; add a second recipient |
 | G17 | MinIO community edition is frozen (pinned to its last image) | DORA Art. 28; NIS2 21(2)(d) | Offline | Plan a migration to a maintained S3 store |
 | G18 | `apko@latest` in CI; GitHub Actions pinned by tag, not SHA | NIST SR-3, SA-11 | Offline | Pin by version and commit SHA |

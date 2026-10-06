@@ -83,6 +83,9 @@ Add tests for the behaviour you add. A test that only proves the file exists isn
   `how_addressed`, `implemented_by`, `evidence`, `gaps`, `tasks`) and re-render the README in the same PR.
 - Later tasks add sibling sheets in the same shape: ISO 27001 SoA (T15), FedRAMP High coverage (F05),
   20x KSIs (F06), baseline mappings (F10a). Keep the column names consistent so one script can read them all.
+- The **capability layer** (`compliance/capabilities/capabilities.yaml`) is the hub every framework maps to
+  (track 13). When your task changes what the lab can do, update the capability's `status`, `implemented_by`,
+  `evidence` or `demo` in the same PR, and run `make capabilities-check`.
 - When a gap closes, update `docs/compliance/gaps.md` (once PR #3 is merged) with a link to the PR and evidence.
 
 ## 7. Live steps

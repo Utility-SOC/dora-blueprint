@@ -1,0 +1,337 @@
+# Capability layer: the hub every framework mapping points at.
+#
+# A capability is something this lab actually does (or plans to do) that can be demonstrated and
+# evidenced. Frameworks are mapped to capabilities independently (compliance/mappings/<framework>.yaml),
+# never framework-to-framework, so mapping errors do not compound through transitive hops.
+#
+# Fields: see schema.json. Validate with `make capabilities-check`.
+# status: implemented (mechanism + generated evidence) | partial | planned
+# Seeded 2026-10-06 from the repo as it stands on main; roadmap task X01 completes and reviews it.
+version: 1
+capabilities:
+
+# --- Platform and change control -----------------------------------------------------------------
+- id: CAP-PLAT-01
+  name: Immutable, API-managed node OS
+  description: Nodes run Talos Linux, with no shell or SSH and configuration applied as declarative machine config.
+  status: implemented
+  implemented_by: [platform/talos/patches/common.yaml, platform/talos/patches/control-plane.yaml, platform/talos/README.md]
+  demo: talosctl -n <node> get machineconfig   # no SSH path exists to try instead
+- id: CAP-PLAT-02
+  name: GitOps reconciliation of all workloads
+  description: Argo CD continuously reconciles every workload from Git; bootstrap/install.sh is the only imperative step.
+  status: implemented
+  implemented_by: [bootstrap/install.sh, bootstrap/root-app.yaml, apps/]
+  demo: kubectl -n argocd get applications
+- id: CAP-PLAT-03
+  name: Scoped GitOps permissions
+  description: Argo CD runs under a restricted AppProject (source repos, destinations, kinds), never project default.
+  status: implemented
+  implemented_by: [bootstrap/appproject-platform.yaml]
+- id: CAP-PLAT-04
+  name: Everything pinned
+  description: Chart versions, image digests and tool versions are pinned; floating tags are banned.
+  status: partial
+  implemented_by: [apps/, bootstrap/install.sh, infrastructure/kyverno/policies/verify-image-signatures.yaml]
+  roadmap: [T07]
+- id: CAP-PLAT-05
+  name: Reviewed change via pull requests
+  description: Changes reach the platform only through reviewed, tested pull requests to main.
+  status: planned
+  roadmap: [D8, T07]
+- id: CAP-PLAT-06
+  name: Time synchronisation to named sources
+  description: Nodes sync time to pinned NTP sources, which every measured timestamp depends on.
+  status: partial
+  implemented_by: [platform/talos/patches/common.yaml]
+  roadmap: [F08]
+
+# --- Admission and workload hardening ------------------------------------------------------------
+- id: CAP-ADM-01
+  name: Pod Security Standards restricted, enforced
+  description: Kyverno enforces the PSS restricted profile cluster-wide; privileged pods are denied at admission.
+  status: implemented
+  implemented_by: [infrastructure/kyverno/policies/require-pod-security-restricted.yaml]
+  evidence: [docs/evidence/samples/kyverno-admission-20260728202845.txt]
+  demo: kubectl -n canary run demo-priv --image=busybox:1.36 --privileged --restart=Never -- true
+- id: CAP-ADM-02
+  name: Scoped, reasoned policy exceptions
+  description: Every privileged workload has a committed PolicyException plus a written risk acceptance.
+  status: implemented
+  implemented_by: [infrastructure/kyverno/exceptions/, docs/exceptions/]
+- id: CAP-ADM-03
+  name: Signed-image admission
+  description: Kyverno verifyImages requires a keyless signature and SBOM attestation from the exact CI workflow identity.
+  status: implemented
+  implemented_by: [infrastructure/kyverno/policies/verify-image-signatures.yaml]
+
+# --- Network ------------------------------------------------------------------------------------
+- id: CAP-NET-01
+  name: Default-deny network segmentation
+  description: Cilium default-deny in every platform namespace with explicit, observed allows.
+  status: implemented
+  implemented_by: [infrastructure/cilium/]
+  evidence: [docs/evidence/samples/cilium-network-segmentation-20260729015300.txt]
+- id: CAP-NET-02
+  name: Segmentation tested both directions
+  description: The network-partition drill denies and restores a live path, proving enforcement and recovery.
+  status: implemented
+  implemented_by: [drills/scenarios/network-partition.yaml, drills/templates/network-partition-workflowtemplate.yaml]
+  evidence: [docs/evidence/samples/scenario-breadth-20260730021814.txt]
+- id: CAP-NET-03
+  name: Network flow visibility
+  description: Hubble records L3/L4 flows, including drops, for every node.
+  status: implemented
+  implemented_by: [bootstrap/install.sh]
+- id: CAP-NET-04
+  name: Restricted cardholder-data segment
+  description: A segmented namespace for a payments tenant, with traffic only from approved paths (PCI DSS scoping).
+  status: planned
+  roadmap: [X06]
+
+# --- Cryptography and PKI ----------------------------------------------------------------------
+- id: CAP-PKI-01
+  name: Internal two-tier PKI with issued leaf certificates
+  description: Root and intermediate CA; cert-manager issues TLS leaf certificates for internal services.
+  status: implemented
+  implemented_by: [infrastructure/cert-manager/, apps/core/cert-manager-issuer.yaml, apps/core/cert-manager-certificates.yaml]
+  evidence: [docs/evidence/samples/pki-chain-verification-20260729025500.txt]
+  roadmap: [T02a]
+- id: CAP-PKI-02
+  name: Secrets encrypted at rest
+  description: Kubernetes Secrets are encrypted in etcd (a Talos default).
+  status: partial
+  implemented_by: [platform/talos/README.md]
+  roadmap: [F08]
+- id: CAP-PKI-03
+  name: No secret material in Git; credentials generated per stand-up
+  description: Every credential and the CA are generated at stand-up and live only in the cluster.
+  status: planned
+  roadmap: [T02a, T02b, T02c]
+- id: CAP-PKI-04
+  name: Negotiated TLS and certificate expiry evidence
+  description: Served endpoints are probed for protocol, cipher and days to expiry.
+  status: planned
+  roadmap: [F08]
+
+# --- Identity and access -----------------------------------------------------------------------
+- id: CAP-IAM-01
+  name: Central SSO with directory federation
+  description: Keycloak OIDC federated with OpenLDAP; platform UIs log in through it, not local accounts.
+  status: implemented
+  implemented_by: [infrastructure/keycloak/, infrastructure/openldap/, apps/full/keycloak.yaml]
+  evidence: [docs/evidence/samples/keycloak-ldap-oidc-verification-20260729043900.txt]
+- id: CAP-IAM-02
+  name: Group-based RBAC enforced
+  description: Directory groups map to Argo CD and Grafana roles; enforcement verified.
+  status: implemented
+  implemented_by: [infrastructure/keycloak/, apps/core/grafana.yaml]
+  evidence: [docs/evidence/samples/argocd-rbac-verification-20260729045300.txt]
+- id: CAP-IAM-03
+  name: GUI user and group onboarding
+  description: LDAP Account Manager provides a managed joiner/mover/leaver path.
+  status: implemented
+  implemented_by: [infrastructure/lam/]
+- id: CAP-IAM-04
+  name: Multi-factor authentication for operators
+  description: OTP required for operator accounts, with a documented break-glass exception.
+  status: planned
+  roadmap: [T14]
+
+# --- Logging, detection, monitoring ------------------------------------------------------------
+- id: CAP-LOG-01
+  name: Central log collection including API audit log
+  description: Alloy ships pod logs and the Kubernetes API audit log (RequestResponse for secrets/RBAC) to Loki.
+  status: implemented
+  implemented_by: [apps/core/alloy.yaml, apps/core/loki.yaml, platform/talos/patches/control-plane.yaml]
+- id: CAP-LOG-02
+  name: Host log shipping
+  description: The VM host's own logs ship into the same Loki stack.
+  status: implemented
+  implemented_by: [bootstrap/host-log-shipper/]
+- id: CAP-DET-01
+  name: Alert rules with measured detection latency
+  description: Grafana Alerting rules fire on defined conditions; drills record t_detect from the alert API.
+  status: implemented
+  implemented_by: [apps/core/grafana.yaml]
+  evidence: [docs/evidence/samples/detection-latency-20260729135024.txt]
+- id: CAP-DET-02
+  name: Runtime process detection (eBPF)
+  description: Tetragon observes process execution; a shell spawn in the tenant raises an alert.
+  status: implemented
+  implemented_by: [apps/full/tetragon.yaml]
+  evidence: [docs/evidence/samples/credential-compromise-20260730044858.txt]
+- id: CAP-DET-03
+  name: Detections mapped to ATT&CK
+  description: Each detection rule carries the ATT&CK technique it observes as a label.
+  status: implemented
+  implemented_by: [apps/core/grafana.yaml, docs/07-attack-mapping.md]
+- id: CAP-DET-04
+  name: Alerts notify responders
+  description: Alerts route to a real paging or chat channel.
+  status: planned
+  roadmap: [T13]
+- id: CAP-MON-01
+  name: Resource and capacity metrics
+  description: Prometheus-based CPU, memory and restart metrics and dashboards.
+  status: planned
+  roadmap: [Phase 17]
+
+# --- Vulnerability and configuration management ------------------------------------------------
+- id: CAP-VUL-01
+  name: Continuous vulnerability scanning with KEV and SLA ageing
+  description: Trivy Operator scans running images; findings carry first-detected dates and CISA KEV flags.
+  status: partial
+  implemented_by: [apps/full/trivy-operator.yaml, apps/full/trivy-findings-exporter.yaml, infrastructure/trivy-operator/]
+  roadmap: [T18]
+- id: CAP-VUL-02
+  name: Scheduled base-image rebuilds
+  description: Images are rebuilt weekly from current Wolfi packages regardless of source changes.
+  status: implemented
+  implemented_by: [.github/workflows/build-images.yaml]
+- id: CAP-CFG-01
+  name: Host security posture reporting
+  description: A script reports LSM, FIPS and kernel hardening state per host, including not-applicable results.
+  status: implemented
+  implemented_by: [infrastructure/compliance/host-posture.py]
+  evidence: [docs/evidence/samples/host-posture-20260801015522.json]
+- id: CAP-CFG-02
+  name: Server and endpoint hardening baselines with verification
+  description: Linux and Windows baselines with idempotent apply and machine-readable verify, checked in CI.
+  status: planned
+  roadmap: [F10a, F10b, F10c, F10d, F10e, F10g]
+- id: CAP-CFG-03
+  name: Kubernetes benchmark scanning
+  description: kube-bench (CIS) and a Kubernetes STIG check on a schedule.
+  status: planned
+  roadmap: [F08]
+
+# --- Supply chain ------------------------------------------------------------------------------
+- id: CAP-SUP-01
+  name: Minimal, reproducible images
+  description: The tenant image is built declaratively with apko on a Wolfi base.
+  status: implemented
+  implemented_by: [images/canary-writer/apko.yaml, .github/workflows/build-images.yaml]
+- id: CAP-SUP-02
+  name: Keyless signing and SBOM attestation
+  description: CI signs images via GitHub OIDC, Fulcio and Rekor, and attests a CycloneDX SBOM.
+  status: implemented
+  implemented_by: [.github/workflows/build-images.yaml]
+- id: CAP-SUP-03
+  name: Generated ICT third-party register
+  description: A Register of Information generated from the real chart and image inventory.
+  status: partial
+  implemented_by: [images/generate-roi.py]
+  roadmap: [T30, T31]
+
+# --- Backup, recovery, resilience testing ------------------------------------------------------
+- id: CAP-BCK-01
+  name: Scheduled backups to object storage
+  description: Velero schedules back up namespaces and volume contents to MinIO.
+  status: implemented
+  implemented_by: [infrastructure/velero/, apps/core/velero.yaml, apps/core/minio.yaml]
+- id: CAP-BCK-02
+  name: Measured restore (RTO and exact RPO)
+  description: A drill deletes the tenant, restores into a fresh namespace and measures RTO and records lost.
+  status: implemented
+  implemented_by: [drills/scenarios/ns-restore.yaml, drills/templates/ns-restore-workflowtemplate.yaml, canary/writer.py]
+  evidence: [docs/evidence/samples/ns-restore-20260728152755.json]
+  demo: make drill SCENARIO=ns-restore
+- id: CAP-BCK-03
+  name: Restored-data integrity verification
+  description: The canary's hash chain proves restored data is complete and unaltered.
+  status: implemented
+  implemented_by: [canary/verify.py]
+  evidence: [docs/evidence/samples/ns-restore-20260728152755.json]
+- id: CAP-BCK-04
+  name: Verdict against recovery objectives
+  description: A drill fails when measured RTO or RPO exceeds its target.
+  status: planned
+  roadmap: [T09]
+- id: CAP-BCK-05
+  name: Segregated restore target
+  description: Restores land on a separate cluster (DR tier).
+  status: planned
+  roadmap: [Phase 19]
+- id: CAP-TST-01
+  name: Fault-injection drill library
+  description: Node kill, PVC corruption, network partition and credential compromise scenarios as Workflows.
+  status: implemented
+  implemented_by: [drills/scenarios/, drills/templates/]
+  evidence: [docs/evidence/samples/scenario-breadth-20260730021814.txt]
+- id: CAP-TST-02
+  name: Scheduled drills with missed-run alerting
+  description: CronWorkflows run drills on a schedule; a stale drill record raises an alert.
+  status: planned
+  roadmap: [T11]
+
+# --- Incident response -------------------------------------------------------------------------
+- id: CAP-INC-01
+  name: Incident classification as code
+  description: Drill records are classified against simplified DORA Art. 18 criteria; synthetic inputs are labelled.
+  status: implemented
+  implemented_by: [drills/lib/classify.py, drills/lib/classification-profiles.json]
+  evidence: [docs/evidence/samples/incident-response-20260729210627.txt]
+- id: CAP-INC-02
+  name: Regulatory notification clocks
+  description: Deadlines computed from real timestamps for each regime (DORA and NIS2 today; GDPR and others planned).
+  status: partial
+  implemented_by: [drills/lib/clocks.py]
+  evidence: [docs/evidence/samples/incident-response-20260729210627.txt]
+  roadmap: [T10, X05c]
+- id: CAP-INC-03
+  name: Incident tickets opened automatically
+  description: Every drill opens a GLPI ticket with classification, deadlines and evidence links.
+  status: implemented
+  implemented_by: [drills/lib/open-incident.py, infrastructure/glpi/]
+  evidence: [docs/evidence/samples/incident-response-20260729210627.txt]
+- id: CAP-INC-04
+  name: Runbooks with automated/manual step marking
+  description: One runbook per scenario, front matter marking automated versus manual steps.
+  status: implemented
+  implemented_by: [docs/runbooks/]
+- id: CAP-INC-05
+  name: Regulatory report drafts
+  description: Draft incident reports generated in official template structure from drill records.
+  status: planned
+  roadmap: [T29]
+
+# --- Evidence and assurance --------------------------------------------------------------------
+- id: CAP-EVD-01
+  name: Multi-framework evidence manifest
+  description: Each evidence artifact is tagged once and placed in per-control folders for every framework.
+  status: implemented
+  implemented_by: [docs/evidence/manifest.yaml, docs/evidence/collect.py]
+- id: CAP-EVD-02
+  name: Tamper-evident evidence chain
+  description: Evidence files are sha256-chained; CI signs the chain head keylessly.
+  status: implemented
+  implemented_by: [docs/evidence/chain.py, .github/workflows/evidence-integrity.yaml]
+  demo: make evidence-verify
+- id: CAP-EVD-03
+  name: Machine-readable assessment export
+  description: OSCAL assessment-results generated from the manifest.
+  status: implemented
+  implemented_by: [docs/evidence/oscal.py]
+
+# --- Governance and documentation --------------------------------------------------------------
+- id: CAP-GOV-01
+  name: Scope, limitations and shared-responsibility statements
+  description: Written scope, stated limitations and a platform-versus-tenant responsibility split.
+  status: implemented
+  implemented_by: [docs/00-scope.md, docs/04-limitations.md, docs/05-shared-responsibility.md]
+- id: CAP-GOV-02
+  name: Control traceability matrix
+  description: Hand-maintained matrix from requirements to implementing files and evidence.
+  status: implemented
+  implemented_by: [docs/03-control-matrix.md]
+- id: CAP-GOV-03
+  name: Risk register, BIA and Statement of Applicability
+  description: Risk-based scoping artifacts every framework starts from.
+  status: planned
+  roadmap: [T15]
+- id: CAP-GOV-04
+  name: Policy templates linked to enforcing controls
+  description: Policy templates whose statements link to the control that enforces them and its evidence.
+  status: planned
+  roadmap: [T32, F04]

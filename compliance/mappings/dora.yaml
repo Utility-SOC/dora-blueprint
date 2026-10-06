@@ -1,0 +1,42 @@
+# Seed: shows the mapping format with a few real DORA rows. Roadmap task X03 generates the full file
+# from docs/compliance/dora-coverage.csv and reviews each rationale.
+framework:
+  id: dora
+  name: Regulation (EU) 2022/2554 (Digital Operational Resilience Act)
+  version: OJ L 333, 27.12.2022
+  source_url: https://eur-lex.europa.eu/eli/reg/2022/2554/oj/eng
+  text_licence: open
+mappings:
+- control: Art. 12(2)
+  summary: Backup, restoration and recovery procedures are tested periodically.
+  relationship: subset-of
+  basis: derived
+  capabilities: [CAP-BCK-01, CAP-BCK-02, CAP-BCK-03, CAP-TST-02]
+  rationale: The restore is executed and timed rather than asserted, and the hash chain proves the restored data is intact; DORA asks for testing, and a measured drill is the strongest form of test a platform can produce.
+  gaps: Not yet scheduled (CAP-TST-02 planned), so "periodically" is not yet demonstrated.
+- control: Art. 12(3)
+  summary: Restores using own systems use systems physically and logically segregated from the source.
+  relationship: intersects-with
+  basis: derived
+  capabilities: [CAP-BCK-02, CAP-BCK-05]
+  rationale: Restoring into a fresh namespace gives logical separation from the deleted original, but Article 12(3) asks for physical and logical segregation, which needs the separate DR cluster.
+  gaps: Same-cluster restore today (gap G1).
+- control: Art. 9(4)(c)
+  summary: Access to ICT assets is limited to what is required for legitimate and approved functions.
+  relationship: subset-of
+  basis: derived
+  capabilities: [CAP-IAM-01, CAP-IAM-02, CAP-ADM-01, CAP-NET-01]
+  rationale: Identity-based RBAC limits what people can do, while admission control and default-deny networking limit what workloads can do; DORA frames access limitation across both.
+- control: Art. 10(1)
+  summary: Mechanisms to promptly detect anomalous activities, regularly tested.
+  relationship: subset-of
+  basis: derived
+  capabilities: [CAP-DET-01, CAP-DET-02, CAP-LOG-01, CAP-TST-01]
+  rationale: Detection is exercised by drills and its latency measured, which answers both "promptly" and "regularly tested" with numbers rather than policy.
+- control: Art. 19(4)
+  summary: Initial notification, intermediate report and final report to the competent authority within set time limits.
+  relationship: supports
+  basis: derived
+  capabilities: [CAP-INC-01, CAP-INC-02, CAP-INC-03]
+  rationale: The platform computes the deadlines from real timestamps and opens the ticket, but submitting reports is an entity obligation no platform can discharge.
+  gaps: Intermediate and final deadlines not yet computed (T10); nothing is submitted.

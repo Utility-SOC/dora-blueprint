@@ -72,6 +72,7 @@ block to the nav, or that test goes red:
       - 10 FedRAMP 20x / IL5: roadmap/10-fedramp-il5.md
       - 11 Hardening baselines: roadmap/11-baselines.md
       - 12 Capstone: roadmap/12-capstone.md
+      - 13 Training platform: roadmap/13-training-platform.md
       - Demo script: roadmap/demo-script.md
 ```
 
@@ -101,9 +102,11 @@ run tasks in order. Merge each PR before starting a task that depends on it.
 | 6 | [10 FedRAMP 20x / IL5](10-fedramp-il5.md) | F05 → F06 → F07 | offline |
 | 6 | [11 Hardening baselines](11-baselines.md) | F10a → F10b, F10c, F10d, F10e (parallel) → F10f → F10g | offline + CI |
 | 7 | [12 Capstone](12-capstone.md) | F08 → F09 | live, then offline |
+| 8 | [13 Training platform](13-training-platform.md) | X01 → X02, X03 → X04 | offline |
+| 9 | [13 Training platform](13-training-platform.md) | X05a–t lenses (parallel; X06 before X05p), X06–X12, then X13–X14 | offline + live |
 
 **Waves 0–4 deliver the demo**, about 25 sessions plus a few days of live bring-up. **Waves 5–7
-deliver the teaching build-out**, about 25–30 sessions. Without a VM, everything except wave 3 and
+deliver the teaching build-out**, about 25–30 sessions. **Waves 8–9 turn it into a multi-framework training platform**, about 35 sessions. Without a VM, everything except wave 3 and
 F08 can proceed.
 
 ## All tasks
@@ -153,6 +156,20 @@ F08 can proceed.
 | F10a–g | Hardening baselines: Linux, Windows, verify scripts, drift | 11 | CI only | |
 | F08 | Hardening and crypto evidence on the live cluster | 12 | **yes** | |
 | F09 | "Use these bones to build your programme" capstone | 12 | no | |
+| X01 | Complete and review the capability layer | 13 | no | **yes** |
+| X02 | Import official crosswalks as a cross-check | 13 | no | |
+| X03 | Lens generator; mappings as single source of truth | 13 | no | |
+| X04 | Guided-tour lesson pages | 13 | no | |
+| X05a–t | Framework lenses (CSF 2.0, 800-171, GDPR, SSDF/SLSA, NSA/CISA K8s, CIS, CCM, Essential Eight, CPGs, NIS2 IR, ISO 22301, CBI/UK op-res, SOC 2, CRA, HIPAA, PCI DSS, 800-53, ISO 27001, NIS2, FedRAMP/IL5) | 13 | no | |
+| X06 | Payments tenant: cardholder-data environment | 13 | proof only | |
+| X07 | Health-records tenant (optional) | 13 | proof only | |
+| X08 | Tabletop exercise engine on real drills | 13 | yes | |
+| X09 | Mock-audit mode | 13 | no | |
+| X10 | Break-and-fix labs with grading | 13 | **yes** | |
+| X11 | Framework diff tool | 13 | no | |
+| X12 | Persona curricula | 13 | no | |
+| X13 | Grounded tutor (optional) | 13 | no | |
+| X14 | Bring-your-own licensed text | 13 | no | |
 
 Task numbers are stable identifiers, not an order. Gaps in the sequence (T01, T28) are retired IDs.
 An earlier single-file draft of this plan is in git history; these files supersede it.

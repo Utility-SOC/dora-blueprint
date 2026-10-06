@@ -37,6 +37,10 @@ def enrich(record: dict) -> dict:
     t_classify = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     record["t_classify"] = t_classify
     record.update(clocks.compute_clocks(record.get("t_detect"), t_classify))
+    record.update(clocks.compute_report_deadlines(
+        record.get("t_detect"), t_classify,
+        record.get("t_initial_submitted"), record.get("t_intermediate_submitted"),
+        record.get("t_notification_submitted_nis2")))
 
     schema = emit.load_schema()
     errors = emit.validate(record, schema)

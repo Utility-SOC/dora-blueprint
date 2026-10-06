@@ -87,6 +87,45 @@
       "format": "date-time",
       "description": "t_detect + 24h — build-spec §6.4/§0.4"
     },
+    "t_initial_submitted": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the DORA initial notification was actually submitted, if recorded. Later deadlines run from it"
+    },
+    "t_intermediate_submitted": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the (latest updated) DORA intermediate report was submitted, if recorded"
+    },
+    "t_notification_submitted_nis2": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the NIS2 incident notification was submitted, if recorded"
+    },
+    "t_intermediate_due_dora": {
+      "type": "string",
+      "format": "date-time",
+      "description": "72h from submission of the initial notification (DORA Art. 19(4)(b); Delegated Reg. (EU) 2025/301; basis in drills/lib/clocks.py LEGAL_BASIS)"
+    },
+    "t_final_due_dora": {
+      "type": "string",
+      "format": "date-time",
+      "description": "One month from submission of the latest updated intermediate report (DORA Art. 19(4)(c); Delegated Reg. (EU) 2025/301)"
+    },
+    "t_notification_due_nis2": {
+      "type": "string",
+      "format": "date-time",
+      "description": "72h from awareness (NIS2 Art. 23(4)(b)); t_detect stands in for awareness"
+    },
+    "t_final_due_nis2": {
+      "type": "string",
+      "format": "date-time",
+      "description": "One month from submission of the NIS2 incident notification (NIS2 Art. 23(4)(d))"
+    },
+    "deadline_basis": {
+      "type": "string",
+      "description": "Whether later deadlines use recorded submission times or assume on-time submission (drills/lib/clocks.py)"
+    },
     "t_recover": { "type": "string", "format": "date-time" },
     "t_verify": { "type": "string", "format": "date-time" },
     "artifacts": {

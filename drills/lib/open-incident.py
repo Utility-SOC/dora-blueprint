@@ -34,6 +34,10 @@ other service in this repo (Argo CD, Grafana, Keycloak, Hubble UI) -- consistent
 exception to, this repo's existing "reach the cluster via the appserv host" access model
 (docs/06-operations.md), until the jumphost/bastion work replaces it.
 """
+from pathlib import Path as _Path
+import sys as _sys
+_sys.path.insert(0, str(_Path(__file__).parent))
+import clocks  # noqa: E402
 import json
 import os
 import sys
@@ -61,14 +65,30 @@ def build_content(record: dict) -> str:
         obligation_note = (
             "This incident is classified major -- a real DORA Art. 19 notification obligation applies."
             if classification == "major"
-            else "This incident is classified non-major -- no real DORA Art. 19 notification obligation applies. The DORA deadline below is informative only: what it would be if this were escalated."
+            else "This incident is classified non-major -- no real DORA Art. 19 notification obligation applies. The DORA deadlines below are informative only: what they would be if this were escalated."
         )
+        rows = [
+            ("Initial", "t_notify_due_dora", "t_notify_due_nis2"),
+            ("Intermediate / notification", "t_intermediate_due_dora", "t_notification_due_nis2"),
+            ("Final", "t_final_due_dora", "t_final_due_nis2"),
+        ]
+        table = ["| Report | DORA (binding for this tenant) | NIS2 (comparison) |", "|---|---|---|"]
+        for label, dora_key, nis2_key in rows:
+            table.append(f"| {label} | {record.get(dora_key) or 'n/a'} | {record.get(nis2_key) or 'n/a'} |")
+        basis = []
+        for key in [k for _, d, n in rows for k in (d, n)]:
+            b = clocks.LEGAL_BASIS.get(key)
+            if b and record.get(key):
+                flag = "" if b["verified"] else " [legal basis not yet verified against the Official Journal]"
+                basis.append(f"- {key}: {b['rule']} -- {b['source']}{flag}")
         notify_section = (
-            f"DORA Art. 19 (t_classify + 4h, capped at t_detect + 24h): {t_notify_dora}\n"
-            f"NIS2 Art. 23 (t_detect + 24h, standing in for \"awareness\" -- this repo has no distinct awareness event): {t_notify_nis2}\n\n"
-            f"{obligation_note} DORA is lex specialis to NIS2 for this platform's example tenant "
-            "(docs/00-scope.md section 0.2) -- both clocks are computed to make that displacement "
-            "verifiable, not to imply both notifications are independently required."
+            "\n".join(table) + "\n\n"
+            "Clock starts: DORA's initial notification runs from *classification* (capped from awareness); "
+            "NIS2 runs from *awareness*. t_detect stands in for awareness -- this repo has no distinct awareness event.\n"
+            f"Deadline basis: {record.get('deadline_basis', 'not recorded')}\n\n"
+            "Legal basis per deadline:\n" + "\n".join(basis) + "\n\n"
+            f"{obligation_note} DORA is lex specialis to NIS2 for financial entities "
+            "(docs/00-scope.md section 0.2); NIS2 is shown for comparison only, not as an independent obligation."
         )
 
     artifacts = record.get("artifacts", [])

@@ -458,3 +458,24 @@ fails the tests as intended. The first draft of the test didn't catch it, becaus
 backup is never *newer* than a new-volume one. The bug only bites when no new-volume backup exists
 yet, and that is the case the test now models. 19 new tests; the suite is at 538 passed.
 
+## T10: intermediate and final reporting deadlines (gap G12)
+
+`drills/lib/clocks.py` gains `compute_report_deadlines()`. It covers DORA's intermediate report
+(72 h from submission of the initial notification), DORA's final report (one month from the latest
+intermediate report), NIS2's incident notification (72 h from awareness), and NIS2's final report
+(one month from the notification). Later reports run from the *submission* of the earlier one, so
+recorded submission times (`t_initial_submitted`, `t_intermediate_submitted`,
+`t_notification_submitted_nis2`) are used when present. Otherwise on-time submission is assumed and
+`deadline_basis` says exactly what was assumed. "One month" is calendar-month addition clamped to
+month end (31 Jan → 28/29 Feb), documented in the code. `compute_clocks()` is unchanged, and its
+pinned tests still pass. The GLPI ticket now shows a DORA-vs-NIS2 table for initial, intermediate and
+final reports, plus the legal basis of every deadline.
+
+**Not verified against the primary text.** The build environment's egress policy blocks EUR-Lex and
+every other EU institution site, so the DORA rules were written from a reading of Delegated
+Regulation (EU) 2025/301 that could not be checked here. Each rule sits in `clocks.LEGAL_BASIS` with
+`verified: False`, and the ticket prints "not yet verified against the Official Journal" next to
+each one until someone checks the OJ text and flips the flag. No weekend or holiday relief is
+implemented: if the RTS has one, it depends on entity type and national calendars, and the
+unextended deadline is the conservative reading. 15 new tests; the suite is at 554 passed.
+

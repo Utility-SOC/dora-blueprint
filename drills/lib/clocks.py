@@ -60,6 +60,109 @@ def compute_clocks(t_detect: str | None, t_classify: str | None) -> dict:
     return result
 
 
+
+# --- Intermediate and final reports (roadmap T10, gap G12) ---------------------------------------
+#
+# SOURCE STATUS: the build environment cannot reach EUR-Lex (egress policy, 2026-10-06), so the
+# DORA rows below were written from the drafter's reading of Commission Delegated Regulation (EU)
+# 2025/301 and have NOT been checked against the Official Journal text. Every deadline's basis is
+# kept in LEGAL_BASIS, which is surfaced in the incident ticket, so a reviewer can verify each line
+# in one place. Flip `verified` only after checking the OJ text, and cite article and paragraph.
+#
+# Deliberately NOT implemented: any weekend/public-holiday relief for submissions. If the RTS
+# contains one, it depends on the entity type and the Member State's calendar; the deadlines here
+# are the unextended ones, which is the conservative reading.
+INTERMEDIATE_AFTER_INITIAL = timedelta(hours=72)
+NIS2_NOTIFICATION_WINDOW = timedelta(hours=72)
+
+LEGAL_BASIS = {
+    "t_notify_due_dora": {
+        "rule": "initial notification: 4h from classification as major, no later than 24h from awareness; "
+                "if classified more than 24h after awareness, 4h from classification",
+        "source": "DORA Art. 19(4)(a); Commission Delegated Regulation (EU) 2025/301 (time limits article)",
+        "verified": False,
+    },
+    "t_intermediate_due_dora": {
+        "rule": "intermediate report: 72h from submission of the initial notification",
+        "source": "DORA Art. 19(4)(b); Commission Delegated Regulation (EU) 2025/301 (time limits article)",
+        "verified": False,
+    },
+    "t_final_due_dora": {
+        "rule": "final report: one month from submission of the latest updated intermediate report",
+        "source": "DORA Art. 19(4)(c); Commission Delegated Regulation (EU) 2025/301 (time limits article)",
+        "verified": False,
+    },
+    "t_notify_due_nis2": {
+        "rule": "early warning: within 24h of becoming aware",
+        "source": "Directive (EU) 2022/2555 (NIS2) Art. 23(4)(a)",
+        "verified": False,
+    },
+    "t_notification_due_nis2": {
+        "rule": "incident notification: within 72h of becoming aware",
+        "source": "Directive (EU) 2022/2555 (NIS2) Art. 23(4)(b)",
+        "verified": False,
+    },
+    "t_final_due_nis2": {
+        "rule": "final report: within one month of submitting the incident notification",
+        "source": "Directive (EU) 2022/2555 (NIS2) Art. 23(4)(d)",
+        "verified": False,
+    },
+}
+
+
+def add_months(dt: datetime, months: int = 1) -> datetime:
+    """Calendar-month addition, clamping to the last day of a shorter month: 31 Jan + 1 month is
+    28 Feb (29 in a leap year). Neither text defines "one month" further, so this follows the
+    common legal reading that a month ends on the same day number, or the last day if it has none."""
+    month_index = dt.month - 1 + months
+    year, month = dt.year + month_index // 12, month_index % 12 + 1
+    next_first = datetime(year + (month == 12), month % 12 + 1, 1, tzinfo=dt.tzinfo)
+    last_day = (next_first - timedelta(days=1)).day
+    return dt.replace(year=year, month=month, day=min(dt.day, last_day))
+
+
+def compute_report_deadlines(
+    t_detect: str | None,
+    t_classify: str | None,
+    t_initial_submitted: str | None = None,
+    t_intermediate_submitted: str | None = None,
+    t_notification_submitted_nis2: str | None = None,
+) -> dict:
+    """Intermediate and final report deadlines for DORA and NIS2.
+
+    Later deadlines run from the *submission* of an earlier report, not from detection. When a
+    submission timestamp is supplied it is used; when it is not, on-time submission (at the
+    previous deadline) is assumed and `deadline_basis` says so. Nothing is ever invented: with no
+    t_detect there is no basis at all, and an empty dict is returned.
+    """
+    if not t_detect:
+        return {}
+    detect_dt = _parse(t_detect)
+    out: dict = {}
+    assumed = []
+
+    initial = compute_clocks(t_detect, t_classify).get("t_notify_due_dora")
+    if initial:
+        initial_basis = t_initial_submitted or initial
+        if not t_initial_submitted:
+            assumed.append("initial notification submitted at its deadline")
+        intermediate_dt = _parse(initial_basis) + INTERMEDIATE_AFTER_INITIAL
+        out["t_intermediate_due_dora"] = _format(intermediate_dt)
+        final_basis = _parse(t_intermediate_submitted) if t_intermediate_submitted else intermediate_dt
+        if not t_intermediate_submitted:
+            assumed.append("intermediate report submitted at its deadline (no updated intermediate reports)")
+        out["t_final_due_dora"] = _format(add_months(final_basis))
+
+    notification_dt = detect_dt + NIS2_NOTIFICATION_WINDOW
+    out["t_notification_due_nis2"] = _format(notification_dt)
+    nis2_final_basis = _parse(t_notification_submitted_nis2) if t_notification_submitted_nis2 else notification_dt
+    if not t_notification_submitted_nis2:
+        assumed.append("NIS2 incident notification submitted at its deadline")
+    out["t_final_due_nis2"] = _format(add_months(nis2_final_basis))
+
+    out["deadline_basis"] = ("assumed on-time submission: " + "; ".join(assumed)) if assumed else "recorded submissions"
+    return out
+
 if __name__ == "__main__":
     import json
     import sys

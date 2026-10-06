@@ -15,7 +15,7 @@ you what *not* to repeat in a meeting.
 |---|---|---|---|---|
 | G1 | Restores land on the same cluster as the source | DORA Art. 12(3) "physically and logically segregated" | Live | Phase 19: a second cluster and cross-cluster restore |
 | G2 | One control-plane node, no redundancy | DORA Art. 12(4); ISO A.8.14 | Lab limit | Three control-plane nodes in a real deployment |
-| G3 | Drill verdict ignores the recorded targets (`target_rto_seconds`, `target_rpo_seconds`) | DORA Art. 12(6) | Live | Fail the verdict when measured RTO exceeds target; verify with a drill |
+| G3 | Drill verdict ignores the recorded targets (`target_rto_seconds`, `target_rpo_seconds`) | DORA Art. 12(6) | **Fixed, pending live verification** | `drills/lib/verdict.py` re-derives the verdict against both targets (roadmap T09); confirm on the next live drill |
 | G4 | Drills are not scheduled | DORA Art. 11(6)(a), 12(2), 24(6) "at least yearly" | Live | A CronWorkflow per scenario plus a cadence record |
 | G5 | The same person designs, builds and runs the tests | DORA Art. 24(4) independence | Organisational | A second tester or an external party |
 | G6 | No threat-led penetration test | DORA Art. 26 | Organisational | Out of reach for a lab, not claimed |

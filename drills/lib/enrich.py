@@ -13,9 +13,22 @@ sys.path.insert(0, str(Path(__file__).parent))
 import classify  # noqa: E402
 import clocks  # noqa: E402
 import emit  # noqa: E402
+import verdict  # noqa: E402
 
 
 def enrich(record: dict) -> dict:
+    # A negative records-lost count is impossible and fails schema validation; keep it for
+    # diagnosis under its own field and fail the drill loudly rather than crash (gap G15).
+    raw_lost = record.get("measured_rpo_records_lost")
+    if isinstance(raw_lost, int) and raw_lost < 0:
+        record.pop("measured_rpo_records_lost")
+        record["measured_rpo_records_lost_raw"] = raw_lost
+        record["integrity_check"] = "fail"
+
+    record["recovery_verdict"] = record["verdict"]
+    record["verdict"], record["verdict_reasons"] = verdict.evaluate(
+        record, raw_lost if isinstance(raw_lost, int) else None)
+
     profile = classify.load_profile(record["scenario"])
     classification, criteria_tripped = classify.classify(record, profile)
     record["classification"] = classification

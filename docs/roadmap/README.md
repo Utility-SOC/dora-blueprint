@@ -121,10 +121,10 @@ F08 can proceed.
 | T05 | Tailscale in host prep | 02 | no | |
 | T06 | Fix `canary-writer` image pull | 02 | no | |
 | T08 | One-command VM provisioning (cloud-init) | 02 | no | |
-| T07 | Pin CI tooling by version and SHA | 03 | no | |
+| T07 | Pin CI tooling by version and SHA (branch `ci/T07-pin-actions`, done) | 03 | no | |
 | T25 | CI smoke bring-up of the `core` tier | 03 | runs in CI | |
 | T09 | Drill verdict honours RTO/RPO targets (**PR #6**) | 04 | proof only | |
-| T10 | Intermediate and final reporting deadlines | 04 | no | **yes** |
+| T10 | Intermediate and final reporting deadlines (**PR #8**; legal basis pending OJ check) | 04 | no | **yes** |
 | T11 | Schedule the drills; alert on missed runs | 04 | proof only | |
 | T12 | Find and fix the negative-RPO bug (**PR #7**) | 04 | proof only | |
 | T15 | Risk register, BIA and Statement of Applicability | 05 | no | |

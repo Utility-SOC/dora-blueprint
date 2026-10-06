@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "dora-blueprint framework-to-capability mapping",
+  "type": "object",
+  "required": ["framework", "mappings"],
+  "additionalProperties": false,
+  "properties": {
+    "framework": {
+      "type": "object",
+      "required": ["id", "name", "version", "source_url", "text_licence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "source_url": {"type": "string"},
+        "retrieved": {"type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+        "text_licence": {"enum": ["open", "ids-only"],
+          "description": "open: requirement text may be quoted (EU law, US government works). ids-only: numbers, titles where permitted, and own-words paraphrase only (ISO, PCI DSS, CIS, AICPA)."}
+      }
+    },
+    "mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["control", "summary", "relationship", "basis", "capabilities", "rationale"],
+        "additionalProperties": false,
+        "properties": {
+          "control": {"type": "string"},
+          "summary": {"type": "string", "description": "Quoted (open licence, short) or paraphrased requirement."},
+          "relationship": {"enum": ["equal", "subset-of", "superset-of", "intersects-with", "supports"],
+            "description": "Set-theory relationship of the capability set to the requirement, after NIST OLIR. 'supports' = contributes evidence without satisfying it."},
+          "basis": {"enum": ["official", "derived"],
+            "description": "official: from a crosswalk published by the framework owner or NIST (cite it in source_ref). derived: this repo's own judgement."},
+          "source_ref": {"type": "string"},
+          "capabilities": {"type": "array", "items": {"type": "string", "pattern": "^CAP-[A-Z]{3,4}-\\d{2}$"}},
+          "rationale": {"type": "string", "minLength": 20,
+            "description": "Why these capabilities answer this requirement, framed in the framework's own terms."},
+          "gaps": {"type": "string"}
+        }
+      }
+    }
+  }
+}

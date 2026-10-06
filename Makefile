@@ -1,4 +1,4 @@
-.PHONY: lab-core lab-full lab-dr drill evidence evidence-verify images
+.PHONY: lab-core lab-full lab-dr drill evidence evidence-verify images dora-coverage capabilities-check
 
 # Targets not yet implemented fail loudly rather than pretending to work —
 # see build-spec P1 (no claim without an implementation).
@@ -27,3 +27,11 @@ evidence-verify:
 
 images:
 	@echo "images: no local target -- built, signed (cosign keyless), and SBOM-attested by .github/workflows/build-images.yaml instead (Phase 12, done)"; exit 1
+
+# Render docs/compliance/dora-coverage.csv into README.md's "DORA, article by article" section.
+dora-coverage:
+	@python3 docs/compliance/dora_readme.py
+
+# Validate the capability layer and every framework mapping (compliance/).
+capabilities-check:
+	@python3 compliance/validate.py

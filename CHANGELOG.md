@@ -6,6 +6,7 @@ or a passing sync. `README.md` keeps only a compact status table and roadmap; th
 the "how do I know this is real" detail lives. Evidence artifacts referenced below live in
 `docs/evidence/samples/`.
 
+
 ## Phase 1 — Talos + Cilium + Argo CD + SOPS
 
 `make lab-core` brings up a pinned Talos v1.13.7 cluster (Docker provisioner, k8s v1.36.2),
@@ -415,3 +416,22 @@ never written. See `docs/compliance/gaps.md`.
 - **Integration-work report** — the write-up connecting this repo's actual implementation work
   back to the control citations (originally scoped in Phase 0) has never been written. Not a
   phase in its own right, but a real outstanding deliverable.
+
+## T09: drill verdict honours RTO/RPO targets (gap G3)
+
+The workflow templates set `verdict: pass` whenever recovery and the hash-chain check succeeded,
+even though every record carries `target_rto_seconds`/`target_rpo_seconds`. A restore taking 20
+minutes against a 5-minute target would still have said pass. New `drills/lib/verdict.py`
+re-derives the verdict host-side, where it is unit-tested. It fails on a broken integrity check,
+an RTO over target, or an RPO over target. RPO uses `measured_rpo_seconds` when present, otherwise
+records lost x the canary's 1 s write interval. Equal to a target is a pass. A missing target is
+reported as "not assessed" rather than passing silently. `enrich.py` keeps the template's own
+verdict as `recovery_verdict` and adds `verdict_reasons`. `run-drill.sh` prints both.
+
+Found while building it: the schema already forbids a negative `measured_rpo_records_lost`, so the
+one sample with RPO -34657 (gap G15) would have made `enrich.py` *exit with a schema error* rather
+than produce a failed drill record. Enrichment now moves an impossible value to
+`measured_rpo_records_lost_raw`, marks the integrity check failed, and fails the verdict with a
+reason, so the fault is preserved and loud. Re-evaluating the committed samples: the two good
+ns-restore samples still pass, and `ns-restore-20260729135024.json` now fails. The root cause of
+the negative value is T12. 16 new tests; the suite is at 517 passed.

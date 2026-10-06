@@ -49,6 +49,20 @@
     },
     "integrity_check": { "type": "string", "enum": ["pass", "fail"] },
     "verdict": { "type": "string", "enum": ["pass", "fail", "timeout"] },
+    "recovery_verdict": {
+      "type": "string",
+      "enum": ["pass", "fail", "timeout"],
+      "description": "The workflow template's own verdict (recovery and integrity only), kept when drills/lib/verdict.py re-derives `verdict` against the targets"
+    },
+    "verdict_reasons": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Why the verdict is what it is: each failed objective, plus 'not assessed' notes for missing targets (drills/lib/verdict.py)"
+    },
+    "measured_rpo_records_lost_raw": {
+      "type": "integer",
+      "description": "A records-lost value that failed validation (negative, physically impossible), preserved for diagnosis instead of being dropped; see gap G15"
+    },
     "classification": { "type": "string", "enum": ["major", "non-major"] },
     "classification_criteria_tripped": {
       "type": "array",

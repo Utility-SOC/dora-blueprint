@@ -76,3 +76,10 @@ echo "$TICKET_RESULT" | python3 -m json.tool
 echo
 echo "=== summary ==="
 echo "$LOGS" | grep '^RESULT_'
+echo "$ENRICHED_RECORD" | python3 -c '
+import json, sys
+r = json.load(sys.stdin)
+print("VERDICT=%s (workflow recovery verdict: %s)" % (r["verdict"], r.get("recovery_verdict")))
+for reason in r.get("verdict_reasons", []):
+    print("  - " + reason)
+'

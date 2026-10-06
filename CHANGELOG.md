@@ -415,3 +415,18 @@ never written. See `docs/compliance/gaps.md`.
 - **Integration-work report** — the write-up connecting this repo's actual implementation work
   back to the control citations (originally scoped in Phase 0) has never been written. Not a
   phase in its own right, but a real outstanding deliverable.
+
+## T07: CI tooling pinned by commit SHA (gap G18)
+
+Every `uses:` in `.github/workflows/` is now pinned to a full 40-character commit SHA, resolved
+from the latest release within the major version already in use and peeled to the commit (a tag
+can be moved, a commit can't), with a `# vX.Y.Z` comment. `build-images.yaml` dropped
+`actions/setup-go` + `go install chainguard.dev/apko@latest`. The job that builds and signs the
+image was the one place in the repo with a floating version. It now downloads apko v1.4.8 from the
+GitHub release and checks it against a sha256 pinned in the workflow, taken from the release's own
+`checksums.txt` and verified locally before committing, along with the archive layout and a dry run
+of the step. `.github/dependabot.yml` bumps the pins weekly through reviewed PRs. cosign and syft
+versions follow their pinned installer actions' own defaults, so they're fixed per pinned action
+release. `tests/test_ci_pinning.py` enforces SHA pins, version comments, no floating versions, and
+top-level `permissions` in every workflow.
+

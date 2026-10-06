@@ -30,7 +30,7 @@ you what *not* to repeat in a meeting.
 | G15 | Two historical samples violate the schema; one has a **negative RPO** | Evidence quality | Live | Find the counter-capture bug (hypothesis in [Reading the evidence](../guide/reading-the-evidence.md)), re-run, regenerate the chain deliberately |
 | G16 | One age key, one holder; the CA was re-issued after the original key was lost | NIST SC-12; DORA Art. 9(4)(d) | Organisational | Back up the key; add a second recipient |
 | G17 | MinIO community edition is frozen (pinned to its last image) | DORA Art. 28; NIS2 21(2)(d) | Offline | Plan a migration to a maintained S3 store |
-| G18 | `apko@latest` in CI; GitHub Actions pinned by tag, not SHA | NIST SR-3, SA-11 | Offline | Pin by version and commit SHA |
+| G18 | `apko@latest` in CI; GitHub Actions pinned by tag, not SHA | NIST SR-3, SA-11 | **Fixed** | Every action pinned to a commit SHA with a version comment; apko installed from a pinned, checksum-verified release; Dependabot keeps pins current; `tests/test_ci_pinning.py` enforces it (roadmap T07) |
 | G19 | Trivy exporter, GLPI and Grafana API tokens are unverified or placeholders | NIST RA-5, IR-4 | Live | Bring the cluster up and verify end to end |
 | G20 | No cluster has been booted on the current host since the secrets re-key. All committed evidence predates the new CA and secrets | All evidence-backed claims | Live | Re-run drills after bootstrap and add fresh samples |
 | G21 | Clock-synchronisation and security-testing rows have no generated evidence | ISO A.8.17, A.8.29 | Live / Offline | Clock-skew drill; archive CI run output as evidence |

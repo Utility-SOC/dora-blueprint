@@ -201,7 +201,7 @@ classification only happens later than 24 hours after awareness, the four hours 
 | Item | Feature | Status |
 |---|---|---|
 | Initial notification deadline | `t_notify_due_dora` | Implemented |
-| Intermediate and final report deadlines | Not computed. The RTS sets them (about 72 hours and one month; verify in the text) | Not met |
+| Intermediate and final report deadlines | `t_intermediate_due_dora` (72 h from the initial notification's submission) and `t_final_due_dora` (one month from the latest intermediate report), from recorded submission times when present, otherwise assuming on-time submission (`deadline_basis` says which). Rule text to be verified against Delegated Regulation (EU) 2025/301 | Implemented (basis unverified) |
 | Templates (Art. 20) and submission | None. **Nothing is ever sent to a regulator** | Out of scope |
 | NIS2 comparison clock | `t_notify_due_nis2`, deliberately shown beside it ([Scope §0.4](../00-scope.md)) | Implemented |
 

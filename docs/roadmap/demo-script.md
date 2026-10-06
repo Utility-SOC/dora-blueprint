@@ -2,8 +2,8 @@
 
 A 25-minute live demo for financial-sector audiences in Dublin: hiring managers, heads of ICT
 risk, CISOs, and resilience leads. It explains DORA through a working system and shows why you
-are the person to build it at their firm. It assumes the backlog in [`TASKS.md`](TASKS.md) is
-done through T20.
+are the person to build it at their firm. It assumes the [roadmap](README.md) is done through
+T20 (waves 0–3).
 
 > **Fact-check before presenting.** Article references were checked against Regulation (EU)
 > 2022/2554 at the time of writing. Re-confirm anything marked ⚑ against the current Central Bank

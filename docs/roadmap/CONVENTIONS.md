@@ -104,7 +104,7 @@ phases did.
 
 ## 8. CHANGELOG
 
-Add an entry at the top of `CHANGELOG.md` under a heading naming the task ID. Say what changed, why, what
+Add an entry at the **end** of `CHANGELOG.md` (it is ordered oldest first) under a heading naming the task ID. Say what changed, why, what
 was verified and how, and anything found along the way. Match the existing entries' tone: specific,
 honest, including what didn't work.
 

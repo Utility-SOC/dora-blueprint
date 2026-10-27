@@ -65,6 +65,13 @@ gaps to be closed, the claim doesn't get made.
   a real sync attempt showed the `platform` AppProject's own `destinations` allowlist already
   excludes `kube-system`, and that boundary was kept rather than widened. Full reasoning in
   `infrastructure/cilium/kube-system/README.md`.
+- **MFA is per-user/per-group, not per-network.** `infrastructure/keycloak/configure-mfa.sh`
+  can require a second factor for everyone or for chosen groups, but Keycloak has no built-in
+  "source network" condition, and every request reaches it through `kubectl port-forward` today
+  — the client address Keycloak sees is the port-forward, not the user's real network. Any
+  "skip MFA from the trusted network" rule would therefore exempt everyone. Network context needs
+  a real ingress/bastion that preserves the client address first (README roadmap, not yet
+  scheduled); until then, MFA strength is set by group membership only.
 - **This lab has exactly one Talos control-plane node — no etcd quorum to lose gracefully.**
   Confirmed via `kubectl get nodes` (1 control-plane, 2 workers). A real control-plane/etcd-loss
   drill (build-spec §6.3 scenario 4) would take down the *entire* platform — Argo CD, Grafana,

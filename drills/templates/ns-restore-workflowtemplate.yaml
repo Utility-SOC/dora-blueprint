@@ -55,6 +55,7 @@ spec:
             echo "[$DRILL_ID] capturing baseline from the live canary"
             CANARY_POD="$(kubectl -n canary get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
             MAX_BEFORE="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 /scripts/verify.py --field max_counter)"
+            LINEAGE_BEFORE="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 /scripts/verify.py --field first_hash)"
 
             echo "[$DRILL_ID] finding most recent completed backup of canary"
             BACKUP_NAME="$(kubectl -n velero get backups.velero.io \
@@ -142,16 +143,29 @@ spec:
 
             RESTORED_POD="$(kubectl -n "$RESTORE_NS" get pod -l app=canary-writer -o jsonpath='{.items[0].metadata.name}')"
             INTEGRITY="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field integrity_check)"
-            MAX_AFTER="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field max_counter)"
+            # Rows written before t_inject only: the restored writer resumes appending the moment
+            # it's Ready, and counting those as "recovered" is what drove every Phase 9 run's
+            # records-lost negative. Lineage is checked too -- every ns-restore leaves Argo CD
+            # to recreate `canary` on a fresh PVC (counter back to 1), so a backup taken before
+            # that holds a different chain whose counters say nothing about this one.
+            MAX_AFTER="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field max_counter_before --before "$T_INJECT")"
+            LINEAGE_AFTER="$(kubectl -n "$RESTORE_NS" exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field first_hash)"
             T_VERIFY="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
             RTO=$(( $(date -u -d "$T_RECOVER" +%s) - $(date -u -d "$T_INJECT" +%s) ))
-            RPO_RECORDS=$(( MAX_BEFORE - MAX_AFTER ))
-            if [ "$INTEGRITY" = "pass" ]; then VERDICT="pass"; else VERDICT="fail"; fi
+            if [ "$LINEAGE_AFTER" = "$LINEAGE_BEFORE" ]; then
+              LINEAGE="match"
+              RPO_RECORDS=$(( MAX_BEFORE - MAX_AFTER ))
+            else
+              # Nothing of the live chain came back: every record it held is lost.
+              LINEAGE="mismatch (backup predates the live canary's current PVC)"
+              RPO_RECORDS=$MAX_BEFORE
+            fi
+            if [ "$INTEGRITY" = "pass" ] && [ "$LINEAGE" = "match" ]; then VERDICT="pass"; else VERDICT="fail"; fi
 
             echo "[$DRILL_ID] emitting drill record"
             RECORD="$(cat <<EOF
-            {"drill_id":"${DRILL_ID}","scenario":"ns-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29","ISO-A.8.16","DORA-Art10"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","restored namespace: ${RESTORE_NS}"]}
+            {"drill_id":"${DRILL_ID}","scenario":"ns-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29","ISO-A.8.16","DORA-Art10"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","restored namespace: ${RESTORE_NS}","canary lineage: ${LINEAGE}"]}
             EOF
             )"
             if [ -n "$T_DETECT" ]; then

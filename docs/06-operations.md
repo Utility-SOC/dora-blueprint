@@ -23,9 +23,16 @@ real answer is "not built yet" rather than describing an aspirational process.
   record — see `drills/schema/drill-record.schema.json` — printed to stdout and, for now,
   manually promoted to `docs/evidence/samples/` when it's worth keeping as citable evidence
   (§3 below).
-- `make lab-full`, `make lab-dr`, `make evidence`, `make images` all exist as stubs today and
-  fail loudly rather than silently no-op — build-spec P1 ("no claim without an implementation").
-  Don't trust a green run of these; they're not implemented yet.
+- `make lab-full` and `make evidence` are real (see README.md's tier table and Phase 14/27);
+  `make lab-dr` and `make images` fail loudly rather than silently no-op — build-spec P1 ("no
+  claim without an implementation"). `make test` runs the checks that need no cluster at all
+  (also CI on every PR, `.github/workflows/offline-checks.yaml`) — run it before committing a
+  drill template or evidence change.
+- **MFA**: `MFA_MODE=all|groups|optional bash infrastructure/keycloak/configure-mfa.sh` after
+  `configure-realm.sh` (`MFA_GROUPS=platform-admins,minio-admins` to widen `groups`). Re-run it
+  to change mode — it rebuilds the flow from scratch each time. Users without a second factor are
+  made to enrol (TOTP) at their next login. The `master` realm's break-glass admin is untouched;
+  see `docs/04-limitations.md` for why there is no network-based exemption.
 - **Accessing the UIs**: nothing in this lab has a real network-level Ingress yet — every UI
   (Argo CD, Grafana, Keycloak, Hubble) is reached via `kubectl port-forward --address
   192.168.1.106 ...`, which is confirmed (Phase 6) to bypass Cilium's CNI enforcement entirely on

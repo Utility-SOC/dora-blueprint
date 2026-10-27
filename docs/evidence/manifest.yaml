@@ -11,6 +11,14 @@
 #   nist80053:<control-id> -- NIST SP 800-53 Rev 5 control, see docs/06-nist-800-53-crosswalk.md
 #   attack:<technique-id>  -- MITRE ATT&CK technique, see docs/07-attack-mapping.md
 #
+# `known_defect` (optional): a committed sample that does not validate against
+# drills/schema/drill-record.schema.json, or whose measurement is known to be wrong, says so
+# here instead of being edited after the fact -- samples are hash-chained evidence
+# (chain.py), and a "fixed" sample would no longer be what the drill actually emitted.
+# tests/test_offline.py fails on any schema-invalid sample *without* this field, and on any
+# sample carrying it that no longer fails, so the list can't go stale in either direction.
+# report.py lists every entry in its own section.
+#
 # Every tag here must trace back to a real row in one of those docs -- this file does not
 # introduce new claims, it just re-indexes ones already made and evidenced elsewhere.
 
@@ -34,6 +42,12 @@ artifacts:
   - path: samples/ns-restore-20260729135024.json
     description: Real non-null t_detect captured from Grafana's live Alerting API for the same namespace-delete detection
     tags: [dora:art-10, nist80053:si-4, attack:t1485]
+    known_defect: >-
+      measured_rpo_records_lost is -34657, below the schema's minimum of 0. Two causes, both
+      fixed in the ns-restore workflow since: the live canary had been recreated on a fresh PVC
+      (Argo CD self-heal after an earlier drill deleted the namespace) so the backup held a
+      different chain lineage, and post-restore writes were counted as recovered. Cited for
+      detection (t_detect) only, never for RPO.
 
   - path: samples/credential-compromise-20260730044858.txt
     description: Real shell spawn observed by Tetragon's eBPF instrumentation (11s detection), plus real cosign signature + SBOM attestation verification
@@ -45,6 +59,11 @@ artifacts:
 
   - path: samples/ns-restore-20260728204154.json
     description: Additional ns-restore drill run, same category as the cited RTO/RPO evidence (not individually cited in the control matrix)
+    known_defect: >-
+      Carries a hand-added `note` field the drill record schema doesn't allow (annotated after the
+      run, not emitted by it). Measurement fields are as emitted, but RPO was taken with the
+      pre-fix method, which counts rows the restored writer appended before being read as
+      recovered -- so 1839 understates the real loss by roughly that interval.
     tags: [dora:art-11, dora:art-12, nist80053:cp-9, nist80053:cp-10]
 
   - path: samples/incident-response-20260729210627.txt

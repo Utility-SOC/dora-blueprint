@@ -96,6 +96,18 @@ def main() -> int:
                 lines.append(f"- [`{path}`]({path}) -- {description}")
             lines.append("")
 
+    defects = [a for a in artifacts if a.get("known_defect")]
+    if defects:
+        lines += [
+            f"## Known defects ({len(defects)})",
+            "",
+            "Committed samples recorded as-emitted, with a defect stated rather than edited away "
+            "(see `manifest.yaml`'s `known_defect` field).",
+            "",
+        ]
+        lines += [f"- [`{a['path']}`]({a['path']}) -- {a['known_defect']}" for a in defects]
+        lines.append("")
+
     OUTPUT_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(
         f"{len(artifacts)} artifacts, {total_placements} control-tag placements across "

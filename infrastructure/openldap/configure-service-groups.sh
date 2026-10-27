@@ -62,7 +62,7 @@ echo "  MAPPER_ID=\$(kubectl -n \$KC_NS exec \$KC_POD -- /opt/keycloak/bin/kcadm
 echo "  # 1. group-mapper sync (creates the new Group objects)"
 echo "  kubectl -n \$KC_NS exec \$KC_POD -- /opt/keycloak/bin/kcadm.sh create \"user-storage/\$LDAP_ID/mappers/\$MAPPER_ID/sync?direction=fedToKeycloak\" -r platform"
 echo "  # 2. full user sync (reconciles alice/bob/utility's actual membership -- REQUIRED)"
-echo "  kubectl -n \$KC_NS exec \$KC_POD -- /opt/keycloak/bin/kcadm.sh create \"user-storage/\$LDAP_ID/sync?action=triggerFullSync\" -r platform""
+echo "  kubectl -n \$KC_NS exec \$KC_POD -- /opt/keycloak/bin/kcadm.sh create \"user-storage/\$LDAP_ID/sync?action=triggerFullSync\" -r platform"
 echo
 echo "Remember to mirror these groups into infrastructure/openldap/seed-ldif.yaml afterward —"
 echo "this script changes only the live directory, same as onboard-user.sh."

@@ -382,11 +382,40 @@ ConfigMap (the live Application spec had the new dashboards; the actual `grafana
 ConfigMap didn't) — worked around by deleting the ConfigMap and letting `selfHeal` recreate it
 fresh, confirmed via the real Grafana API afterward.
 
+## Bug fixes — negative RPO, offline checks, switchable MFA
+
+**Negative `measured_rpo_records_lost` (`task_a45b9f18`) — root-caused and fixed, not yet re-run
+live.** Two separate causes in `ns-restore` (and, identically, `pvc-corruption-restore`):
+`MAX_AFTER` was read after the restored writer had already resumed appending, so rows written
+*after* recovery counted as recovered; and every `ns-restore` deletes `canary`, which Argo CD's
+`selfHeal` recreates on a fresh, empty PVC (counter back to 1) — so the next drill's latest
+backup can predate that and hold a different chain entirely, which is what produced -34657.
+`canary/verify.py` gained `--before <t_inject>` (`max_counter_before`: rows that predate the
+fault only) and `first_hash` (the chain's lineage fingerprint). Both drills now compare lineage
+first: a mismatch counts every live record as lost and fails the drill, rather than subtracting
+counters from two unrelated histories. The two affected committed samples are left exactly as
+emitted — they're hash-chained evidence — and declared via a new `known_defect` field in
+`docs/evidence/manifest.yaml`, which `report.py` now lists.
+
+**`make test` + `.github/workflows/offline-checks.yaml`** — the checks that need no cluster:
+`verify.py`'s RPO arithmetic, every committed drill record against its own schema (with
+`known_defect` declarations that fail if they go stale), the evidence chain, and `bash -n` over
+every repo script and every WorkflowTemplate's embedded script. Its first run caught a stray
+`"` that made `infrastructure/openldap/configure-service-groups.sh` unparseable — the script
+could not have run as committed.
+
+**`infrastructure/keycloak/configure-mfa.sh`** — `MFA_MODE=optional|groups|all` (default
+`all`, `MFA_GROUPS` default `platform-admins`), rebuilt idempotently from the stock browser
+flow on every run. Verified against a standalone Keycloak 26.3.3 container with the same realm,
+group and client shape, driving a real authorization-code login per mode: `groups` forced the
+admin into TOTP enrolment (`required-action?execution=CONFIGURE_TOTP`) while the viewer logged
+straight in; `all` forced both; `optional` forced neither. **Not yet run against this
+platform's live Keycloak** — no evidence sample until it is, so NIS2 21(2)(j) stays unclaimed.
+
 ## Follow-ups spawned, not yet resolved
 
-- **`task_a45b9f18`** — `measured_rpo_records_lost` comes back negative in real drill runs, a
-  pre-existing bug in the ns-restore workflow's counter-capture logic, unrelated to detection or
-  incident-response work.
+- **Re-run `ns-restore` and `pvc-corruption-restore` live** to produce a post-fix RPO sample,
+  and `configure-mfa.sh` against the live realm (plus an evidence sample of an enforced login).
 - **GHCR package visibility** — `ghcr.io/utility-soc/canary-writer` still returns `401
   Unauthorized` on anonymous pull, confirmed live as of this entry. The `canary-writer` pod has
   been stuck `ImagePullBackOff` since Phase 12 as a result. Blocks verifying Kyverno's

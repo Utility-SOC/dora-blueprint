@@ -1,0 +1,24 @@
+# Checks that need no cluster (`make test`): the canary's RPO arithmetic, committed drill
+# records against drills/schema/drill-record.schema.json, the evidence hash chain, and shell
+# syntax of every script and WorkflowTemplate. Everything else here is verified live; these
+# are the parts that can regress silently between live runs.
+name: Offline checks
+
+on:
+  pull_request: {}
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pyyaml==6.0.2
+      - run: make test

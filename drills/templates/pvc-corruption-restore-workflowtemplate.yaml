@@ -77,6 +77,7 @@ spec:
             # regardless of which --field was requested, and the DB is still (deliberately)
             # corrupted at this point.
             MAX_BEFORE_RESTORE="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 /scripts/verify.py --field max_counter || true)"
+            LINEAGE_BEFORE="$(kubectl -n canary exec "$CANARY_POD" -- python3.13 /scripts/verify.py --field first_hash || true)"
 
             echo "[$DRILL_ID] recovery: deleting the Deployment (cascades to its Pod) and the corrupted PVC"
             kubectl -n canary delete deployment canary-writer --wait=true --timeout=60s
@@ -122,16 +123,26 @@ spec:
             # emit a record (a genuine restore failure becomes VERDICT=fail below, not a crashed
             # workflow with no record at all).
             INTEGRITY="$(kubectl -n canary exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field integrity_check || true)"
-            MAX_AFTER="$(kubectl -n canary exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field max_counter || true)"
+            # Same two corrections as ns-restore-workflowtemplate.yaml: only rows that predate
+            # t_inject count as recovered (the restored writer resumes appending immediately),
+            # and a restore from a different chain lineage recovered none of this one.
+            MAX_AFTER="$(kubectl -n canary exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field max_counter_before --before "$T_INJECT" || true)"
+            LINEAGE_AFTER="$(kubectl -n canary exec "$RESTORED_POD" -- python3.13 /scripts/verify.py --field first_hash || true)"
             T_VERIFY="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
             RTO=$(( $(date -u -d "$T_RECOVER" +%s) - $(date -u -d "$T_INJECT" +%s) ))
-            RPO_RECORDS=$(( MAX_BEFORE_RESTORE - MAX_AFTER ))
-            if [ "$INTEGRITY" = "pass" ] && [ "$INTEGRITY_AFTER_CORRUPTION" = "fail" ]; then VERDICT="pass"; else VERDICT="fail"; fi
+            if [ -n "$LINEAGE_AFTER" ] && [ "$LINEAGE_AFTER" = "$LINEAGE_BEFORE" ]; then
+              LINEAGE="match"
+              RPO_RECORDS=$(( MAX_BEFORE_RESTORE - MAX_AFTER ))
+            else
+              LINEAGE="mismatch (backup predates the live canary's current PVC)"
+              RPO_RECORDS=$MAX_BEFORE_RESTORE
+            fi
+            if [ "$INTEGRITY" = "pass" ] && [ "$INTEGRITY_AFTER_CORRUPTION" = "fail" ] && [ "$LINEAGE" = "match" ]; then VERDICT="pass"; else VERDICT="fail"; fi
 
             echo "[$DRILL_ID] emitting drill record"
             RECORD="$(cat <<EOF
-            {"drill_id":"${DRILL_ID}","scenario":"pvc-corruption-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","integrity_check after corruption (pre-restore): ${INTEGRITY_AFTER_CORRUPTION}"]}
+            {"drill_id":"${DRILL_ID}","scenario":"pvc-corruption-restore","git_sha":"${GIT_SHA}","cluster_profile":"core","controls":["DORA-Art11","DORA-Art12","NIS2-21.2.c","ISO-A.8.13","ISO-A.5.29"],"target_rto_seconds":300,"target_rpo_seconds":3600,"measured_rto_seconds":${RTO},"measured_rpo_records_lost":${RPO_RECORDS},"integrity_check":"${INTEGRITY}","verdict":"${VERDICT}","manual_runbook_steps_required":0,"t_inject":"${T_INJECT}","t_recover":"${T_RECOVER}","t_verify":"${T_VERIFY}","artifacts":["velero backup: ${BACKUP_NAME}","velero restore: ${RESTORE_NAME}","integrity_check after corruption (pre-restore): ${INTEGRITY_AFTER_CORRUPTION}","canary lineage: ${LINEAGE}"]}
             EOF
             )"
             echo "$RECORD" | jq -c .

@@ -412,6 +412,38 @@ admin into TOTP enrolment (`required-action?execution=CONFIGURE_TOTP`) while the
 straight in; `all` forced both; `optional` forced neither. **Not yet run against this
 platform's live Keycloak** — no evidence sample until it is, so NIS2 21(2)(j) stays unclaimed.
 
+## Instantiable by anyone + AWS cloud lab
+
+**`make init`** (`bootstrap/init.sh`, `platform.env`). Until now a fork couldn't get past
+cluster creation: every secret was encrypted to the original author's age key, Argo CD needed
+their deploy key, and their host IP was in 29 files. `make init` generates a new age key (or uses
+yours), a fresh offline Root and Intermediate CA (same extensions as the PKI runbook, Root key
+kept outside the repo), and every credential, with matching LDAP seed hashes. It then rewrites
+the repo URL and UI host across config and scripts, but never under `docs/` or in the changelog.
+`install.sh` now reads `platform.env` and needs no credential at all for a public https repo.
+`tests/test_init.sh` runs `make init` end to end in CI and fails on any leftover old identity.
+Two deliberately broken versions of `init.sh` were both caught.
+
+**`infra/aws/`**, the AWS lab, in OpenTofu/Terraform:
+
+- **`persistent/`** (once per account): the state bucket, an Object Lock evidence bucket (the
+  write-once storage Phase 20 named but didn't build), the backups bucket, a KMS key, a budget
+  alarm, and an optional GitHub OIDC deploy role.
+- **`cluster/`** (ephemeral): VPC with flow logs, EKS 1.36 with all five control-plane log types,
+  3 × m7i.xlarge, and Pod Identity for the EBS CSI driver and Velero.
+- **`cloud.sh`** drives both `make cloud-up/down` and `.github/workflows/cloud-lab.yaml`, which
+  also reaps any lab past its `expires-at` tag every hour.
+
+Both stacks validate against the real pinned modules. `trivy config` reports nothing at MEDIUM
+or above except two written risk acceptances (`docs/exceptions/aws-cloud-lab.md`). Getting the
+persistent stack clean meant restructuring buckets into a per-bucket module: with a `for_each`
+loop, the scanner couldn't see the hardening, so all 15 findings were false positives. CI now
+runs fmt, validate and the scan on every PR.
+
+**Not yet run against a real AWS account.** The platform itself (Argo CD's app set) doesn't sync
+onto EKS yet. `docs/08-instantiation.md` §4 maps every component across EKS, AKS and GKE, with
+its decision and status.
+
 ## Follow-ups spawned, not yet resolved
 
 - **Re-run `ns-restore` and `pvc-corruption-restore` live** to produce a post-fix RPO sample,

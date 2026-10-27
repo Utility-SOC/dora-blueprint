@@ -1,7 +1,9 @@
 # Checks that need no cluster (`make test`): the canary's RPO arithmetic, committed drill
 # records against drills/schema/drill-record.schema.json, the evidence hash chain, and shell
 # syntax of every script and WorkflowTemplate. Everything else here is verified live; these
-# are the parts that can regress silently between live runs.
+# are the parts that can regress silently between live runs. The `iac` job does the same for
+# infra/: format, validate, and a misconfiguration scan in which every accepted finding has a
+# written reason (infra/aws/.trivyignore.yaml, docs/exceptions/aws-cloud-lab.md).
 name: Offline checks
 
 on:
@@ -21,4 +23,30 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install pyyaml==6.0.2
+      - name: Install age + sops (for tests/test_init.sh -- `make init` end to end)
+        run: |
+          sudo apt-get install -y --no-install-recommends age
+          curl -sSfL -o "$RUNNER_TEMP/sops" https://github.com/getsops/sops/releases/download/v3.10.2/sops-v3.10.2.linux.amd64
+          chmod +x "$RUNNER_TEMP/sops" && echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - run: make test
+
+  iac:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.10.6
+      - name: Format
+        run: tofu fmt -check -recursive infra
+      - name: Validate
+        run: |
+          for stack in infra/aws/persistent infra/aws/cluster; do
+            tofu -chdir="$stack" init -backend=false -input=false
+            tofu -chdir="$stack" validate
+          done
+      - name: Misconfiguration scan
+        run: |
+          curl -sSfL https://github.com/aquasecurity/trivy/releases/download/v0.76.1/trivy_0.76.1_Linux-64bit.tar.gz \
+            | tar xz -C "$RUNNER_TEMP" trivy
+          "$RUNNER_TEMP/trivy" config --severity MEDIUM,HIGH,CRITICAL --ignorefile infra/aws/.trivyignore.yaml --exit-code 1 infra/aws

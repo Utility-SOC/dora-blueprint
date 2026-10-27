@@ -1,0 +1,68 @@
+# The cloud lab's up/down button and its safety net. Same driver as `make cloud-up/down`
+# (infra/aws/cloud.sh), so CI and a laptop take one code path.
+#
+#   Actions -> Cloud lab -> Run workflow (up/down, lab name, TTL)
+#   hourly: reap -- destroys every lab whose expires-at tag has passed, so a forgotten cluster
+#   costs hours, not a month. The AWS budget alert (infra/aws/persistent) is the backstop.
+#
+# One-time setup (docs/08-instantiation.md): `make cloud-persistent GITHUB_REPOSITORY=owner/repo`,
+# then a `cloud-lab` environment on the repo (restricted to the default branch -- no required
+# reviewers, or the scheduled reaper waits for an approval nobody gives) and these
+# repository variables: AWS_DEPLOY_ROLE_ARN, AWS_REGION, STATE_BUCKET, BACKUPS_BUCKET,
+# KMS_KEY_ARN, ADMIN_CIDRS, and optionally ADMIN_PRINCIPAL_ARNS (so you, not just CI, can
+# reach a cluster CI created). Without AWS_DEPLOY_ROLE_ARN every job skips -- a fork that
+# never set up AWS gets no failing hourly runs.
+name: Cloud lab
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: up or down
+        type: choice
+        options: [up, down]
+        default: up
+      lab_name:
+        description: Lab (cluster) name -- distinct names run side by side
+        default: dora-lab
+      ttl_hours:
+        description: Hours until the hourly reaper destroys it
+        default: "4"
+  schedule:
+    - cron: "23 * * * *"
+
+permissions:
+  contents: read
+  id-token: write # GitHub OIDC -> the deploy role in infra/aws/persistent; no stored AWS keys
+
+concurrency:
+  group: cloud-lab-${{ inputs.lab_name || 'reaper' }}
+  cancel-in-progress: false
+
+jobs:
+  lab:
+    if: vars.AWS_DEPLOY_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    environment: cloud-lab
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      STATE_BUCKET: ${{ vars.STATE_BUCKET }}
+      BACKUPS_BUCKET: ${{ vars.BACKUPS_BUCKET }}
+      KMS_KEY_ARN: ${{ vars.KMS_KEY_ARN }}
+      ADMIN_CIDRS: ${{ vars.ADMIN_CIDRS }}
+      ADMIN_PRINCIPAL_ARNS: ${{ vars.ADMIN_PRINCIPAL_ARNS }}
+      LAB_NAME: ${{ inputs.lab_name }}
+      TTL_HOURS: ${{ inputs.ttl_hours }}
+      AUTO_APPROVE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.10.6
+          tofu_wrapper: false
+      - name: ${{ github.event_name == 'schedule' && 'reap expired labs' || inputs.action }}
+        run: bash infra/aws/cloud.sh "${{ github.event_name == 'schedule' && 'reap' || inputs.action }}"

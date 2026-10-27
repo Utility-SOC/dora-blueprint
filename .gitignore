@@ -31,3 +31,8 @@ talosconfig
 .terraform/
 .venv/
 __pycache__/
+
+# OpenTofu/Terraform state -- infra/aws/persistent keeps local state by design (it
+# creates the bucket every other stack stores state in); back that file up, never commit it.
+*.tfstate
+*.tfstate.*

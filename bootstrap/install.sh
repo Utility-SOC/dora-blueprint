@@ -28,7 +28,9 @@ CILIUM_CHART_VERSION="1.19.6"
 ARGOCD_VERSION="v3.4.5"
 WORKERS="${WORKERS:-2}"
 
-REPO_SSH_URL="git@github.com:utility-soc/dora-blueprint.git"
+# This instance's repo URL comes from platform.env, which `make init` rewrites for a fork.
+# shellcheck source=../platform.env
+source "$REPO_ROOT/platform.env"
 # Dedicated per-cluster talosconfig, not the shared ~/.talos/config: `talosctl cluster
 # destroy` doesn't clean up the shared config's context entry, so a second create
 # collides with the stale one and silently gets renamed ("resilience-lab-1", "-2", ...),
@@ -143,16 +145,22 @@ kubectl -n argocd rollout status deploy/argocd-server --timeout=300s
 echo "==> [6/14] Repo credential, AppProject (never 'default'), and app-of-apps (TIER=$TIER)"
 SSH_KEY_TMP="$(mktemp)"
 trap 'shred -u "$SSH_KEY_TMP" 2>/dev/null || rm -f "$SSH_KEY_TMP"' EXIT
-sops --decrypt "$REPO_ROOT/bootstrap/secrets/argocd-repo-key.enc.yaml" \
-  | awk '/^argocd_ssh_private_key:/{f=1;next} f' | sed 's/^    //' > "$SSH_KEY_TMP"
-
-kubectl -n argocd create secret generic dora-blueprint-repo \
-  --from-literal=type=git \
-  --from-literal=url="$REPO_SSH_URL" \
-  --from-file=sshPrivateKey="$SSH_KEY_TMP" \
-  --dry-run=client -o yaml \
-  | kubectl label -f - --local -o yaml argocd.argoproj.io/secret-type=repository \
-  | kubectl apply -f -
+# A public https repo (the default for a fork after `make init`) needs no credential at all;
+# only an SSH REPO_URL gets the deploy key.
+case "$REPO_URL" in
+  git@*|ssh://*)
+    sops --decrypt "$REPO_ROOT/bootstrap/secrets/argocd-repo-key.enc.yaml" \
+      | awk '/^argocd_ssh_private_key:/{f=1;next} f' | sed 's/^    //' > "$SSH_KEY_TMP"
+    kubectl -n argocd create secret generic dora-blueprint-repo \
+      --from-literal=type=git \
+      --from-literal=url="$REPO_URL" \
+      --from-file=sshPrivateKey="$SSH_KEY_TMP" \
+      --dry-run=client -o yaml \
+      | kubectl label -f - --local -o yaml argocd.argoproj.io/secret-type=repository \
+      | kubectl apply -f -
+    ;;
+  *) echo "    $REPO_URL is https -- no repository credential needed (repo must be public)" ;;
+esac
 
 kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/appproject-platform.yaml"
 kubectl apply -n argocd -f "$REPO_ROOT/bootstrap/root-app.yaml"
@@ -355,9 +363,16 @@ trap 'shred -u "$SSH_KEY_TMP" "$GRAFANA_TOKEN_TMP" 2>/dev/null || rm -f "$SSH_KE
 sops --decrypt "$REPO_ROOT/infrastructure/observability/secrets/grafana-api-token.enc.yaml" > "$GRAFANA_TOKEN_TMP"
 GRAFANA_API_TOKEN="$(awk '/^grafana_api_token:/ {print $2}' "$GRAFANA_TOKEN_TMP")"
 
-kubectl -n argo-workflows create secret generic grafana-api-token \
-  --from-literal=token="$GRAFANA_API_TOKEN" \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Unset on a fresh `make init` instance (null) until the service is up and has issued one.
+case "$GRAFANA_API_TOKEN" in
+  ""|null)
+    echo "    grafana api token not issued yet -- run infrastructure/observability/configure-grafana-alerting.sh once the service is up,"
+    echo "    put the printed token in the matching *.enc.yaml (sops), then re-run this script" ;;
+  *)
+    kubectl -n argo-workflows create secret generic grafana-api-token \
+      --from-literal=token="$GRAFANA_API_TOKEN" \
+      --dry-run=client -o yaml | kubectl apply -f - ;;
+esac
 rm -f "$GRAFANA_TOKEN_TMP"
 
 echo "==> [13/14] GLPI/MariaDB credentials (Phase 11 incident response)"
@@ -393,9 +408,16 @@ trap 'shred -u "$SSH_KEY_TMP" "$GLPI_TOKEN_TMP" 2>/dev/null || rm -f "$SSH_KEY_T
 sops --decrypt "$REPO_ROOT/infrastructure/glpi/secrets/glpi-api-token.enc.yaml" > "$GLPI_TOKEN_TMP"
 GLPI_API_TOKEN="$(awk '/^glpi_api_token:/ {print $2}' "$GLPI_TOKEN_TMP")"
 
-kubectl -n argo-workflows create secret generic glpi-api-token \
-  --from-literal=token="$GLPI_API_TOKEN" \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Unset on a fresh `make init` instance (null) until the service is up and has issued one.
+case "$GLPI_API_TOKEN" in
+  ""|null)
+    echo "    glpi api token not issued yet -- run infrastructure/glpi/configure-glpi.sh once the service is up,"
+    echo "    put the printed token in the matching *.enc.yaml (sops), then re-run this script" ;;
+  *)
+    kubectl -n argo-workflows create secret generic glpi-api-token \
+      --from-literal=token="$GLPI_API_TOKEN" \
+      --dry-run=client -o yaml | kubectl apply -f - ;;
+esac
 rm -f "$GLPI_TOKEN_TMP"
 
 echo "==> done. kubectl context: admin@${CLUSTER_NAME}"

@@ -17,9 +17,14 @@ and [`docs/04-limitations.md`](docs/04-limitations.md).
 ## Quick start
 
 ```bash
+make init REPO_URL=https://github.com/<you>/dora-blueprint.git PLATFORM_HOST=<host>
+                                    # your own keys, PKI, and credentials -- commit + push the result
 make lab-core                       # Talos + Cilium + Argo CD + everything ns-restore needs
 make drill SCENARIO=ns-restore      # inject a fault, recover, classify, ticket — all measured
 ```
+
+Running it yourself, on one host or on AWS (`make cloud-up`, auto-torn-down after a TTL), and
+what's portable to EKS/AKS/GKE so far: [`docs/08-instantiation.md`](docs/08-instantiation.md).
 
 | Tier | Command | Deploys | Contents |
 |---|---|---|---|
@@ -197,6 +202,7 @@ assumed from a clean apply — are in [`CHANGELOG.md`](CHANGELOG.md).
 - [`docs/04-limitations.md`](docs/04-limitations.md) — what this lab cannot demonstrate, and why
 - [`docs/05-shared-responsibility.md`](docs/05-shared-responsibility.md) — control-by-control platform-vs-tenant breakdown
 - [`docs/06-operations.md`](docs/06-operations.md) — usage, change procedures, ticketing, and where evidence gets parsed (today vs. planned)
+- [`docs/08-instantiation.md`](docs/08-instantiation.md) — running your own instance: `make init`, the AWS lab, and the managed-Kubernetes port plan
 - [`CHANGELOG.md`](CHANGELOG.md) — phase-by-phase build notes and real bugs found along the way
 - [`BUILD-SPEC.md`](BUILD-SPEC.md) — the full build specification this repo follows
 

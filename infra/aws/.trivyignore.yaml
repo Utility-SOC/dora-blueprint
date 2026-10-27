@@ -1,0 +1,21 @@
+# Accepted IaC findings for infra/aws, each with its reason and compensating control
+# (build-spec P2: every exception explicit, scoped, and reasoned). Full write-up:
+# docs/exceptions/aws-cloud-lab.md. Used by `trivy config --ignorefile infra/aws/.trivyignore.yaml`
+# (.github/workflows/offline-checks.yaml). Anything not listed here fails CI.
+misconfigurations:
+  - id: AWS-0040
+    paths:
+      - "git::https:/github.com/terraform-aws-modules/terraform-aws-eks.git*/*.tf"
+    statement: >-
+      EKS public API endpoint, by design: operators and trainees reach the lab from their own
+      networks, and there is no VPN/bastion yet. Compensating: endpoint_public_access_cidrs is
+      set from admin_cidrs, which has no default, so 0.0.0.0/0 is never implicit; auth is IAM +
+      EKS access entries; the cluster lives for a TTL, not indefinitely.
+  - id: AWS-0104
+    paths:
+      - "git::https:/github.com/terraform-aws-modules/terraform-aws-eks.git*/*.tf"
+    statement: >-
+      Unrestricted node egress (EKS module default node security group): nodes pull images from
+      public registries, and Argo CD clones from GitHub. Compensating: VPC flow logs record every
+      flow, nodes have no public IPs (private subnets behind NAT), and per-namespace default-deny
+      egress follows once the EKS CNI decision is made (docs/08-instantiation.md section 4).
